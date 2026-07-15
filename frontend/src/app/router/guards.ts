@@ -19,7 +19,7 @@ export function attachAuthGuard(router: Router) {
     const authStore = useAuthStore()
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
-      return { name: 'dashboard' }
+      return { name: 'game' }
     }
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {

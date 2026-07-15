@@ -1,8 +1,7 @@
-# Backend Boilerplate — Architecture Guide
+# BigTown Backend — Architecture Guide
 
-Bản rút gọn, tổng quát (không gắn với nghiệp vụ cụ thể) của `ARCHITECTURE_GUIDE.md` gốc trong project
-IT Asset & Hardware Tracking System. Copy folder `backend_boilerplate` này sang project mới, đổi tên
-theo ý bạn, rồi thêm module nghiệp vụ thật theo đúng pattern ở đây.
+Guide kiến trúc backend cho BigTown MVP. Mục tiêu là giữ code theo Vertical Modular Monolith,
+Clean Architecture nhẹ và Repository Pattern để sau này thêm gameplay hoặc scale realtime dễ hơn.
 
 ## 1. Kiến trúc
 
@@ -28,7 +27,7 @@ internal/
   module/
     user/     // profile (entity/port/repository/usecase/delivery + module/provider/routes)
     auth/     // JWT login/register/refresh/logout, phụ thuộc user qua UserReader interface riêng
-    example/  // module mẫu in-memory, copy-paste khi thêm module mới, KHÔNG đụng Postgres
+    game/     // game MVP: bootstrap, leaderboard, domain/runtime types, sau này thêm WebSocket Hub
 ```
 
 `platform/` chỉ có `config`. Middleware/database/security/response/apperror nằm thẳng trong

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import authRoutes from '@/features/auth/routes'
-import dashboardRoutes from '@/features/dashboard/routes'
+import gameRoutes from '@/features/game/routes'
 
 import { attachAuthGuard } from './guards'
 
@@ -9,7 +9,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     ...authRoutes,
-    ...dashboardRoutes,
+    ...gameRoutes,
     {
       path: '/403',
       name: 'forbidden',

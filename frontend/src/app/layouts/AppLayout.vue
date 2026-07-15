@@ -20,6 +20,6 @@ import Navbar from './components/Navbar.vue'
 
 .app-content {
   flex: 1;
-  padding: 24px;
+  min-height: 0;
 }
 </style>

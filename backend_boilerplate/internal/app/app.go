@@ -4,7 +4,7 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/module/auth"
 	authrepo "backend/internal/module/auth/repository"
-	"backend/internal/module/example"
+	"backend/internal/module/game"
 	"backend/internal/module/user"
 
 	"github.com/gin-gonic/gin"
@@ -53,8 +53,5 @@ func (a *App) registerModules() {
 
 	authModule.RegisterProtectedRoutes(api)
 	user.NewUserModule(a.container.DB).RegisterProtectedRoutes(api)
-
-	// Module mẫu in-memory, không cần DB — xoá khi đã copy sang module thật của bạn.
-	// Xem internal/module/example/README.md.
-	example.NewExampleModule(a.container.DB).RegisterProtectedRoutes(api)
+	game.NewGameModule(a.container.DB).RegisterProtectedRoutes(api)
 }

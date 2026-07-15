@@ -10,7 +10,7 @@ app.use(pinia)
 app.use(router)
 
 // Thử phục hồi session bằng cookie refresh_token trước khi mount, để tránh nháy màn hình login
-// rồi mới redirect vào dashboard nếu user thực ra vẫn còn đăng nhập.
+// rồi mới redirect vào game nếu user thực ra vẫn còn đăng nhập.
 const authStore = useAuthStore()
 authStore.tryRestoreSession().finally(() => {
   app.mount('#app')
