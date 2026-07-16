@@ -5,6 +5,10 @@ export interface LoginPayload {
   password: string
 }
 
+export interface TeamsLoginPayload {
+  sso_token: string
+}
+
 export interface RegisterPayload {
   full_name: string
   email: string
@@ -28,6 +32,10 @@ export interface RegisterResponse {
 // field, chỉ sửa ở đây, không phải trong từng component.
 export function login(payload: LoginPayload) {
   return http.post<AuthTokenResponse>('/auth/login', payload, { auth: false })
+}
+
+export function loginWithTeams(payload: TeamsLoginPayload) {
+  return http.post<AuthTokenResponse>('/auth/teams', payload, { auth: false })
 }
 
 export function register(payload: RegisterPayload) {

@@ -32,6 +32,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function loginWithTeams(ssoToken: string) {
+    loading.value = true
+    error.value = ''
+    try {
+      const data = await authService.loginWithTeams({ sso_token: ssoToken })
+      setAccessToken(data.access_token)
+      accessToken.value = data.access_token
+    } catch (err) {
+      error.value = toErrorMessage(err, 'Đăng nhập Teams thất bại')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function register(fullName: string, email: string, password: string) {
     loading.value = true
     error.value = ''
@@ -76,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
     role,
     userId,
     login,
+    loginWithTeams,
     register,
     logout,
     tryRestoreSession,

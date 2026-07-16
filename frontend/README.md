@@ -25,14 +25,14 @@ Cần backend chạy song song (xem `backend_boilerplate/README.md`) để login
 - `app/providers/pinia.ts`, `app/layouts/{AppLayout,AuthLayout}.vue`, `app/layouts/components/Navbar.vue`.
 - `features/auth` — **feature đầy đủ, chạy thật với backend**: `login`, `register`, `refresh`,
   `logout` (service → Pinia store → view/form).
-- `features/game` — shell cho map/canvas Phaser, chat panel, leaderboard panel, WebSocket event types.
+- `features/game` — shell cho map/canvas Phaser, chat panel, leaderboard panel, Centrifuge event types.
 
 Alias `@` trỏ vào `src/` (cấu hình ở `vite.config.ts` + `tsconfig.app.json`).
 
 ## Việc cần làm tiếp
 
 - Gắn Phaser thật vào `features/game/components/GameCanvas.vue`.
-- Implement `features/game/network/gameSocket.ts` với auth token và reconnect.
+- Nối `features/game/network/gameSocket.ts` với `/api/realtime/bootstrap` để lấy channel/map mặc định.
 - Nối REST API cho avatar, shop, inventory và leaderboard.
 
 ## Lệnh kiểm tra
