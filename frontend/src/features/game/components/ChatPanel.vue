@@ -1,36 +1,73 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { useAuthStore } from '@/features/auth/stores/auth.store'
-
-import { createGameSocket, defaultGameChannel, getDefaultRealtimeUrl } from '../network/gameSocket'
-import type { GameClientEvent, PlayerChatEvent } from '../network/gameEvents'
+import { useGameStore } from '../stores/game.store'
+import { createGameSocket, getDefaultRealtimeUrl } from '../network/gameSocket'
+import type { PlayerChatEvent } from '../network/gameEvents'
+import * as chatService from '../services/chat.service'
+import type { ChatMessageDto } from '../services/chat.service'
+import * as realtimeService from '../services/realtime.service'
 
 type ChatMessage = {
   id: string
   characterId: string
+  displayName: string
   message: string
   sentAt: string
   mine: boolean
 }
 
-const authStore = useAuthStore()
+const gameStore = useGameStore()
 const messages = ref<ChatMessage[]>([])
 const draft = ref('')
+const sending = ref(false)
 const status = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting')
 const error = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
+const collapsed = ref(false)
 
 let gameSocket: ReturnType<typeof createGameSocket> | null = null
+let roomId = ''
 
-const canSend = computed(() => status.value === 'connected' && draft.value.trim().length > 0)
+const canSend = computed(() => !sending.value && draft.value.trim().length > 0)
 
-onMounted(() => {
+function toggleCollapsed() {
+  collapsed.value = !collapsed.value
+  if (!collapsed.value) scrollToBottom()
+}
+
+onMounted(async () => {
+  try {
+    if (!gameStore.characterId) {
+      await gameStore.loadMyCharacter()
+    }
+  } catch {
+    // Không chặn chat nếu chưa load được character — "mine" chỉ tạm sai, vẫn nhận/gửi được tin.
+  }
+
+  let bootstrap: Awaited<ReturnType<typeof realtimeService.getBootstrap>>
+  try {
+    bootstrap = await realtimeService.getBootstrap()
+    roomId = bootstrap.default_room_id
+  } catch (err) {
+    status.value = 'error'
+    error.value = err instanceof Error ? err.message : 'Không thể lấy cấu hình realtime'
+    return
+  }
+
+  try {
+    const history = await chatService.getMessages(roomId)
+    messages.value = history.map(toChatMessage)
+    scrollToBottom()
+  } catch {
+    // Lỗi load lịch sử không nên chặn realtime connect ở dưới.
+  }
+
   try {
     gameSocket = createGameSocket(getDefaultRealtimeUrl(), {
-      channel: defaultGameChannel,
-      onEvent(event) {
-        handleRealtimeEvent(event)
+      channel: bootstrap.default_channel,
+      onPlayerChat(event) {
+        handlePlayerChat(event)
       },
     })
 
@@ -58,63 +95,83 @@ onBeforeUnmount(() => {
 
 async function sendMessage() {
   const message = draft.value.trim()
-  if (!message || !gameSocket) return
+  if (!message || sending.value) return
 
-  const event: PlayerChatEvent = {
-    type: 'player_chat',
-    characterId: authStore.userId ?? 'unknown',
-    message,
-    sentAt: new Date().toISOString(),
+  sending.value = true
+  try {
+    await chatService.sendMessage(roomId, message)
+    draft.value = ''
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Không thể gửi tin nhắn'
+  } finally {
+    sending.value = false
   }
-
-  await gameSocket.send(event satisfies GameClientEvent)
-  draft.value = ''
 }
 
-function handleRealtimeEvent(event: unknown) {
-  if (!isPlayerChatEvent(event)) return
-
+function handlePlayerChat(event: PlayerChatEvent) {
   messages.value.push({
     id: `${event.characterId}-${event.sentAt}-${messages.value.length}`,
     characterId: event.characterId,
+    displayName: event.displayName,
     message: event.message,
     sentAt: event.sentAt,
-    mine: event.characterId === authStore.userId,
+    mine: event.characterId === gameStore.characterId,
   })
 
+  scrollToBottom()
+}
+
+function toChatMessage(dto: ChatMessageDto): ChatMessage {
+  return {
+    id: dto.id,
+    characterId: dto.character_id,
+    displayName: dto.character_name,
+    message: dto.message,
+    sentAt: dto.created_at,
+    mine: dto.character_id === gameStore.characterId,
+  }
+}
+
+function scrollToBottom() {
   nextTick(() => {
     if (messagesEl.value) {
       messagesEl.value.scrollTop = messagesEl.value.scrollHeight
     }
   })
 }
-
-function isPlayerChatEvent(event: unknown): event is PlayerChatEvent {
-  if (!event || typeof event !== 'object') return false
-
-  const candidate = event as Partial<PlayerChatEvent>
-  return candidate.type === 'player_chat' && typeof candidate.message === 'string'
-}
 </script>
 
 <template>
-  <section class="panel chat-panel" aria-label="Game chat">
+  <section class="panel chat-panel" :class="{ collapsed }" aria-label="Game chat">
     <header>
       <span>Chat</span>
-      <small :class="['status', status]">{{ status }}</small>
+      <div class="header-actions">
+        <small :class="['status', status]">{{ status }}</small>
+        <button
+          type="button"
+          class="toggle-btn"
+          :aria-expanded="!collapsed"
+          :aria-label="collapsed ? 'Mở rộng khung chat' : 'Thu nhỏ khung chat'"
+          @click="toggleCollapsed"
+        >
+          {{ collapsed ? '▸' : '▾' }}
+        </button>
+      </div>
     </header>
-    <div ref="messagesEl" class="messages">
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="messages.length === 0" class="empty">Mở thêm tab thứ hai rồi gửi thử một tin nhắn.</p>
-      <article v-for="item in messages" :key="item.id" :class="['message', { mine: item.mine }]">
-        <strong>{{ item.mine ? 'Bạn' : item.characterId }}</strong>
-        <span>{{ item.message }}</span>
-      </article>
-    </div>
-    <form class="chat-form" @submit.prevent="sendMessage">
-      <input v-model="draft" type="text" placeholder="Nhắn trong map...">
-      <button type="submit" :disabled="!canSend">Gửi</button>
-    </form>
+    <template v-if="!collapsed">
+      <div ref="messagesEl" class="messages">
+        <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="messages.length === 0" class="empty">Mở thêm tab thứ hai rồi gửi thử một tin nhắn.</p>
+        <article v-for="item in messages" :key="item.id" :class="['message', { mine: item.mine }]">
+          <strong>{{ item.mine ? 'Bạn' : item.displayName }}</strong>
+          <span>{{ item.message }}</span>
+        </article>
+      </div>
+      <form class="chat-form" @submit.prevent="sendMessage">
+        <input v-model="draft" type="text" placeholder="Nhắn trong map...">
+        <button type="submit" :disabled="!canSend">Gửi</button>
+      </form>
+    </template>
   </section>
 </template>
 
@@ -133,6 +190,14 @@ function isPlayerChatEvent(event: unknown): event is PlayerChatEvent {
   grid-template-rows: auto 1fr auto;
 }
 
+.chat-panel.collapsed {
+  grid-template-rows: auto;
+  /* GameView.vue đặt ChatPanel trong grid row 1fr — mặc định grid item stretch full chiều cao
+     track đó. Khi collapsed, panel chỉ nên cao bằng header, không kéo dài khung bọc xuống hết
+     phần trống của track. */
+  align-self: start;
+}
+
 header {
   display: flex;
   align-items: center;
@@ -141,6 +206,35 @@ header {
   padding: 12px 14px;
   border-bottom: 1px solid rgba(159, 212, 127, 0.18);
   font-weight: 700;
+}
+
+.chat-panel.collapsed header {
+  border-bottom: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #c9c1aa;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3ead7;
 }
 
 .status {

@@ -14,7 +14,7 @@ Phạm vi gồm:
 - Load tileset/tilemap vào Phaser.
 - Tạo nhân vật bằng sprite/spritesheet.
 - Render NPC/enemy.
-- Gửi movement lên server theo tick 100ms.
+- Gửi movement bằng throttled publishing: tối đa mỗi 100ms nếu có movement mới.
 - Nhận movement của người chơi khác và dùng interpolation để hiển thị mượt.
 - Gắn chat bubble trên đầu nhân vật.
 - Chuẩn bị luồng combat đơn giản.
@@ -117,7 +117,7 @@ GameScene mở realtime socket hoặc nhận socket từ Vue layer
 Client subscribe room:starter-town
 Server/room gửi snapshot ban đầu sau này
 GameScene update local movement mỗi frame
-Mỗi 100ms gửi player_move lên realtime channel
+MovementSyncSystem giữ latestMovement và publish tối đa mỗi 100ms nếu có thay đổi
 Remote clients nhận player_move và interpolate sprite
 ```
 
@@ -125,7 +125,8 @@ Ghi chú:
 
 - **Không gửi tọa độ mỗi frame.**
 - Phaser vẫn chạy 60 FPS để render mượt.
-- Network chỉ gửi movement packet theo tick khoảng **100ms**.
+- Network không gửi cứng mỗi 100ms. Nó chỉ publish nếu có latest movement event mới và đã qua threshold khoảng **100ms** từ lần gửi trước.
+- Các movement event nhỏ hơn threshold bị gom lại, chỉ giữ event mới nhất.
 - Remote player không nhảy vị trí tức thì, mà dùng interpolation/tween.
 
 ---
@@ -368,7 +369,8 @@ User bấm phím
 Phaser update player velocity ngay
 Camera follow ngay
 Animation chạy ngay
-Mỗi 100ms gửi vị trí hiện tại lên server/channel
+MovementSyncSystem ghi nhận latestMovement
+Network threshold loop publish latestMovement nếu now - lastSentAt >= 100ms
 ```
 
 Ví dụ:
@@ -398,29 +400,45 @@ update(_time: number, delta: number) {
 
 ---
 
-## 10. Network tick 100ms
+## 10. Throttled movement publishing
 
 Architecture đã thống nhất: **client không bắn movement liên tục mỗi frame**.
 
-Phaser render có thể chạy 60 FPS, nhưng gửi network theo tick:
+Phaser render có thể chạy 60 FPS, nhưng network chỉ gửi khi đủ điều kiện:
 
 ```text
 60 FPS render: khoảng 16.6ms/frame
-Network tick: 100ms
+Movement threshold: 100ms
+Điều kiện gửi: latestMovement exists && now - lastSentAt >= threshold
 ```
+
+Đây không phải debounce chuẩn. Đây là **throttle/network tick + latest-event coalescing**:
+
+- Movement event local xảy ra liên tục khi người chơi giữ phím.
+- FE chỉ lưu `latestMovement` mới nhất.
+- Nếu event mới xảy ra nhỏ hơn threshold, nó ghi đè event cũ nhưng chưa gửi.
+- Khi đủ threshold từ lần gửi trước, FE publish event mới nhất.
+- Nếu không có movement mới, không gửi gì.
 
 Ví dụ:
 
 ```ts
 private lastMoveSentAt = 0
-private readonly moveSendIntervalMs = 100
+private latestMovement: PlayerMoveEvent | null = null
+private readonly movementThresholdMs = 100
+
+recordMovement(event: PlayerMoveEvent) {
+  this.latestMovement = event
+}
 
 update(time: number) {
   this.updateLocalMovement()
 
-  if (time - this.lastMoveSentAt >= this.moveSendIntervalMs) {
+  if (this.latestMovement && time - this.lastMoveSentAt >= this.movementThresholdMs) {
+
+    this.gameSocket.send(this.latestMovement)
+    this.latestMovement = null
     this.lastMoveSentAt = time
-    this.sendMovementPacket()
   }
 }
 ```
@@ -440,8 +458,10 @@ Packet gửi đi:
 
 Ghi chú:
 
-- Chỉ gửi khi player đang di chuyển hoặc có thay đổi state.
-- Khi thả phím, gửi thêm một packet cuối `moving: false` để remote dừng animation.
+- Chỉ gửi khi có movement event mới.
+- Nếu nhiều movement event xảy ra trong 100ms, chỉ gửi event mới nhất.
+- Khi thả phím, gửi ngay một packet cuối `moving: false` để remote dừng animation.
+- Lưu vị trí cuối vào DB là luồng riêng: debounce 2-3 giây sau khi đứng yên, không ghi DB mỗi movement tick.
 - Server/backend sau này phải validate position, speed, collision/cooldown ở mức cần thiết.
 
 ---
@@ -486,7 +506,7 @@ function applyRemoteMove(sprite: Phaser.GameObjects.Sprite, event: PlayerMoveEve
 Lý do dùng interpolation:
 
 - Giảm network traffic.
-- Tránh remote player bị giật vì chỉ nhận packet mỗi 100ms.
+- Tránh remote player bị giật vì chỉ nhận packet khi FE publish theo threshold.
 - Giữ cảm giác mượt mà dù backend không gửi mỗi frame.
 
 ---
@@ -671,7 +691,7 @@ Làm theo thứ tự này để ít rủi ro:
 4. Render local player sprite.
 5. Điều khiển player bằng keyboard.
 6. Thêm collision với map.
-7. Gửi `player_move` mỗi 100ms qua Centrifuge.
+7. Tạo `MovementSyncSystem` để coalesce latest movement và publish tối đa mỗi 100ms khi có thay đổi.
 8. Mở 2 tab, render remote player bằng event nhận được.
 9. Thêm interpolation cho remote player.
 10. Thêm chat bubble trong Phaser.
@@ -689,7 +709,9 @@ Trước khi coi phần Phaser MVP là ổn, cần kiểm tra:
 
 - Local player di chuyển mượt.
 - Không gửi movement mỗi frame.
-- Movement packet gửi khoảng 100ms/lần.
+- Không gửi cứng mỗi 100ms khi không có movement mới.
+- Movement event nhỏ hơn threshold được coalesced, chỉ gửi latest event.
+- Movement packet gửi tối đa khoảng 100ms/lần khi đang có thay đổi.
 - Remote player nhận event và interpolate mượt.
 - Khi local player dừng, remote player cũng dừng animation.
 - Reload tab không làm app crash.

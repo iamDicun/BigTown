@@ -457,10 +457,11 @@ localPlayer
 ├── direction
 ├── moving
 ├── current animation
-└── pending movement packet
+├── latestMovement
+└── lastMovementSentAt
 ```
 
-Sau mỗi khoảng 100ms, client gửi movement packet lên server.
+Frontend không gửi cứng movement packet mỗi 100ms. Khi local player thay đổi vị trí/hướng/trạng thái, FE cập nhật `latestMovement`. Một network threshold loop chỉ publish `latestMovement` nếu đã qua khoảng 100ms từ lần gửi trước. Nếu nhiều movement event xảy ra trong threshold, FE chỉ giữ event mới nhất.
 
 ### 6.2 Remote players
 
@@ -661,14 +662,18 @@ Room snapshot nên gồm:
 
 ```text
 Client local render movement ngay
-Mỗi 100ms gửi player_move qua Centrifuge room channel
+Client cập nhật latestMovement khi vị trí/hướng/trạng thái thay đổi
+Network threshold loop kiểm tra now - lastSentAt >= 100ms
+Nếu có latestMovement thì publish player_move mới nhất qua Centrifuge room channel
 Server validate movement tối thiểu
 Server update RoomPlayer trong RAM
 Server broadcast player_move cho client khác
 Remote clients dùng interpolation để render mượt
+Khi player dừng, client gửi final player_move với moving=false
+Sau khi đứng yên 2-3s, client gọi API lưu vị trí cuối vào DB
 ```
 
-Không ghi DB cho từng packet movement.
+Không ghi DB cho từng packet movement. DB chỉ lưu vị trí cuối bằng debounce sau khi đứng yên, hoặc khi logout/rời room/autosave định kỳ.
 
 ### 8.4 Đánh NPC
 

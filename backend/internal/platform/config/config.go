@@ -7,6 +7,7 @@ type Config struct {
 	Database DatabaseConfig
 	Auth     AuthConfig
 	Teams    TeamsConfig
+	Game     GameConfig
 }
 
 type ServerConfig struct {
@@ -30,6 +31,12 @@ type TeamsConfig struct {
 	TenantID string
 }
 
+// GameConfig.DefaultMapCode là điểm cấu hình duy nhất để đổi map hiện tại của MVP
+// (xem docs/Architecture.md mục 9.1). Character mới/cũ đều được đồng bộ map_id theo giá trị này.
+type GameConfig struct {
+	DefaultMapCode string
+}
+
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -48,6 +55,9 @@ func Load() *Config {
 		Teams: TeamsConfig{
 			ClientID: getEnv("TEAMS_CLIENT_ID", ""),
 			TenantID: getEnv("TEAMS_TENANT_ID", "common"),
+		},
+		Game: GameConfig{
+			DefaultMapCode: getEnv("GAME_DEFAULT_MAP_CODE", "village_adventure"),
 		},
 	}
 }

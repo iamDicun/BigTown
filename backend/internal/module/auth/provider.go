@@ -8,24 +8,27 @@ import (
 	authrepo "backend/internal/module/auth/repository"
 	"backend/internal/module/auth/teams"
 	"backend/internal/module/auth/usecase"
+	characterrepo "backend/internal/module/character/repository"
 	userrepo "backend/internal/module/user/repository"
 )
 
 type Provider struct {
-	db            *sql.DB
-	jwtSecret     string
-	teamsClientID string
-	teamsTenantID string
+	db             *sql.DB
+	jwtSecret      string
+	teamsClientID  string
+	teamsTenantID  string
+	defaultMapCode string
 
-	authRepo           port.AuthRepository
-	userReader         port.UserReader
-	teamsTokenVerifier port.TeamsTokenVerifier
-	usecase            *usecase.AuthUsecase
-	handler            *delivery.AuthHandler
+	authRepo             port.AuthRepository
+	userReader           port.UserReader
+	teamsTokenVerifier   port.TeamsTokenVerifier
+	characterProvisioner port.CharacterProvisioner
+	usecase              *usecase.AuthUsecase
+	handler              *delivery.AuthHandler
 }
 
-func NewProvider(db *sql.DB, jwtSecret string, teamsClientID string, teamsTenantID string) *Provider {
-	return &Provider{db: db, jwtSecret: jwtSecret, teamsClientID: teamsClientID, teamsTenantID: teamsTenantID}
+func NewProvider(db *sql.DB, jwtSecret string, teamsClientID string, teamsTenantID string, defaultMapCode string) *Provider {
+	return &Provider{db: db, jwtSecret: jwtSecret, teamsClientID: teamsClientID, teamsTenantID: teamsTenantID, defaultMapCode: defaultMapCode}
 }
 
 func (p *Provider) AuthRepository() port.AuthRepository {
@@ -52,9 +55,19 @@ func (p *Provider) TeamsTokenVerifier() port.TeamsTokenVerifier {
 	return p.teamsTokenVerifier
 }
 
+// CharacterProvisioner() bind trực tiếp characterrepo.CharacterRepository, cùng cross-module
+// pattern với UserReader() ở trên: auth chỉ cần đúng 1 method CreateDefaultWithTx, không phụ
+// thuộc vào character/port hay character/usecase.
+func (p *Provider) CharacterProvisioner() port.CharacterProvisioner {
+	if p.characterProvisioner == nil {
+		p.characterProvisioner = characterrepo.NewCharacterRepository(p.db, p.defaultMapCode)
+	}
+	return p.characterProvisioner
+}
+
 func (p *Provider) Usecase() *usecase.AuthUsecase {
 	if p.usecase == nil {
-		p.usecase = usecase.NewAuthUsecase(p.db, p.AuthRepository(), p.UserReader(), p.TeamsTokenVerifier(), p.jwtSecret)
+		p.usecase = usecase.NewAuthUsecase(p.db, p.AuthRepository(), p.UserReader(), p.TeamsTokenVerifier(), p.CharacterProvisioner(), p.jwtSecret)
 	}
 	return p.usecase
 }

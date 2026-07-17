@@ -1,0 +1,14 @@
+{ "columns":6,
+ "image":"..\/Outdoor decoration\/House_1_Wood_Base_Blue.png",
+ "imageheight":128,
+ "imagewidth":96,
+ "margin":0,
+ "name":"House_1_Wood_Base_Blue",
+ "spacing":0,
+ "tilecount":48,
+ "tiledversion":"1.12.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

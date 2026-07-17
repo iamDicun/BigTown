@@ -147,8 +147,18 @@ CREATE TABLE reward_events (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id VARCHAR(120) NOT NULL,
+    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    message_type VARCHAR(30) NOT NULL DEFAULT 'text',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_characters_score ON characters(score DESC);
 CREATE INDEX idx_user_identities_user_id ON user_identities(user_id);
 CREATE INDEX idx_player_items_character_id ON player_items(character_id);
 CREATE INDEX idx_reward_events_character_id ON reward_events(character_id);
 CREATE INDEX idx_map_npc_spawns_map_id ON map_npc_spawns(map_id);
+CREATE INDEX idx_chat_messages_room_created_at ON chat_messages(room_id, created_at DESC);

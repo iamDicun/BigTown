@@ -1,0 +1,14 @@
+{ "columns":7,
+ "image":"Outdoor_Decor_Free.png",
+ "imageheight":192,
+ "imagewidth":112,
+ "margin":0,
+ "name":"Outdoor_Decor_Free",
+ "spacing":0,
+ "tilecount":84,
+ "tiledversion":"1.12.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

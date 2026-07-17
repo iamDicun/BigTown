@@ -1,0 +1,14 @@
+{ "columns":1,
+ "image":"Chest.png",
+ "imageheight":16,
+ "imagewidth":16,
+ "margin":0,
+ "name":"Chest",
+ "spacing":0,
+ "tilecount":1,
+ "tiledversion":"1.12.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

@@ -72,6 +72,10 @@ func (u *AuthUsecase) TeamsLogin(ctx context.Context, input TeamsLoginInput) (*T
 		if err != nil {
 			return nil, apperror.BadRequest("Không thể tạo user từ Teams SSO", err)
 		}
+
+		if _, err := u.characterProvisioner.CreateDefaultWithTx(ctx, tx, user.ID, fullName); err != nil {
+			return nil, apperror.Internal(err)
+		}
 	}
 
 	if err := u.authRepo.CreateUserIdentityWithTx(ctx, tx, entity.UserIdentity{

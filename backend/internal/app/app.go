@@ -4,6 +4,8 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/module/auth"
 	authrepo "backend/internal/module/auth/repository"
+	"backend/internal/module/character"
+	"backend/internal/module/chat"
 	"backend/internal/module/leaderboard"
 	"backend/internal/module/realtime"
 	"backend/internal/module/user"
@@ -43,8 +45,20 @@ func (a *App) registerMiddleware() {
 }
 
 func (a *App) registerModules() {
-	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID)
-	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret)
+	defaultMapCode := a.container.Config.Game.DefaultMapCode
+
+	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID, defaultMapCode)
+
+	// characterModule đứng trước realtimeModule vì RealtimeUsecase cần characterModule.Usecase()
+	// (implement port.MapReader) để trả bootstrap map thật thay vì hardcode — xem
+	// docs/Architecture.md mục 9.1. characterModule.RegisterProtectedRoutes() vẫn gọi ở cuối,
+	// route registration không phụ thuộc thứ tự construction.
+	characterModule := character.NewCharacterModule(a.container.DB, defaultMapCode)
+
+	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
+	// port.CharacterResolver (GetOrCreateForUser) — dùng chung 1 instance cho cả bootstrap
+	// map lẫn resolve character khi join room/movement.
+	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)
 
 	publicAPI := a.router.Group("/api")
@@ -54,8 +68,12 @@ func (a *App) registerModules() {
 	blacklistChecker := authrepo.NewAuthRepository(a.container.DB)
 	api.Use(middleware.AuthMiddleware(a.container.Config.Auth.JWTSecret, blacklistChecker))
 
+	chatModule := chat.NewChatModule(a.container.DB, realtimeModule.Transport(), characterModule.Usecase())
+
 	authModule.RegisterProtectedRoutes(api)
 	user.NewUserModule(a.container.DB).RegisterProtectedRoutes(api)
 	leaderboard.NewLeaderboardModule(a.container.DB).RegisterProtectedRoutes(api)
 	realtimeModule.RegisterProtectedRoutes(api)
+	characterModule.RegisterProtectedRoutes(api)
+	chatModule.RegisterProtectedRoutes(api)
 }

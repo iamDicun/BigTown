@@ -26,8 +26,11 @@ Phiên bản MVP tập trung vào các tính năng sau:
 
 3. **Map 2D multiplayer real-time**
    - Người chơi vào cùng một map, có thể chạy lòng vòng và nhìn thấy nhau.
-   - Client gửi vị trí theo tick khoảng **100ms**, không gửi liên tục theo từng frame.
+   - Client local render movement ngay khi người dùng nhấn phím.
+   - Frontend dùng **throttled movement publishing**: chỉ gửi tối đa mỗi khoảng **100ms** nếu có movement event mới.
+   - Các movement event nhỏ hơn threshold được gom lại, chỉ gửi **latest movement event** mới nhất.
    - Client khác dùng **interpolation** để hiển thị chuyển động mượt hơn giữa các gói tin nhận được.
+   - Vị trí cuối để lưu DB dùng **debounced persistence** sau khi nhân vật dừng, không ghi DB mỗi tick realtime.
 
 4. **NPC enemy và điểm thưởng**
    - Enemy NPC được spawn sẵn trong map.
@@ -166,7 +169,28 @@ Source code backend nên đi theo template Clean Architecture trong `backend_boi
 
 ## 7. Realtime Model
 
-MVP dùng mô hình **client gửi input/vị trí theo tick 100ms**, server nhận, kiểm tra hợp lệ ở mức tối thiểu rồi broadcast cho các client khác.
+MVP dùng mô hình **throttled movement publishing + latest-event coalescing + remote interpolation + debounced persistence**.
+
+Luồng realtime movement không phải là gửi cứng mỗi 100ms bất kể có thay đổi hay không. Frontend giữ movement event mới nhất ở local, sau đó một network tick/throttle loop kiểm tra:
+
+```text
+if latestMovement exists && now - lastSentAt >= movementThresholdMs:
+    publish latestMovement
+    clear latestMovement
+    lastSentAt = now
+```
+
+Với MVP, `movementThresholdMs` mặc định là **100ms**.
+
+Điểm quan trọng:
+
+- Phaser vẫn render local player mỗi frame để người điều khiển thấy phản hồi ngay.
+- Frontend không publish mọi thay đổi nhỏ của vị trí.
+- Nếu nhiều movement event xảy ra trong khoảng nhỏ hơn threshold, chỉ giữ event mới nhất.
+- Khi đủ threshold, client publish `player_move` mới nhất qua Centrifuge room channel.
+- Khi người chơi dừng, client gửi một final `player_move` với `moving: false` để remote clients dừng animation.
+- Việc lưu vị trí cuối vào database là luồng riêng: debounce sau khi nhân vật dừng khoảng 2-3 giây, hoặc khi rời room/logout.
+- Backend vẫn phải validate quyền, tốc độ, vị trí và event type; frontend chỉ quyết định thời điểm publish để giảm traffic.
 
 Các event WebSocket chính:
 
@@ -184,25 +208,32 @@ Sequence movement:
 ```mermaid
 sequenceDiagram
     participant A as Client A (Vue/Phaser)
-    participant S as Go Server (Hub)
+    participant S as Go Server (Centrifuge)
     participant B as Client B (Vue/Phaser)
 
     Note over A: User A giữ phím di chuyển
     A->>A: Render local movement ngay để cảm giác phản hồi nhanh
+    A->>A: Update latestMovement liên tục trong local memory
 
-    Note over A: Mỗi 100ms gửi một gói movement
-    A->>S: player_move {x, y, direction, moving: true}
+    Note over A: Network tick kiểm tra now - lastSentAt >= 100ms
+    A->>S: Publish latest player_move {x, y, direction, moving: true}
     S->>S: Validate movement tối thiểu
     S->>B: Broadcast player_move {playerId, x, y, direction, moving: true}
     B->>B: Interpolate sprite tới vị trí mới trong khoảng 100ms
 
+    Note over A: Các movement event nhỏ hơn 100ms bị coalesced
+    A->>A: Chỉ giữ latestMovement mới nhất, không gửi event trung gian
+
     Note over A: User A thả phím
-    A->>S: player_move {x, y, direction, moving: false}
-    S->>B: Broadcast final position
+    A->>S: Publish final player_move {x, y, direction, moving: false}
+    S->>B: Broadcast final movement state
     B->>B: Stop animation, chuyển sang idle
+
+    Note over A: Debounce persistence
+    A->>A: Nếu đứng yên 2-3s, gọi API lưu last_x/last_y vào DB
 ```
 
-Với MVP, vị trí online hiện tại có thể lưu trong RAM của Hub. Database chỉ cần lưu các dữ liệu quan trọng như tài khoản, avatar đang equip, inventory, điểm và lịch sử reward nếu cần audit.
+Với MVP, vị trí online hiện tại là realtime state và không ghi database mỗi tick. Database chỉ lưu vị trí cuối trong các trường hợp ổn định như dừng sau debounce, rời room, logout hoặc autosave định kỳ. Các dữ liệu quan trọng khác như tài khoản, avatar đang equip, inventory, điểm và lịch sử reward vẫn lưu trong PostgreSQL.
 
 ---
 
@@ -276,6 +307,30 @@ Bảng dữ liệu MVP nên bắt đầu nhỏ:
 - `reward_events`: lịch sử nhận điểm nếu cần audit.
 
 Leaderboard có thể query trực tiếp từ `characters.score` ở MVP. Khi dữ liệu lớn hơn mới cần cache hoặc snapshot riêng.
+
+### 9.1 Đổi map hiện tại (single point of change)
+
+Map hiện tại của MVP là `village_adventure` (bảng `maps`, cột `code`). Toàn bộ hệ thống nên chỉ phụ thuộc vào **một điểm cấu hình duy nhất**: biến môi trường `GAME_DEFAULT_MAP_CODE` ở backend.
+
+Muốn đổi sang map khác, làm theo 3 bước:
+
+```text
+1. Seed 1 row mới vào bảng `maps` cho map đó
+   (code, name, tilemap_asset_key, tileset_asset_key, spawn_x, spawn_y, width, height).
+2. Copy asset của map đó (tilemap .tmj + tileset .png) vào frontend/public/assets/...
+3. Đổi GAME_DEFAULT_MAP_CODE = code của map mới.
+```
+
+Không sửa gì thêm ở nơi khác, vì:
+
+- Mỗi lần login/vào game, backend **luôn đồng bộ lại** `characters.map_id` theo `GAME_DEFAULT_MAP_CODE` hiện hành (không phải gán 1 lần lúc tạo nhân vật rồi thôi). Nếu map hiện tại khác map đã lưu, backend update lại `map_id` trước khi trả bootstrap/spawn.
+- `GET /api/realtime/bootstrap` (`RealtimeUsecase.GetBootstrap`) tự tra row `maps` theo `GAME_DEFAULT_MAP_CODE` để trả `map_code`, tilemap/tileset asset key, spawn point — **không hardcode** như bản hiện tại (`realtime_usecase.go` đang literal `"starter-town"`, sẽ refactor để đọc từ DB).
+- Room channel Centrifuge tự suy ra `room:<code>` từ giá trị trên, không hardcode ở frontend.
+- Frontend (`PreloadScene`/`GameScene`) không hardcode tên map hay tileset ở đâu cả — chỉ load theo asset key mà bootstrap/character API trả về.
+
+Nhờ đồng bộ lại mỗi lần login, đổi `GAME_DEFAULT_MAP_CODE` sẽ áp dụng cho **tất cả** người chơi (mới lẫn cũ) ngay từ lần login kế tiếp — không cần thao tác migrate dữ liệu riêng.
+
+Giới hạn khác: cột `maps.tileset_asset_key` hiện là 1 `VARCHAR` đơn nhưng một map thực tế (ví dụ `village_adventure`) có thể cần nhiều tileset ảnh cùng lúc. MVP tạm lưu dạng chuỗi CSV tên tileset trong cột này; nếu sau này cần rõ ràng hơn, cân nhắc đổi sang `text[]` hoặc bảng `map_tilesets` riêng.
 
 ---
 

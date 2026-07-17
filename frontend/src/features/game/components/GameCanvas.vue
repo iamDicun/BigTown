@@ -1,53 +1,85 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import type Phaser from 'phaser'
+
+import { createGame } from '../phaser/createGame'
+import * as realtimeService from '../services/realtime.service'
+import { useGameStore } from '../stores/game.store'
+
+const containerEl = ref<HTMLElement | null>(null)
+const error = ref('')
+const loading = ref(true)
+
+const gameStore = useGameStore()
+let game: Phaser.Game | null = null
+
+onMounted(async () => {
+  try {
+    if (!gameStore.characterId) {
+      await gameStore.loadMyCharacter()
+    }
+    if (!gameStore.characterId) {
+      throw new Error('Không lấy được character của bạn')
+    }
+
+    const bootstrap = await realtimeService.getBootstrap()
+
+    if (containerEl.value) {
+      game = createGame(containerEl.value, bootstrap, gameStore.characterId)
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Không thể khởi tạo game'
+  } finally {
+    loading.value = false
+  }
+})
+
+onBeforeUnmount(() => {
+  game?.destroy(true)
+  game = null
+})
+</script>
+
 <template>
   <div class="game-canvas-shell">
-    <div class="game-canvas-placeholder">
-      <p class="eyebrow">BigTown MVP</p>
-      <h1>Phaser canvas mount point</h1>
-      <p>
-        Khu vực này sẽ được thay bằng canvas Phaser để render map, player, NPC, animation,
-        HP bar và chat bubble.
-      </p>
+    <div ref="containerEl" class="game-canvas-mount" />
+    <div v-if="loading" class="game-canvas-overlay">
+      <p>Đang tải map...</p>
+    </div>
+    <div v-else-if="error" class="game-canvas-overlay">
+      <p class="error">{{ error }}</p>
     </div>
   </div>
 </template>
 
 <style scoped>
 .game-canvas-shell {
-  min-height: calc(100vh - 54px);
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 54px);
+  overflow: hidden;
+  background: #1d2a1d;
+}
+
+.game-canvas-mount {
+  width: 100%;
+  height: 100%;
+}
+
+.game-canvas-mount :deep(canvas) {
+  display: block;
+}
+
+.game-canvas-overlay {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
-}
-
-.game-canvas-placeholder {
-  width: min(960px, 100%);
-  min-height: 540px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 12px;
-  padding: 32px;
-  border: 2px solid #566744;
-  border-radius: 18px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    #1d2a1d;
-  background-size: 32px 32px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-  text-align: center;
-}
-
-.eyebrow {
-  color: #9fd47f;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-p {
-  max-width: 560px;
   color: #c9c1aa;
+  pointer-events: none;
+}
+
+.error {
+  color: #ffb4a8;
 }
 </style>

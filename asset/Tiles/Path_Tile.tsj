@@ -1,0 +1,14 @@
+{ "columns":3,
+ "image":"Path_Tile.png",
+ "imageheight":96,
+ "imagewidth":48,
+ "margin":0,
+ "name":"Path_Tile",
+ "spacing":0,
+ "tilecount":18,
+ "tiledversion":"1.12.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

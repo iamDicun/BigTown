@@ -1,6 +1,11 @@
+import axios from 'axios'
+
 import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStorage'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+if (!API_BASE_URL) {
+  throw new Error('Thiếu biến môi trường VITE_API_BASE_URL — kiểm tra file .env (xem .env.example).')
+}
 
 export class ApiError extends Error {
   code: string
@@ -14,8 +19,6 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: string
-  body?: unknown
   /** Có gắn Authorization: Bearer <access_token> hay không. Mặc định true. */
   auth?: boolean
   /** Dùng nội bộ để chặn refresh-loop, không set tay khi gọi từ service. */
@@ -29,29 +32,46 @@ interface ApiEnvelope<T> {
   message?: string
 }
 
-async function rawRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = true } = options
+const client = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true, // bắt buộc để browser gửi kèm cookie refresh_token HttpOnly
+  headers: { 'Content-Type': 'application/json' },
+})
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (auth) {
+async function rawRequest<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body: unknown,
+  options: RequestOptions,
+): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (options.auth !== false) {
     const token = getAccessToken()
     if (token) headers.Authorization = `Bearer ${token}`
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    credentials: 'include', // bắt buộc để browser gửi kèm cookie refresh_token HttpOnly
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  try {
+    const res = await client.request<ApiEnvelope<T>>({ url: path, method, data: body, headers })
 
-  const json = (await res.json().catch(() => null)) as ApiEnvelope<T> | null
+    if (!res.data?.success) {
+      throw new ApiError(res.data?.message ?? `Request failed: ${res.status}`, res.data?.code ?? 'UNKNOWN_ERROR', res.status)
+    }
 
-  if (!res.ok || !json?.success) {
-    throw new ApiError(json?.message ?? `Request failed: ${res.status}`, json?.code ?? 'UNKNOWN_ERROR', res.status)
+    return res.data.data as T
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+
+    if (axios.isAxiosError(err)) {
+      const envelope = err.response?.data as ApiEnvelope<T> | undefined
+      throw new ApiError(
+        envelope?.message ?? err.message ?? `Request failed: ${err.response?.status ?? 0}`,
+        envelope?.code ?? 'UNKNOWN_ERROR',
+        err.response?.status ?? 0,
+      )
+    }
+
+    throw err
   }
-
-  return json.data as T
 }
 
 // Nhiều request có thể cùng nhận 401 một lúc — chỉ cho 1 lần gọi /auth/refresh chạy thật,
@@ -60,8 +80,7 @@ let refreshPromise: Promise<string> | null = null
 
 function refreshAccessTokenOnce(): Promise<string> {
   if (!refreshPromise) {
-    refreshPromise = rawRequest<{ access_token: string }>('/auth/refresh', {
-      method: 'POST',
+    refreshPromise = rawRequest<{ access_token: string }>('POST', '/auth/refresh', undefined, {
       auth: false,
       skipRefresh: true,
     })
@@ -76,11 +95,16 @@ function refreshAccessTokenOnce(): Promise<string> {
   return refreshPromise
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
   const isAuthEndpoint = path.startsWith('/auth/')
 
   try {
-    return await rawRequest<T>(path, options)
+    return await rawRequest<T>(method, path, body, options)
   } catch (err) {
     if (err instanceof ApiError && err.status === 401 && !options.skipRefresh && !isAuthEndpoint) {
       try {
@@ -89,19 +113,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         clearAccessToken()
         throw err
       }
-      return rawRequest<T>(path, options)
+      return rawRequest<T>(method, path, body, options)
     }
     throw err
   }
 }
 
 export const http = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
-  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'POST', body }),
-  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'PUT', body }),
-  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'PATCH', body }),
-  delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'DELETE' }),
+  get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, undefined, options),
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) => request<T>('POST', path, body, options),
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) => request<T>('PUT', path, body, options),
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) => request<T>('PATCH', path, body, options),
+  delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, undefined, options),
 }

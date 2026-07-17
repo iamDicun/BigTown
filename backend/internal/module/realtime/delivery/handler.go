@@ -33,6 +33,12 @@ func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
 			DefaultRoomID:    data.DefaultRoomID,
 			DefaultChannel:   data.DefaultChannel,
 			ProtocolFeatures: data.ProtocolFeatures,
+			TilemapAssetKey:  data.TilemapAssetKey,
+			TilesetAssetKey:  data.TilesetAssetKey,
+			SpawnX:           data.SpawnX,
+			SpawnY:           data.SpawnY,
+			MapWidth:         data.MapWidth,
+			MapHeight:        data.MapHeight,
 		},
 	})
 }
