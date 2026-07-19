@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import ChatPanel from '../components/ChatPanel.vue'
 import GameCanvas from '../components/GameCanvas.vue'
-import LeaderboardPanel from '../components/LeaderboardPanel.vue'
 </script>
 
 <template>
   <section class="game-view">
     <GameCanvas />
     <aside class="game-overlay">
-      <LeaderboardPanel />
       <ChatPanel />
     </aside>
   </section>
@@ -28,9 +26,8 @@ import LeaderboardPanel from '../components/LeaderboardPanel.vue'
   right: 16px;
   bottom: 16px;
   width: min(360px, calc(100vw - 32px));
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
   pointer-events: none;
 }
 

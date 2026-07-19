@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import AuthCard from '../components/AuthCard.vue'
 import RegisterForm from '../components/RegisterForm.vue'
 import { useAuthStore } from '../stores/auth.store'
 
@@ -24,34 +25,17 @@ async function handleSubmit(payload: { fullName: string; email: string; password
 </script>
 
 <template>
-  <div class="auth-view">
-    <h1>Đăng ký</h1>
+  <AuthCard>
+    <template #title>Đăng ký</template>
     <RegisterForm @submit="handleSubmit">
       <template #error>
-        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="success">{{ successMessage }}</p>
+        <p v-if="errorMessage" class="pixel-alert pixel-alert--error">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="pixel-alert pixel-alert--success">{{ successMessage }}</p>
       </template>
     </RegisterForm>
-    <p>
+    <p class="pixel-link-row">
       Đã có tài khoản?
       <router-link :to="{ name: 'login' }">Đăng nhập</router-link>
     </p>
-  </div>
+  </AuthCard>
 </template>
-
-<style scoped>
-.auth-view {
-  background: #fff;
-  padding: 32px;
-  border: 1px solid #d0d7de;
-  border-radius: 8px;
-}
-
-.error {
-  color: #b91c1c;
-}
-
-.success {
-  color: #15803d;
-}
-</style>

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
 	"time"
 
 	"backend/internal/platform/config"
@@ -16,7 +17,10 @@ type PostgresDB struct {
 }
 
 func NewPostgresDB(cfg config.DatabaseConfig) *PostgresDB {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name, cfg.SSLMode)
+	query := url.Values{}
+	query.Set("sslmode", cfg.SSLMode)
+	query.Set("default_query_exec_mode", "simple_protocol")
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?%s", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port, cfg.Name, query.Encode())
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

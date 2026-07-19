@@ -12,34 +12,22 @@ function handleSubmit() {
 
 <template>
   <form class="auth-form" @submit.prevent="handleSubmit">
-    <label>
-      Email
+    <label class="pixel-field">
+      <span class="pixel-field__label">Email</span>
       <input v-model="form.email" type="email" required autocomplete="email" />
     </label>
-    <label>
-      Mật khẩu
+    <label class="pixel-field">
+      <span class="pixel-field__label">Mật khẩu</span>
       <input v-model="form.password" type="password" required autocomplete="current-password" />
     </label>
     <slot name="error" />
-    <button type="submit">Đăng nhập</button>
+    <button type="submit" class="pixel-button">Đăng nhập</button>
   </form>
 </template>
 
 <style scoped>
 .auth-form {
   display: grid;
-  gap: 12px;
-  min-width: 320px;
-}
-
-label {
-  display: grid;
-  gap: 4px;
-}
-
-input,
-button {
-  font: inherit;
-  padding: 8px;
+  gap: 14px;
 }
 </style>

@@ -16,8 +16,8 @@ async function handleLogout() {
   <header class="navbar">
     <span class="navbar-brand">BigTown</span>
     <div v-if="authStore.isAuthenticated" class="navbar-user">
-      <span class="navbar-status">Online</span>
-      <button @click="handleLogout">Đăng xuất</button>
+      <span class="pixel-badge pixel-badge--ok">Online</span>
+      <button class="pixel-button pixel-button--sm" @click="handleLogout">Đăng xuất</button>
     </div>
   </header>
 </template>
@@ -27,34 +27,24 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid #2f3a2f;
-  background: #172017;
-  color: #f3ead7;
+  gap: 12px;
+  padding: 10px 20px;
+  background: linear-gradient(180deg, var(--pixel-wood) 0%, var(--pixel-wood-dark) 100%);
+  border-bottom: 4px solid var(--pixel-ink);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
 }
 
 .navbar-brand {
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: var(--pixel-font);
+  font-size: 28px;
+  letter-spacing: 1px;
+  color: var(--pixel-parchment);
+  text-shadow: 2px 2px 0 var(--pixel-ink);
 }
 
 .navbar-user {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-button {
-  font: inherit;
-  padding: 6px 12px;
-  border: 1px solid #6f7f55;
-  border-radius: 6px;
-  background: #2f3a2f;
-  color: #f3ead7;
-  cursor: pointer;
-}
-
-.navbar-status {
-  color: #9fd47f;
+  gap: 14px;
 }
 </style>

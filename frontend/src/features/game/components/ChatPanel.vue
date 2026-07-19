@@ -26,6 +26,19 @@ const error = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
 const collapsed = ref(false)
 
+const statusLabel: Record<typeof status.value, string> = {
+  connecting: 'Đang kết nối',
+  connected: 'Đã kết nối',
+  disconnected: 'Mất kết nối',
+  error: 'Lỗi',
+}
+
+const statusBadgeClass = computed(() => {
+  if (status.value === 'connected') return 'pixel-badge--ok'
+  if (status.value === 'connecting') return 'pixel-badge--warn'
+  return 'pixel-badge--error'
+})
+
 let gameSocket: ReturnType<typeof createGameSocket> | null = null
 let roomId = ''
 
@@ -142,11 +155,11 @@ function scrollToBottom() {
 </script>
 
 <template>
-  <section class="panel chat-panel" :class="{ collapsed }" aria-label="Game chat">
+  <section class="chat-panel" :class="{ collapsed }" aria-label="Game chat">
     <header>
-      <span>Chat</span>
+      <span class="chat-panel__title">Chat</span>
       <div class="header-actions">
-        <small :class="['status', status]">{{ status }}</small>
+        <span class="pixel-badge" :class="statusBadgeClass">{{ statusLabel[status] }}</span>
         <button
           type="button"
           class="toggle-btn"
@@ -160,42 +173,38 @@ function scrollToBottom() {
     </header>
     <template v-if="!collapsed">
       <div ref="messagesEl" class="messages">
-        <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="error" class="pixel-alert pixel-alert--error">{{ error }}</p>
         <p v-if="messages.length === 0" class="empty">Mở thêm tab thứ hai rồi gửi thử một tin nhắn.</p>
         <article v-for="item in messages" :key="item.id" :class="['message', { mine: item.mine }]">
           <strong>{{ item.mine ? 'Bạn' : item.displayName }}</strong>
           <span>{{ item.message }}</span>
         </article>
       </div>
-      <form class="chat-form" @submit.prevent="sendMessage">
+      <form class="chat-form pixel-field pixel-field--sm" @submit.prevent="sendMessage">
         <input v-model="draft" type="text" placeholder="Nhắn trong map...">
-        <button type="submit" :disabled="!canSend">Gửi</button>
+        <button type="submit" class="pixel-button pixel-button--sm" :disabled="!canSend">Gửi</button>
       </form>
     </template>
   </section>
 </template>
 
 <style scoped>
-.panel {
-  border: 1px solid rgba(159, 212, 127, 0.24);
-  border-radius: 14px;
-  background: rgba(16, 22, 16, 0.86);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(12px);
-}
-
 .chat-panel {
   min-height: 0;
+  flex: 1 1 auto;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  background: var(--pixel-parchment);
+  box-shadow:
+    0 0 0 3px var(--pixel-wood-dark),
+    0 0 0 6px var(--pixel-wood),
+    0 0 0 8px var(--pixel-wood-dark),
+    0 10px 20px rgba(0, 0, 0, 0.4);
 }
 
 .chat-panel.collapsed {
+  flex: 0 0 auto;
   grid-template-rows: auto;
-  /* GameView.vue đặt ChatPanel trong grid row 1fr — mặc định grid item stretch full chiều cao
-     track đó. Khi collapsed, panel chỉ nên cao bằng header, không kéo dài khung bọc xuống hết
-     phần trống của track. */
-  align-self: start;
 }
 
 header {
@@ -203,114 +212,92 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(159, 212, 127, 0.18);
-  font-weight: 700;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, var(--pixel-wood) 0%, var(--pixel-wood-dark) 100%);
+  border-bottom: 3px solid var(--pixel-ink);
 }
 
-.chat-panel.collapsed header {
-  border-bottom: none;
+.chat-panel__title {
+  font-family: var(--pixel-font);
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: var(--pixel-parchment);
+  text-shadow: 1px 1px 0 var(--pixel-ink);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .toggle-btn {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #c9c1aa;
-  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--pixel-ink);
+  background: var(--pixel-parchment);
+  color: var(--pixel-wood-dark);
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
 
 .toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f3ead7;
-}
-
-.status {
-  color: #c9c1aa;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status.connected {
-  color: #9fd47f;
-}
-
-.status.error {
-  color: #ffb4a8;
+  background: var(--pixel-accent);
+  color: #fff8ec;
 }
 
 .messages {
   min-height: 120px;
   overflow: auto;
-  padding: 14px;
-  color: #c9c1aa;
+  padding: 12px;
+  font-family: var(--pixel-font);
+  font-size: 18px;
 }
 
-.empty,
-.error {
+.empty {
   margin: 0;
-  font-size: 13px;
-}
-
-.error {
-  color: #ffb4a8;
+  color: var(--pixel-wood-dark);
+  opacity: 0.75;
 }
 
 .message {
   display: grid;
-  gap: 4px;
-  margin-bottom: 10px;
-  padding: 9px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid var(--pixel-parchment-dark);
 }
 
 .message.mine {
-  background: rgba(159, 212, 127, 0.14);
+  background: rgba(90, 156, 74, 0.16);
+  border-color: var(--pixel-green);
 }
 
 .message strong {
-  color: #9fd47f;
-  font-size: 12px;
+  color: var(--pixel-accent-dark);
+  font-size: 15px;
+  letter-spacing: 0.5px;
 }
 
 .message span {
-  color: #f3ead7;
+  color: var(--pixel-ink);
   word-break: break-word;
+  line-height: 1.2;
 }
 
 .chat-form {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  padding: 12px;
+  padding: 10px;
+  background: var(--pixel-wood-dark);
 }
 
-input,
-button {
+.chat-form input {
   min-width: 0;
-  border: 1px solid #566744;
-  border-radius: 8px;
-  padding: 9px 10px;
-  background: #172017;
-  color: #f3ead7;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 </style>
