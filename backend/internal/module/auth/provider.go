@@ -18,6 +18,7 @@ type Provider struct {
 	teamsClientID  string
 	teamsTenantID  string
 	defaultMapCode string
+	cookieConfig   delivery.CookieConfig
 
 	authRepo             port.AuthRepository
 	userReader           port.UserReader
@@ -27,8 +28,8 @@ type Provider struct {
 	handler              *delivery.AuthHandler
 }
 
-func NewProvider(db *sql.DB, jwtSecret string, teamsClientID string, teamsTenantID string, defaultMapCode string) *Provider {
-	return &Provider{db: db, jwtSecret: jwtSecret, teamsClientID: teamsClientID, teamsTenantID: teamsTenantID, defaultMapCode: defaultMapCode}
+func NewProvider(db *sql.DB, jwtSecret string, teamsClientID string, teamsTenantID string, defaultMapCode string, cookieConfig delivery.CookieConfig) *Provider {
+	return &Provider{db: db, jwtSecret: jwtSecret, teamsClientID: teamsClientID, teamsTenantID: teamsTenantID, defaultMapCode: defaultMapCode, cookieConfig: cookieConfig}
 }
 
 func (p *Provider) AuthRepository() port.AuthRepository {
@@ -74,7 +75,7 @@ func (p *Provider) Usecase() *usecase.AuthUsecase {
 
 func (p *Provider) Handler() *delivery.AuthHandler {
 	if p.handler == nil {
-		p.handler = delivery.NewAuthHandler(p.Usecase())
+		p.handler = delivery.NewAuthHandler(p.Usecase(), p.cookieConfig)
 	}
 	return p.handler
 }

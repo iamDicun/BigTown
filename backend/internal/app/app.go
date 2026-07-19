@@ -39,7 +39,7 @@ func (a *App) Run(addr string) error {
 func (a *App) registerMiddleware() {
 	a.router.Use(middleware.RequestIDMiddleware())
 	a.router.Use(middleware.LoggerMiddleware())
-	a.router.Use(middleware.CORSMiddleware())
+	a.router.Use(middleware.CORSMiddleware(a.container.Config.Web.AllowedOrigins))
 	a.router.Use(middleware.ErrorHandlerMiddleware())
 	a.router.Use(middleware.RecoveryMiddleware())
 }
@@ -47,7 +47,7 @@ func (a *App) registerMiddleware() {
 func (a *App) registerModules() {
 	defaultMapCode := a.container.Config.Game.DefaultMapCode
 
-	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID, defaultMapCode)
+	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID, defaultMapCode, a.container.Config.Cookie)
 
 	// characterModule đứng trước realtimeModule vì RealtimeUsecase cần characterModule.Usecase()
 	// (implement port.MapReader) để trả bootstrap map thật thay vì hardcode — xem
@@ -58,7 +58,7 @@ func (a *App) registerModules() {
 	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
 	// port.CharacterResolver (GetOrCreateForUser) — dùng chung 1 instance cho cả bootstrap
 	// map lẫn resolve character khi join room/movement.
-	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, characterModule.Usecase(), characterModule.Usecase())
+	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)
 
 	publicAPI := a.router.Group("/api")

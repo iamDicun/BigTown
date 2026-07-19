@@ -7,11 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CORSMiddleware() gin.HandlerFunc {
+func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
 	return cors.New(cors.Config{
-		AllowOrigins: []string{ // FE nào được phép gọi API
-			"http://localhost:5173",
-		},
+		AllowOrigins: allowedOrigins, // FE nào được phép gọi API
 		AllowMethods: []string{ // method nào được phép dùng
 			"GET",
 			"POST",

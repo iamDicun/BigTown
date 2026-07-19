@@ -12,14 +12,20 @@ import (
 )
 
 type AuthHandler struct {
-	usecase *usecase.AuthUsecase
+	usecase      *usecase.AuthUsecase
+	cookieConfig CookieConfig
+}
+
+type CookieConfig struct {
+	Secure   bool
+	SameSite string
 }
 
 const refreshTokenCookieName = "refresh_token"
 const refreshTokenCookieMaxAge = 7 * 24 * 60 * 60
 
-func NewAuthHandler(usecase *usecase.AuthUsecase) *AuthHandler {
-	return &AuthHandler{usecase: usecase}
+func NewAuthHandler(usecase *usecase.AuthUsecase, cookieConfig CookieConfig) *AuthHandler {
+	return &AuthHandler{usecase: usecase, cookieConfig: cookieConfig}
 }
 
 func (c *AuthHandler) Register(ctx *gin.Context) {
@@ -63,7 +69,7 @@ func (c *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
-	setRefreshTokenCookie(ctx, result.RefreshToken)
+	c.setRefreshTokenCookie(ctx, result.RefreshToken)
 
 	ctx.JSON(http.StatusOK, response.SuccessResponse[*LoginResponse]{
 		Success: true,
@@ -88,7 +94,7 @@ func (c *AuthHandler) TeamsLogin(ctx *gin.Context) {
 		return
 	}
 
-	setRefreshTokenCookie(ctx, result.RefreshToken)
+	c.setRefreshTokenCookie(ctx, result.RefreshToken)
 
 	ctx.JSON(http.StatusOK, response.SuccessResponse[*LoginResponse]{
 		Success: true,
@@ -113,7 +119,7 @@ func (c *AuthHandler) Refresh(ctx *gin.Context) {
 		return
 	}
 
-	setRefreshTokenCookie(ctx, result.RefreshToken)
+	c.setRefreshTokenCookie(ctx, result.RefreshToken)
 
 	ctx.JSON(http.StatusOK, response.SuccessResponse[*RefreshResponse]{
 		Success: true,
@@ -162,7 +168,7 @@ func (c *AuthHandler) Logout(ctx *gin.Context) {
 		return
 	}
 
-	clearRefreshTokenCookie(ctx)
+	c.clearRefreshTokenCookie(ctx)
 
 	ctx.JSON(http.StatusOK, response.SuccessResponse[*LogoutResponse]{
 		Success: true,
@@ -170,14 +176,25 @@ func (c *AuthHandler) Logout(ctx *gin.Context) {
 	})
 }
 
-func setRefreshTokenCookie(ctx *gin.Context, refreshToken string) {
-	ctx.SetSameSite(http.SameSiteLaxMode)
-	ctx.SetCookie(refreshTokenCookieName, refreshToken, refreshTokenCookieMaxAge, "/api/auth", "", false, true)
+func (c *AuthHandler) setRefreshTokenCookie(ctx *gin.Context, refreshToken string) {
+	ctx.SetSameSite(c.cookieSameSite())
+	ctx.SetCookie(refreshTokenCookieName, refreshToken, refreshTokenCookieMaxAge, "/api/auth", "", c.cookieConfig.Secure, true)
 }
 
-func clearRefreshTokenCookie(ctx *gin.Context) {
-	ctx.SetSameSite(http.SameSiteLaxMode)
-	ctx.SetCookie(refreshTokenCookieName, "", -1, "/api/auth", "", false, true)
+func (c *AuthHandler) clearRefreshTokenCookie(ctx *gin.Context) {
+	ctx.SetSameSite(c.cookieSameSite())
+	ctx.SetCookie(refreshTokenCookieName, "", -1, "/api/auth", "", c.cookieConfig.Secure, true)
+}
+
+func (c *AuthHandler) cookieSameSite() http.SameSite {
+	switch c.cookieConfig.SameSite {
+	case "Strict", "strict":
+		return http.SameSiteStrictMode
+	case "None", "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode
+	}
 }
 
 func readRefreshTokenCookie(ctx *gin.Context) (string, error) {

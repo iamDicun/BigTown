@@ -9,8 +9,8 @@ type RealtimeModule struct {
 	provider *Provider
 }
 
-func NewRealtimeModule(jwtSecret string, mapReader port.MapReader, characters port.CharacterResolver) *RealtimeModule {
-	return &RealtimeModule{provider: NewProvider(jwtSecret, mapReader, characters)}
+func NewRealtimeModule(jwtSecret string, allowedOrigins []string, mapReader port.MapReader, characters port.CharacterResolver) *RealtimeModule {
+	return &RealtimeModule{provider: NewProvider(jwtSecret, allowedOrigins, mapReader, characters)}
 }
 
 // Transport() cho phép module khác (chat, sau này realtime/room) tái dùng cùng

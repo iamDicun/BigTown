@@ -9,9 +9,10 @@ import (
 )
 
 type Provider struct {
-	jwtSecret  string
-	mapReader  port.MapReader
-	characters port.CharacterResolver
+	jwtSecret      string
+	allowedOrigins []string
+	mapReader      port.MapReader
+	characters     port.CharacterResolver
 
 	usecase     *usecase.RealtimeUsecase
 	roomStore   room.RoomStore
@@ -20,8 +21,8 @@ type Provider struct {
 	handler     *delivery.RealtimeHandler
 }
 
-func NewProvider(jwtSecret string, mapReader port.MapReader, characters port.CharacterResolver) *Provider {
-	return &Provider{jwtSecret: jwtSecret, mapReader: mapReader, characters: characters}
+func NewProvider(jwtSecret string, allowedOrigins []string, mapReader port.MapReader, characters port.CharacterResolver) *Provider {
+	return &Provider{jwtSecret: jwtSecret, allowedOrigins: allowedOrigins, mapReader: mapReader, characters: characters}
 }
 
 func (p *Provider) Usecase() *usecase.RealtimeUsecase {
@@ -47,7 +48,7 @@ func (p *Provider) RoomUsecase() *usecase.RoomUsecase {
 
 func (p *Provider) Transport() *transport.CentrifugeTransport {
 	if p.transport == nil {
-		realtimeTransport, err := transport.NewCentrifugeTransport(p.jwtSecret, p.RoomUsecase())
+		realtimeTransport, err := transport.NewCentrifugeTransport(p.jwtSecret, p.allowedOrigins, p.RoomUsecase())
 		if err != nil {
 			panic(err)
 		}

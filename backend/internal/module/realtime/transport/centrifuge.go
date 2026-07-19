@@ -21,7 +21,7 @@ type CentrifugeTransport struct {
 	handler *centrifuge.WebsocketHandler
 }
 
-func NewCentrifugeTransport(jwtSecret string, roomUsecase *usecase.RoomUsecase) (*CentrifugeTransport, error) {
+func NewCentrifugeTransport(jwtSecret string, allowedOrigins []string, roomUsecase *usecase.RoomUsecase) (*CentrifugeTransport, error) {
 	node, err := centrifuge.New(centrifuge.Config{})
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func NewCentrifugeTransport(jwtSecret string, roomUsecase *usecase.RoomUsecase) 
 	return &CentrifugeTransport{
 		node: node,
 		handler: centrifuge.NewWebsocketHandler(node, centrifuge.WebsocketConfig{
-			CheckOrigin: allowDevOrigin,
+			CheckOrigin: allowOrigin(allowedOrigins),
 		}),
 	}, nil
 }
@@ -244,14 +244,19 @@ func isRoomChannel(channel string) bool {
 	return strings.HasPrefix(channel, roomChannelPrefix)
 }
 
-func allowDevOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return true
+func allowOrigin(allowedOrigins []string) func(*http.Request) bool {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		allowed[strings.TrimSpace(origin)] = struct{}{}
 	}
 
-	return strings.HasPrefix(origin, "http://localhost:") ||
-		strings.HasPrefix(origin, "http://127.0.0.1:") ||
-		strings.HasPrefix(origin, "https://localhost:") ||
-		strings.HasPrefix(origin, "https://127.0.0.1:")
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+
+		_, ok := allowed[origin]
+		return ok
+	}
 }
