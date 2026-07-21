@@ -32,6 +32,7 @@ func (s *MemoryRoomStore) JoinRoom(ctx context.Context, roomID string, player Ro
 	if existing, ok := room.Players[player.CharacterID]; ok {
 		existing.LastSeenAt = time.Now()
 		addClientLocked(room, player.CharacterID, player.ClientID)
+		setUserIndexLocked(room, existing.UserID, player.CharacterID)
 		existingCopy := *existing
 		return snapshotLocked(room), &existingCopy, false, nil
 	}
@@ -39,6 +40,7 @@ func (s *MemoryRoomStore) JoinRoom(ctx context.Context, roomID string, player Ro
 	player.LastSeenAt = time.Now()
 	room.Players[player.CharacterID] = &player
 	addClientLocked(room, player.CharacterID, player.ClientID)
+	setUserIndexLocked(room, player.UserID, player.CharacterID)
 
 	joinedCopy := player
 	return snapshotLocked(room), &joinedCopy, true, nil
@@ -69,6 +71,9 @@ func (s *MemoryRoomStore) LeaveRoom(ctx context.Context, roomID string, characte
 	playerCopy := *player
 	delete(room.Players, characterID)
 	delete(room.Clients, characterID)
+	if room.PlayersByUser != nil {
+		delete(room.PlayersByUser, player.UserID)
+	}
 
 	return &playerCopy, true, nil
 }
@@ -92,6 +97,28 @@ func (s *MemoryRoomStore) GetPlayer(ctx context.Context, roomID string, characte
 	defer s.mu.Unlock()
 
 	room, ok := s.rooms[roomID]
+	if !ok {
+		return nil, ErrPlayerNotFound
+	}
+	player, ok := room.Players[characterID]
+	if !ok {
+		return nil, ErrPlayerNotFound
+	}
+
+	playerCopy := *player
+	return &playerCopy, nil
+}
+
+func (s *MemoryRoomStore) GetPlayerByUserID(ctx context.Context, roomID string, userID string) (*RoomPlayer, error) {
+	_ = ctx
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	room, ok := s.rooms[roomID]
+	if !ok {
+		return nil, ErrPlayerNotFound
+	}
+	characterID, ok := room.PlayersByUser[userID]
 	if !ok {
 		return nil, ErrPlayerNotFound
 	}
@@ -131,10 +158,22 @@ func (s *MemoryRoomStore) MovePlayer(ctx context.Context, roomID string, charact
 func (s *MemoryRoomStore) getOrCreateRoomLocked(roomID string) *GameRoom {
 	r, ok := s.rooms[roomID]
 	if !ok {
-		r = &GameRoom{ID: roomID, Players: make(map[string]*RoomPlayer), Clients: make(map[string]map[string]struct{})}
+		r = &GameRoom{
+			ID:            roomID,
+			Players:       make(map[string]*RoomPlayer),
+			Clients:       make(map[string]map[string]struct{}),
+			PlayersByUser: make(map[string]string),
+		}
 		s.rooms[roomID] = r
 	}
 	return r
+}
+
+func setUserIndexLocked(room *GameRoom, userID string, characterID string) {
+	if room.PlayersByUser == nil {
+		room.PlayersByUser = make(map[string]string)
+	}
+	room.PlayersByUser[userID] = characterID
 }
 
 func addClientLocked(room *GameRoom, characterID string, clientID string) {

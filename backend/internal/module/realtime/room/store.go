@@ -19,5 +19,9 @@ type RoomStore interface {
 	LeaveRoom(ctx context.Context, roomID string, characterID string, clientID string) (*RoomPlayer, bool, error)
 	GetSnapshot(ctx context.Context, roomID string) (*RoomSnapshot, error)
 	GetPlayer(ctx context.Context, roomID string, characterID string) (*RoomPlayer, error)
+	// GetPlayerByUserID tra theo UserID (qua GameRoom.PlayersByUser) thay vì CharacterID — dùng bởi
+	// MovePlayer để tránh gọi CharacterResolver (DB) trên hot path 100ms/tick. Trả ErrPlayerNotFound
+	// nếu userID chưa join room này, giống hành vi GetPlayer.
+	GetPlayerByUserID(ctx context.Context, roomID string, userID string) (*RoomPlayer, error)
 	MovePlayer(ctx context.Context, roomID string, characterID string, movement PlayerMovement) (*RoomPlayer, error)
 }

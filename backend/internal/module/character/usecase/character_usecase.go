@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 
 	"backend/internal/apperror"
 	"backend/internal/module/character/entity"
@@ -14,6 +15,9 @@ type CharacterUsecase struct {
 	db             *sql.DB
 	repo           port.CharacterRepository
 	defaultMapCode string
+
+	mapCacheMu sync.RWMutex
+	mapCache   *entity.MapInfo
 }
 
 func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, defaultMapCode string) *CharacterUsecase {
@@ -75,7 +79,19 @@ func (u *CharacterUsecase) syncMap(ctx context.Context, character *entity.Charac
 
 // GetDefaultMap trả metadata map mặc định hiện hành (GAME_DEFAULT_MAP_CODE) — dùng bởi
 // realtime bootstrap để trả tilemap/tileset/spawn point thật cho frontend, không hardcode.
+//
+// Cache trong process: map mặc định không đổi lúc server đang chạy (chỉ đổi qua deploy lại với
+// GAME_DEFAULT_MAP_CODE/DB khác), nhưng hàm này bị gọi lại trên mỗi player_move RPC (10 lần/giây/
+// player đang di chuyển) để lấy bounds validate — không cache sẽ khiến mỗi tick di chuyển tốn thêm
+// 1 round-trip DB, gây trễ nặng khi FE/BE lệch region hoặc DB chậm (xem RoomUsecase.MovePlayer).
 func (u *CharacterUsecase) GetDefaultMap(ctx context.Context) (*entity.MapInfo, error) {
+	u.mapCacheMu.RLock()
+	cached := u.mapCache
+	u.mapCacheMu.RUnlock()
+	if cached != nil {
+		return cached, nil
+	}
+
 	mapInfo, err := u.repo.FindMapByCode(ctx, u.defaultMapCode)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, apperror.NotFound("Chưa seed map mặc định: "+u.defaultMapCode, err)
@@ -83,5 +99,10 @@ func (u *CharacterUsecase) GetDefaultMap(ctx context.Context) (*entity.MapInfo, 
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
+
+	u.mapCacheMu.Lock()
+	u.mapCache = mapInfo
+	u.mapCacheMu.Unlock()
+
 	return mapInfo, nil
 }

@@ -86,6 +86,7 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 
 	candidate := room.RoomPlayer{
 		CharacterID: character.ID,
+		UserID:      userID,
 		ClientID:    clientID,
 		X:           spawnX,
 		Y:           spawnY,
@@ -123,16 +124,16 @@ func (u *RoomUsecase) LeaveRoom(ctx context.Context, roomID string, userID strin
 // MovePlayer validate: user đúng chủ character, character đang trong room, tốc độ hợp lý, trong
 // map bounds, không trùng vị trí player khác (minDistancePx) — xem
 // docs/Realtime-Room-State-Decisions.md mục 6.
+//
+// Chạy hoàn toàn trong RAM (GetPlayerByUserID + RoomStore), không gọi CharacterResolver (DB) —
+// hàm này được gọi trên mỗi player_move RPC (10 lần/giây/player đang di chuyển), nên 1 round-trip
+// DB mỗi tick sẽ dồn queue rất nhanh khi DB có độ trễ thật (khác hẳn lúc chạy local, DB cùng máy).
 func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID string, movement room.PlayerMovement) (*room.RoomPlayer, *MovementRejection, error) {
-	character, err := u.characters.GetOrCreateForUser(ctx, userID, defaultCharacterName)
+	current, err := u.store.GetPlayerByUserID(ctx, roomID, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, &MovementRejection{Reason: "not_joined"}, nil
 	}
-
-	current, err := u.store.GetPlayer(ctx, roomID, character.ID)
-	if err != nil {
-		return nil, &MovementRejection{CharacterID: character.ID, Reason: "not_joined"}, nil
-	}
+	character := current.CharacterID
 
 	mapInfo, err := u.maps.GetDefaultMap(ctx)
 	if err != nil {
@@ -142,7 +143,7 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 	maxX := mapInfo.Width*tileSize - 1
 	maxY := mapInfo.Height*tileSize - 1
 	if movement.X < 0 || movement.Y < 0 || movement.X > maxX || movement.Y > maxY {
-		return nil, &MovementRejection{CharacterID: character.ID, Reason: "out_of_bounds", X: current.X, Y: current.Y}, nil
+		return nil, &MovementRejection{CharacterID: character, Reason: "out_of_bounds", X: current.X, Y: current.Y}, nil
 	}
 
 	elapsed := time.Since(current.LastSeenAt).Seconds()
@@ -150,7 +151,7 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 		elapsed = 0.01
 	}
 	if distance(current.X, current.Y, movement.X, movement.Y) > maxSpeedPxPerSec*elapsed {
-		return nil, &MovementRejection{CharacterID: character.ID, Reason: "too_fast", X: current.X, Y: current.Y}, nil
+		return nil, &MovementRejection{CharacterID: character, Reason: "too_fast", X: current.X, Y: current.Y}, nil
 	}
 
 	snapshot, err := u.store.GetSnapshot(ctx, roomID)
@@ -158,15 +159,15 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 		return nil, nil, err
 	}
 	for _, other := range snapshot.Players {
-		if other.CharacterID == character.ID {
+		if other.CharacterID == character {
 			continue
 		}
 		if distance(movement.X, movement.Y, other.X, other.Y) < minDistancePx {
-			return nil, &MovementRejection{CharacterID: character.ID, Reason: "occupied", X: current.X, Y: current.Y}, nil
+			return nil, &MovementRejection{CharacterID: character, Reason: "occupied", X: current.X, Y: current.Y}, nil
 		}
 	}
 
-	updated, err := u.store.MovePlayer(ctx, roomID, character.ID, movement)
+	updated, err := u.store.MovePlayer(ctx, roomID, character, movement)
 	if err != nil {
 		return nil, nil, err
 	}
