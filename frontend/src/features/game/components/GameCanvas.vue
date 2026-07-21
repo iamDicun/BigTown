@@ -15,14 +15,17 @@ let game: Phaser.Game | null = null
 
 onMounted(async () => {
   try {
-    if (!gameStore.characterId) {
-      await gameStore.loadMyCharacter()
-    }
+    // characterId và bootstrap là 2 API call độc lập (bootstrap không cần characterId) — chạy song
+    // song thay vì tuần tự để không cộng dồn 2 lần round-trip riêng biệt, nhất là khi backend có độ
+    // trễ đáng kể (region xa, cold start...).
+    const [, bootstrap] = await Promise.all([
+      gameStore.characterId ? Promise.resolve() : gameStore.loadMyCharacter(),
+      realtimeService.getBootstrap(),
+    ])
+
     if (!gameStore.characterId) {
       throw new Error('Không lấy được character của bạn')
     }
-
-    const bootstrap = await realtimeService.getBootstrap()
 
     if (containerEl.value) {
       game = createGame(containerEl.value, bootstrap, gameStore.characterId)

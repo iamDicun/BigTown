@@ -77,6 +77,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await authService.logout()
+    } catch {
+      // Best-effort: nếu API logout lỗi (mất mạng, thiếu cookie refresh_token do lệch SameSite khi
+      // deploy cross-site, access token vừa hết hạn...), vẫn phải xoá session local — không được để
+      // lỗi ở đây chặn code gọi sau (Navbar.vue điều hướng về /login), nếu không user tưởng đã đăng
+      // xuất nhưng GameView/Centrifuge connection vẫn sống nguyên.
     } finally {
       clearAccessToken()
       accessToken.value = null
