@@ -19,30 +19,58 @@ func NewMemoryRoomStore() *MemoryRoomStore {
 	return &MemoryRoomStore{rooms: make(map[string]*GameRoom)}
 }
 
-func (s *MemoryRoomStore) JoinRoom(ctx context.Context, roomID string, player RoomPlayer) (*RoomSnapshot, error) {
+func (s *MemoryRoomStore) JoinRoom(ctx context.Context, roomID string, player RoomPlayer) (*RoomSnapshot, *RoomPlayer, bool, error) {
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	room := s.getOrCreateRoomLocked(roomID)
+	// Check-và-insert phải nằm trong cùng 1 lock: nếu 2 connection của cùng user (vd ChatPanel +
+	// GameScene) gọi JoinRoom gần như đồng thời, người gọi sau phải thấy đúng player đã tồn tại
+	// (không phải tự tính lại vị trí/spawn), và chỉ 1 trong 2 được coi là "lần đầu" — không dựa vào
+	// GetSnapshot đọc trước đó ở tầng usecase vì giữa 2 lock đó có thể có connection khác chen vào.
+	if existing, ok := room.Players[player.CharacterID]; ok {
+		existing.LastSeenAt = time.Now()
+		addClientLocked(room, player.CharacterID, player.ClientID)
+		existingCopy := *existing
+		return snapshotLocked(room), &existingCopy, false, nil
+	}
+
 	player.LastSeenAt = time.Now()
 	room.Players[player.CharacterID] = &player
+	addClientLocked(room, player.CharacterID, player.ClientID)
 
-	return snapshotLocked(room), nil
+	joinedCopy := player
+	return snapshotLocked(room), &joinedCopy, true, nil
 }
 
-func (s *MemoryRoomStore) LeaveRoom(ctx context.Context, roomID string, characterID string) error {
+func (s *MemoryRoomStore) LeaveRoom(ctx context.Context, roomID string, characterID string, clientID string) (*RoomPlayer, bool, error) {
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	room, ok := s.rooms[roomID]
 	if !ok {
-		return nil
+		return nil, false, nil
 	}
-	delete(room.Players, characterID)
+	player, ok := room.Players[characterID]
+	if !ok {
+		return nil, false, nil
+	}
 
-	return nil
+	if clients, ok := room.Clients[characterID]; ok {
+		delete(clients, clientID)
+		if len(clients) > 0 {
+			playerCopy := *player
+			return &playerCopy, false, nil
+		}
+	}
+
+	playerCopy := *player
+	delete(room.Players, characterID)
+	delete(room.Clients, characterID)
+
+	return &playerCopy, true, nil
 }
 
 func (s *MemoryRoomStore) GetSnapshot(ctx context.Context, roomID string) (*RoomSnapshot, error) {
@@ -103,10 +131,20 @@ func (s *MemoryRoomStore) MovePlayer(ctx context.Context, roomID string, charact
 func (s *MemoryRoomStore) getOrCreateRoomLocked(roomID string) *GameRoom {
 	r, ok := s.rooms[roomID]
 	if !ok {
-		r = &GameRoom{ID: roomID, Players: make(map[string]*RoomPlayer)}
+		r = &GameRoom{ID: roomID, Players: make(map[string]*RoomPlayer), Clients: make(map[string]map[string]struct{})}
 		s.rooms[roomID] = r
 	}
 	return r
+}
+
+func addClientLocked(room *GameRoom, characterID string, clientID string) {
+	if room.Clients == nil {
+		room.Clients = make(map[string]map[string]struct{})
+	}
+	if room.Clients[characterID] == nil {
+		room.Clients[characterID] = make(map[string]struct{})
+	}
+	room.Clients[characterID][clientID] = struct{}{}
 }
 
 func snapshotLocked(room *GameRoom) *RoomSnapshot {

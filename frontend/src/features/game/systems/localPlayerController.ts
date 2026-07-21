@@ -45,7 +45,7 @@ export class LocalPlayerController {
     this.sprite.anims.play(idleAnimForFacing(this.facing))
   }
 
-  update(time: number, cursors: Phaser.Types.Input.Keyboard.CursorKeys): void {
+  update(time: number, cursors: MovementKeys): void {
     const input: MovementInput = {
       up: cursors.up?.isDown ?? false,
       down: cursors.down?.isDown ?? false,
@@ -110,4 +110,11 @@ export class LocalPlayerController {
     this.facing = facingForDirection(direction)
     this.lastDirection = direction
   }
+}
+
+export type MovementKeys = {
+  up?: Phaser.Input.Keyboard.Key
+  down?: Phaser.Input.Keyboard.Key
+  left?: Phaser.Input.Keyboard.Key
+  right?: Phaser.Input.Keyboard.Key
 }

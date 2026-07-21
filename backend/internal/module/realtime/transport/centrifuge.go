@@ -64,7 +64,7 @@ func NewCentrifugeTransport(jwtSecret string, allowedOrigins []string, roomUseca
 				return
 			}
 			roomID := strings.TrimPrefix(event.Channel, roomChannelPrefix)
-			handleLeaveRoom(node, roomUsecase, roomID, client.UserID())
+			handleLeaveRoom(node, roomUsecase, roomID, client.UserID(), client.ID())
 		})
 
 		client.OnDisconnect(func(event centrifuge.DisconnectEvent) {
@@ -75,7 +75,7 @@ func NewCentrifugeTransport(jwtSecret string, allowedOrigins []string, roomUseca
 			if err != nil {
 				return
 			}
-			handleLeaveRoom(node, roomUsecase, roomID, client.UserID())
+			handleLeaveRoom(node, roomUsecase, roomID, client.UserID(), client.ID())
 		})
 
 		// Gameplay/chat event giờ đều đi qua HTTP hoặc RPC/command để backend validate và tự
@@ -130,7 +130,7 @@ func handleSubscribe(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, cl
 
 	roomID := strings.TrimPrefix(event.Channel, roomChannelPrefix)
 
-	snapshot, joinedPlayer, err := roomUsecase.JoinRoom(context.Background(), roomID, client.UserID(), client.ID())
+	snapshot, joinedPlayer, isFirstConnection, err := roomUsecase.JoinRoom(context.Background(), roomID, client.UserID(), client.ID())
 	if err != nil {
 		cb(centrifuge.SubscribeReply{}, centrifuge.ErrorInternal)
 		return
@@ -152,15 +152,17 @@ func handleSubscribe(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, cl
 		Options: centrifuge.SubscribeOptions{Data: snapshotData},
 	}, nil)
 
-	publishRoomEvent(node, roomID, playerJoinedEvent{
-		Type:   "player_joined",
-		RoomID: roomID,
-		Player: toRoomPlayerDTO(*joinedPlayer),
-	})
+	if isFirstConnection {
+		publishRoomEvent(node, roomID, playerJoinedEvent{
+			Type:   "player_joined",
+			RoomID: roomID,
+			Player: toRoomPlayerDTO(*joinedPlayer),
+		})
+	}
 }
 
-func handleLeaveRoom(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, roomID string, userID string) {
-	player, err := roomUsecase.LeaveRoom(context.Background(), roomID, userID)
+func handleLeaveRoom(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, roomID string, userID string, clientID string) {
+	player, err := roomUsecase.LeaveRoom(context.Background(), roomID, userID, clientID)
 	if err != nil || player == nil {
 		return
 	}
