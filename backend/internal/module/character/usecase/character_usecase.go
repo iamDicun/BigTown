@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"sync"
 
 	"backend/internal/apperror"
@@ -14,14 +15,15 @@ import (
 type CharacterUsecase struct {
 	db             *sql.DB
 	repo           port.CharacterRepository
+	users          port.UserReader
 	defaultMapCode string
 
 	mapCacheMu sync.RWMutex
 	mapCache   *entity.MapInfo
 }
 
-func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, defaultMapCode string) *CharacterUsecase {
-	return &CharacterUsecase{db: db, repo: repo, defaultMapCode: defaultMapCode}
+func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, users port.UserReader, defaultMapCode string) *CharacterUsecase {
+	return &CharacterUsecase{db: db, repo: repo, users: users, defaultMapCode: defaultMapCode}
 }
 
 func (u *CharacterUsecase) GetByUserID(ctx context.Context, userID string) (*entity.Character, error) {
@@ -47,13 +49,22 @@ func (u *CharacterUsecase) GetOrCreateForUser(ctx context.Context, userID string
 		return nil, apperror.Internal(err)
 	}
 
+	// Ưu tiên full_name thật của user (bảng app_user) làm tên character thay vì defaultName cứng
+	// ("Player") — đường này chỉ chạy cho user cũ chưa từng có character (safety net), nhưng họ vẫn
+	// có full_name thật từ lúc đăng ký, không có lý do gì hiển thị tên chung chung thay vì tên đó.
+	// Tra cứu lỗi (hiếm, không phải luồng chính) thì rơi về defaultName, không chặn tạo character.
+	name := defaultName
+	if user, uerr := u.users.FindByID(ctx, userID); uerr == nil && strings.TrimSpace(user.FullName) != "" {
+		name = user.FullName
+	}
+
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
 	defer tx.Rollback()
 
-	created, err := u.repo.CreateDefaultWithTx(ctx, tx, userID, defaultName)
+	created, err := u.repo.CreateDefaultWithTx(ctx, tx, userID, name)
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}

@@ -11,6 +11,7 @@ import (
 
 type Provider struct {
 	db             *sql.DB
+	users          port.UserReader
 	defaultMapCode string
 
 	repo    port.CharacterRepository
@@ -18,8 +19,8 @@ type Provider struct {
 	handler *delivery.CharacterHandler
 }
 
-func NewProvider(db *sql.DB, defaultMapCode string) *Provider {
-	return &Provider{db: db, defaultMapCode: defaultMapCode}
+func NewProvider(db *sql.DB, users port.UserReader, defaultMapCode string) *Provider {
+	return &Provider{db: db, users: users, defaultMapCode: defaultMapCode}
 }
 
 func (p *Provider) Repository() port.CharacterRepository {
@@ -31,7 +32,7 @@ func (p *Provider) Repository() port.CharacterRepository {
 
 func (p *Provider) Usecase() *usecase.CharacterUsecase {
 	if p.usecase == nil {
-		p.usecase = usecase.NewCharacterUsecase(p.db, p.Repository(), p.defaultMapCode)
+		p.usecase = usecase.NewCharacterUsecase(p.db, p.Repository(), p.users, p.defaultMapCode)
 	}
 	return p.usecase
 }

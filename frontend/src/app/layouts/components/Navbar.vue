@@ -2,12 +2,21 @@
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useGameStore } from '@/features/game/stores/game.store'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const gameStore = useGameStore()
 
 async function handleLogout() {
   await authStore.logout()
+  // gameStore.characterId không tự mất khi logout (Pinia store sống suốt vòng đời SPA, không theo
+  // route) — nếu không reset, lần đăng nhập tiếp theo (tài khoản khác, cùng tab) GameCanvas.vue và
+  // ChatPanel.vue thấy characterId đã có sẵn nên bỏ qua loadMyCharacter(), tiếp tục dùng nhầm
+  // characterId của tài khoản cũ làm "local player" — kết quả là thấy 2 nhân vật (character thật
+  // của tài khoản mới bị hiểu nhầm thành remote), và di chuyển bằng bàn phím lại cập nhật đúng
+  // character thật (do server tự xác thực qua JWT) khiến nó "đi theo" như một remote player.
+  gameStore.$reset()
   router.push({ name: 'login' })
 }
 </script>

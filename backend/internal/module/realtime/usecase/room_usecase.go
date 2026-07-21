@@ -86,6 +86,7 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 
 	candidate := room.RoomPlayer{
 		CharacterID: character.ID,
+		Name:        character.Name,
 		UserID:      userID,
 		ClientID:    clientID,
 		X:           spawnX,

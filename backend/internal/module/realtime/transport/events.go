@@ -8,6 +8,7 @@ import "backend/internal/module/realtime/room"
 // event và Phaser sprite state").
 type roomPlayerDTO struct {
 	CharacterID string `json:"characterId"`
+	Name        string `json:"name"`
 	X           int    `json:"x"`
 	Y           int    `json:"y"`
 	Direction   string `json:"direction"`
@@ -17,6 +18,7 @@ type roomPlayerDTO struct {
 func toRoomPlayerDTO(p room.RoomPlayer) roomPlayerDTO {
 	return roomPlayerDTO{
 		CharacterID: p.CharacterID,
+		Name:        p.Name,
 		X:           p.X,
 		Y:           p.Y,
 		Direction:   string(p.Direction),

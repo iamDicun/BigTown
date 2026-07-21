@@ -16,6 +16,7 @@ import {
   type MovementInput,
   type MovementThrottle,
 } from './movementSystem'
+import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 
 const PLAYER_SPEED = 120
 const MOVEMENT_THRESHOLD_MS = 100
@@ -33,9 +34,12 @@ export class LocalPlayerController {
   private wasMoving = false
   private movementThrottle: MovementThrottle = createMovementThrottle()
   private readonly sendMove: (command: PlayerMoveCommand) => void
+  private readonly scene: Phaser.Scene
+  private nameTag: Phaser.GameObjects.Text | null = null
 
   constructor(scene: Phaser.Scene, x: number, y: number, sendMove: (command: PlayerMoveCommand) => void) {
     this.sendMove = sendMove
+    this.scene = scene
     this.sprite = scene.physics.add.sprite(x, y, 'player', 0)
 
     const body = this.sprite.body as Phaser.Physics.Arcade.Body
@@ -76,6 +80,21 @@ export class LocalPlayerController {
       tickMovementThrottle(this.movementThrottle, time, MOVEMENT_THRESHOLD_MS, this.sendMove)
     }
     this.wasMoving = moving
+
+    if (this.nameTag) {
+      updateNameTagPosition(this.nameTag, this.sprite)
+    }
+  }
+
+  // Tên character lấy từ room_snapshot lúc join (server trả về, không đọc từ token — xem
+  // docs/Realtime-Performance-Fixes.md mục 6/nametag), tạo lười lúc có tên thay vì lúc constructor
+  // vì tên chưa biết trước khi room_snapshot tới.
+  setName(name: string): void {
+    if (!this.nameTag) {
+      this.nameTag = createNameTag(this.scene, this.sprite, name)
+      return
+    }
+    this.nameTag.setText(name)
   }
 
   // Correction đến qua personal channel khi 1 movement bị reject — xem
