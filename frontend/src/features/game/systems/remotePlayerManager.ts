@@ -6,11 +6,16 @@ import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 
 const TWEEN_DURATION_MS = 100
 
-// Kích thước hàng rào va chạm khớp với body local player (xem localPlayerController.ts), quy đổi
-// từ offset-góc-trên-trái (setOffset 8,18 trên frame 32x32 origin 0.5/0.5) sang offset-tính-từ-tâm
-// sprite: center = (x - 16 + 8 + 16/2, y - 16 + 18 + 12/2) = (x, y + 8).
-const BODY_SIZE = { width: 16, height: 12 }
-const BODY_CENTER_OFFSET = { x: 0, y: 8 }
+// Bán kính vùng chặn quanh remote player PHẢI khớp (hoặc lớn hơn 1 chút) minDistancePx mà server
+// dùng để validate va chạm (xem backend room_usecase.go: minDistancePx = 24.0, so khoảng cách giữa
+// 2 tâm sprite x/y — đúng giá trị FE gửi lên mỗi tick). Trước đây hàng rào này là hình chữ nhật nhỏ
+// (16x12, dùng lại kích thước body va chạm với TƯỜNG) — nhỏ hơn hẳn vùng 24px server thực sự từ
+// chối, nên local player vẫn lách được vào vùng server coi là "occupied" trước khi bị chặn hình ảnh,
+// rồi bị RPC reject/correction giật vị trí về sau — đúng hiện tượng "đi qua rồi giật lại". Đổi sang
+// hình tròn tâm đúng bằng x/y remote (không lệch tâm) bán kính = minDistancePx + margin nhỏ (bù
+// chênh lệch giữa tâm sprite local và body va chạm-với-tường của nó, vốn có offset lệch tâm riêng)
+// để local player luôn bị chặn hình ảnh TRƯỚC khi tiến đủ gần để server phải từ chối.
+const REMOTE_BLOCK_RADIUS = 26
 
 // Quản lý sprite của các player khác (không phải player local) theo characterId: dựng lúc
 // join/room_snapshot, tween lúc nhận player_move, huỷ lúc player_left. Tách khỏi GameScene để
@@ -50,8 +55,9 @@ export class RemotePlayerManager {
       sprite = this.scene.add.sprite(x, y, 'player', 0)
       this.sprites.set(characterId, sprite)
 
-      const zone = this.scene.add.zone(x + BODY_CENTER_OFFSET.x, y + BODY_CENTER_OFFSET.y, BODY_SIZE.width, BODY_SIZE.height)
+      const zone = this.scene.add.zone(x, y, REMOTE_BLOCK_RADIUS * 2, REMOTE_BLOCK_RADIUS * 2)
       this.scene.physics.add.existing(zone, true)
+      ;(zone.body as Phaser.Physics.Arcade.StaticBody).setCircle(REMOTE_BLOCK_RADIUS)
       this.group.add(zone)
       this.zones.set(characterId, zone)
 
@@ -64,7 +70,7 @@ export class RemotePlayerManager {
     // Zone va chạm snap thẳng về vị trí server xác nhận ngay (không tween theo) — chỉ cần đúng vị
     // trí cuối để chặn local player, sai lệch trong khoảng tween 100ms là không đáng kể về gameplay.
     const zone = this.zones.get(characterId)!
-    zone.setPosition(x + BODY_CENTER_OFFSET.x, y + BODY_CENTER_OFFSET.y)
+    zone.setPosition(x, y)
     ;(zone.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject()
 
     sprite.setFlipX(facing === 'side' && direction === 'left')
