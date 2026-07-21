@@ -29,7 +29,8 @@ type RoomPlayer struct {
 
 type GameRoom struct {
 	ID      string
-	Players map[string]*RoomPlayer // key: CharacterID
+	Players map[string]*RoomPlayer         // key: CharacterID
+	Clients map[string]map[string]struct{} // key: CharacterID -> ClientID set
 }
 
 type RoomSnapshot struct {

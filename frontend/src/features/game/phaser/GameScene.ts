@@ -2,8 +2,9 @@ import Phaser from 'phaser'
 
 import { createGameSocket, getDefaultRealtimeUrl, type GameSocket } from '../network/gameSocket'
 import { buildMap, TILE_SIZE } from '../systems/mapSystem'
-import { LocalPlayerController } from '../systems/localPlayerController'
+import { LocalPlayerController, type MovementKeys } from '../systems/localPlayerController'
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
+import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
 import type { GameSceneData } from './BootScene'
 import { createPlayerAnimations } from './playerAnimations'
 
@@ -19,10 +20,11 @@ const CAMERA_ZOOM = 2
 export class GameScene extends Phaser.Scene {
   private sceneData!: GameSceneData
   private localCharacterId = ''
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
+  private cursors!: MovementKeys
 
   private localPlayer!: LocalPlayerController
   private remotePlayers!: RemotePlayerManager
+  private aboveLayerFade: AboveLayerFade | null = null
   private gameSocket: GameSocket | null = null
 
   constructor() {
@@ -37,7 +39,8 @@ export class GameScene extends Phaser.Scene {
     const bootstrap = this.sceneData.bootstrap
     this.localCharacterId = this.sceneData.characterId
 
-    const { collisionGroup } = buildMap(this, bootstrap)
+    const { collisionGroup, aboveLayer } = buildMap(this, bootstrap)
+    this.aboveLayerFade = aboveLayer ? createAboveLayerFade(aboveLayer) : null
     createPlayerAnimations(this)
 
     this.localPlayer = new LocalPlayerController(this, bootstrap.spawn_x, bootstrap.spawn_y, (command) =>
@@ -49,9 +52,18 @@ export class GameScene extends Phaser.Scene {
     this.localPlayer.sprite.setCollideWorldBounds(true)
 
     this.remotePlayers = new RemotePlayerManager(this)
+    // Chặn hình ảnh local player đè lên remote player ngay lập tức (không đợi BE correction) — xem
+    // ghi chú trong remotePlayerManager.ts. Vị trí hợp lệ cuối cùng vẫn do BE quyết định qua RPC.
+    this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height)
-    this.cursors = this.input.keyboard!.createCursorKeys()
+    const keyboard = this.input.keyboard!
+    this.cursors = {
+      up: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      down: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+      left: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+      right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+    }
 
     this.gameSocket = createGameSocket(getDefaultRealtimeUrl(), {
       channel: bootstrap.default_channel,
@@ -87,6 +99,9 @@ export class GameScene extends Phaser.Scene {
 
   update(time: number) {
     this.localPlayer.update(time, this.cursors)
+    if (this.aboveLayerFade) {
+      updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite)
+    }
   }
 
   private setupCamera(mapWidthTiles: number, mapHeightTiles: number) {

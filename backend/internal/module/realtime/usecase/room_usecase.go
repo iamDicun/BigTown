@@ -57,29 +57,34 @@ func (u *RoomUsecase) DefaultRoomID(ctx context.Context) (string, error) {
 	return mapInfo.Code, nil
 }
 
-// JoinRoom trả về cả snapshot đầy đủ (để gửi room_snapshot cho chính client vừa join) lẫn player
-// vừa join (để transport broadcast player_joined mà không phải tìm lại trong snapshot). clientID
-// là Centrifuge connection ID (client.ID()) — lưu vào RoomPlayer.ClientID theo đúng model đã chốt
-// trong docs/Realtime-Room-State-Decisions.md mục 3.
-func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string, clientID string) (*room.RoomSnapshot, *room.RoomPlayer, error) {
+// JoinRoom trả về cả snapshot đầy đủ (để gửi room_snapshot cho chính client vừa join), player thực
+// sự đang có trong room sau lệnh này (để transport broadcast player_joined nếu cần) và
+// isFirstConnection. clientID là Centrifuge connection ID (client.ID()) — lưu vào RoomPlayer.ClientID
+// theo đúng model đã chốt trong docs/Realtime-Room-State-Decisions.md mục 3.
+//
+// spawnX/spawnY tính từ GetSnapshot đọc TRƯỚC khi gọi store.JoinRoom nên chỉ là "ứng viên" — nếu
+// character này đã có connection khác giữ chỗ trong room (race giữa 2 connection join gần như đồng
+// thời của cùng user), MemoryRoomStore.JoinRoom sẽ tự bỏ qua ứng viên này và giữ nguyên vị trí cũ,
+// đồng thời trả isFirstConnection=false atomic — không phụ thuộc vào phép tính ở đây.
+func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string, clientID string) (*room.RoomSnapshot, *room.RoomPlayer, bool, error) {
 	character, err := u.characters.GetOrCreateForUser(ctx, userID, defaultCharacterName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	mapInfo, err := u.maps.GetDefaultMap(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	existing, err := u.store.GetSnapshot(ctx, roomID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	spawnX, spawnY := resolveSpawnPosition(mapInfo.SpawnX, mapInfo.SpawnY, existing)
+	spawnX, spawnY := resolveSpawnPosition(mapInfo.SpawnX, mapInfo.SpawnY, existing, character.ID)
 
-	player := room.RoomPlayer{
+	candidate := room.RoomPlayer{
 		CharacterID: character.ID,
 		ClientID:    clientID,
 		X:           spawnX,
@@ -88,29 +93,28 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 		Moving:      false,
 	}
 
-	snapshot, err := u.store.JoinRoom(ctx, roomID, player)
+	snapshot, joined, isFirstConnection, err := u.store.JoinRoom(ctx, roomID, candidate)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	return snapshot, &player, nil
+	return snapshot, joined, isFirstConnection, nil
 }
 
 // LeaveRoom trả lại player vừa rời đi (để transport broadcast `player_left`); trả nil, nil nếu
 // user chưa từng join room đó (không phải lỗi).
-func (u *RoomUsecase) LeaveRoom(ctx context.Context, roomID string, userID string) (*room.RoomPlayer, error) {
+func (u *RoomUsecase) LeaveRoom(ctx context.Context, roomID string, userID string, clientID string) (*room.RoomPlayer, error) {
 	character, err := u.characters.GetOrCreateForUser(ctx, userID, defaultCharacterName)
 	if err != nil {
 		return nil, err
 	}
 
-	player, err := u.store.GetPlayer(ctx, roomID, character.ID)
+	player, removed, err := u.store.LeaveRoom(ctx, roomID, character.ID, clientID)
 	if err != nil {
-		return nil, nil
-	}
-
-	if err := u.store.LeaveRoom(ctx, roomID, character.ID); err != nil {
 		return nil, err
+	}
+	if !removed {
+		return nil, nil
 	}
 
 	return player, nil
@@ -178,9 +182,11 @@ func distance(x1, y1, x2, y2 int) float64 {
 
 // resolveSpawnPosition né vị trí đã có player khác đứng (minDistancePx) bằng cách dò vòng xoắn ốc
 // quanh spawn point mặc định của map — xem docs/Movement-Chat-Spawn-Plan.md mục 0.1 (nhiều player
-// join cùng lúc không được đè lên nhau).
-func resolveSpawnPosition(spawnX, spawnY int, existing *room.RoomSnapshot) (int, int) {
-	if existing == nil || !isOccupied(spawnX, spawnY, existing.Players) {
+// join cùng lúc không được đè lên nhau). excludeCharacterID loại trừ chính character đang join khỏi
+// occupancy check — nếu character này đã có 1 entry trong snapshot (do 1 connection khác của cùng
+// user join trước), không được coi bản thân mình là "đang chiếm chỗ" rồi tự dịch đi nơi khác.
+func resolveSpawnPosition(spawnX, spawnY int, existing *room.RoomSnapshot, excludeCharacterID string) (int, int) {
+	if existing == nil || !isOccupied(spawnX, spawnY, existing.Players, excludeCharacterID) {
 		return spawnX, spawnY
 	}
 
@@ -197,7 +203,7 @@ func resolveSpawnPosition(spawnX, spawnY int, existing *room.RoomSnapshot) (int,
 			{spawnX - offset, spawnY + offset},
 		}
 		for _, c := range candidates {
-			if !isOccupied(c[0], c[1], existing.Players) {
+			if !isOccupied(c[0], c[1], existing.Players, excludeCharacterID) {
 				return c[0], c[1]
 			}
 		}
@@ -206,8 +212,11 @@ func resolveSpawnPosition(spawnX, spawnY int, existing *room.RoomSnapshot) (int,
 	return spawnX, spawnY
 }
 
-func isOccupied(x, y int, players []room.RoomPlayer) bool {
+func isOccupied(x, y int, players []room.RoomPlayer, excludeCharacterID string) bool {
 	for _, p := range players {
+		if p.CharacterID == excludeCharacterID {
+			continue
+		}
 		if distance(x, y, p.X, p.Y) < minDistancePx {
 			return true
 		}

@@ -4,11 +4,16 @@ import type { BootstrapDto } from '../services/realtime.service'
 
 export const TILE_SIZE = 16
 
-const TILE_LAYER_NAMES = ['Ground', 'DecorationBelow', 'Objects', 'DecorationAbove']
+const ABOVE_LAYER_NAME = 'DecorationAbove'
+const TILE_LAYER_NAMES = ['Ground', 'DecorationBelow', 'Objects', ABOVE_LAYER_NAME]
 
 export type MapBuildResult = {
   map: Phaser.Tilemaps.Tilemap
   collisionGroup: Phaser.Physics.Arcade.StaticGroup
+  // Layer tán cây/mái nhà vẽ đè lên player (xem generate_map.js: canopy Oak_Tree ở decoAbove,
+  // trunk collision hẹp hơn canopy nên player đi được vào vùng bị canopy che) — dùng cho
+  // aboveLayerFadeSystem.ts để mờ đúng tile đang che player, không mờ cả layer.
+  aboveLayer: Phaser.Tilemaps.TilemapLayerBase | null
 }
 
 // Dựng tilemap + layer + collision group từ bootstrap (tilemap/tileset đã embed sẵn, xem
@@ -24,11 +29,13 @@ export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuild
     return tileset
   })
 
+  let aboveLayer: Phaser.Tilemaps.TilemapLayerBase | null = null
   for (const layerName of TILE_LAYER_NAMES) {
-    map.createLayer(layerName, tilesets, 0, 0)
+    const layer = map.createLayer(layerName, tilesets, 0, 0)
+    if (layerName === ABOVE_LAYER_NAME) aboveLayer = layer
   }
 
-  return { map, collisionGroup: buildCollisionGroup(scene, map) }
+  return { map, collisionGroup: buildCollisionGroup(scene, map), aboveLayer }
 }
 
 // Collision đọc từ object layer "Collision" (map thực tế build bằng asset/tools/generate_map.js
