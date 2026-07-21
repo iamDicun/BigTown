@@ -2,6 +2,7 @@ import type Phaser from 'phaser'
 
 import type { Direction } from '../network/gameEvents'
 import { facingForDirection, idleAnimForFacing, walkAnimForFacing } from '../phaser/playerAnimations'
+import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 
 const TWEEN_DURATION_MS = 100
 
@@ -28,6 +29,7 @@ const BODY_CENTER_OFFSET = { x: 0, y: 8 }
 export class RemotePlayerManager {
   private readonly sprites = new Map<string, Phaser.GameObjects.Sprite>()
   private readonly zones = new Map<string, Phaser.GameObjects.Zone>()
+  private readonly nameTags = new Map<string, Phaser.GameObjects.Text>()
   private readonly scene: Phaser.Scene
   // Group vật lý (static) chứa toàn bộ zone va chạm hiện có — GameScene chỉ cần đăng ký 1 collider
   // với group này lúc create(), member thêm/xoá sau tự động được collider áp dụng.
@@ -38,7 +40,9 @@ export class RemotePlayerManager {
     this.group = scene.physics.add.staticGroup()
   }
 
-  upsert(characterId: string, x: number, y: number, direction: Direction, moving: boolean): void {
+  // name chỉ cần truyền lúc tạo mới (room_snapshot/player_joined luôn có name) — player_move không
+  // mang name (không đổi sau khi join) nên gọi upsert() không cần truyền lại, tham số optional.
+  upsert(characterId: string, x: number, y: number, direction: Direction, moving: boolean, name?: string): void {
     const facing = facingForDirection(direction)
     let sprite = this.sprites.get(characterId)
 
@@ -50,6 +54,8 @@ export class RemotePlayerManager {
       this.scene.physics.add.existing(zone, true)
       this.group.add(zone)
       this.zones.set(characterId, zone)
+
+      this.nameTags.set(characterId, createNameTag(this.scene, sprite, name ?? ''))
     } else {
       this.scene.tweens.killTweensOf(sprite)
       this.scene.tweens.add({ targets: sprite, x, y, duration: TWEEN_DURATION_MS, ease: 'Linear' })
@@ -63,6 +69,17 @@ export class RemotePlayerManager {
 
     sprite.setFlipX(facing === 'side' && direction === 'left')
     sprite.anims.play(moving ? walkAnimForFacing(facing) : idleAnimForFacing(facing), true)
+  }
+
+  // Gọi mỗi frame từ GameScene.update() — name tag không tween theo sprite, mà đọc lại vị trí
+  // render thật (đã nội suy bởi tween) mỗi frame để luôn bám đúng đầu sprite (xem nameTagSystem.ts).
+  update(): void {
+    for (const [characterId, sprite] of this.sprites) {
+      const nameTag = this.nameTags.get(characterId)
+      if (nameTag) {
+        updateNameTagPosition(nameTag, sprite)
+      }
+    }
   }
 
   remove(characterId: string): void {
@@ -79,10 +96,16 @@ export class RemotePlayerManager {
       zone.destroy()
       this.zones.delete(characterId)
     }
+
+    const nameTag = this.nameTags.get(characterId)
+    if (nameTag) {
+      nameTag.destroy()
+      this.nameTags.delete(characterId)
+    }
   }
 
   destroyAll(): void {
-    const characterIds = new Set([...this.sprites.keys(), ...this.zones.keys()])
+    const characterIds = new Set([...this.sprites.keys(), ...this.zones.keys(), ...this.nameTags.keys()])
     for (const characterId of characterIds) {
       this.remove(characterId)
     }

@@ -71,14 +71,22 @@ export class GameScene extends Phaser.Scene {
         for (const p of data.players) {
           if (p.characterId === this.localCharacterId) {
             this.localPlayer.applyServerPosition(p.x, p.y, p.direction)
+            this.localPlayer.setName(p.name)
             continue
           }
-          this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving)
+          this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving, p.name)
         }
       },
       onPlayerJoined: (event) => {
         if (event.player.characterId === this.localCharacterId) return
-        this.remotePlayers.upsert(event.player.characterId, event.player.x, event.player.y, event.player.direction, event.player.moving)
+        this.remotePlayers.upsert(
+          event.player.characterId,
+          event.player.x,
+          event.player.y,
+          event.player.direction,
+          event.player.moving,
+          event.player.name,
+        )
       },
       onPlayerLeft: (event) => this.remotePlayers.remove(event.characterId),
       onPlayerMove: (event) => {
@@ -99,6 +107,7 @@ export class GameScene extends Phaser.Scene {
 
   update(time: number) {
     this.localPlayer.update(time, this.cursors)
+    this.remotePlayers.update()
     if (this.aboveLayerFade) {
       updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite)
     }

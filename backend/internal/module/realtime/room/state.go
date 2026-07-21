@@ -16,6 +16,9 @@ const (
 
 type RoomPlayer struct {
 	CharacterID string
+	// Name là display name của character (từ bảng characters), set 1 lần lúc JoinRoom — dùng để
+	// hiển thị tên trên đầu nhân vật ở FE (xem transport/events.go roomPlayerDTO.Name).
+	Name string
 	// UserID dùng để tra cứu RAM O(1) theo userID (xem GameRoom.PlayersByUser) — tránh phải gọi
 	// CharacterResolver (hit DB) trên mỗi player_move RPC chỉ để đổi userID -> characterID. Không
 	// serialize field này ra wire format (xem transport/events.go roomPlayerDTO map thủ công).

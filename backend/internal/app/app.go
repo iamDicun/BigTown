@@ -9,6 +9,7 @@ import (
 	"backend/internal/module/leaderboard"
 	"backend/internal/module/realtime"
 	"backend/internal/module/user"
+	userrepo "backend/internal/module/user/repository"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,7 +54,10 @@ func (a *App) registerModules() {
 	// (implement port.MapReader) để trả bootstrap map thật thay vì hardcode — xem
 	// docs/Architecture.md mục 9.1. characterModule.RegisterProtectedRoutes() vẫn gọi ở cuối,
 	// route registration không phụ thuộc thứ tự construction.
-	characterModule := character.NewCharacterModule(a.container.DB, defaultMapCode)
+	//
+	// userrepo truyền vào để CharacterUsecase lấy full_name thật của user khi tạo character qua
+	// đường an toàn dự phòng (GetOrCreateForUser) — xem character/port/user_reader.go.
+	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode)
 
 	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
 	// port.CharacterResolver (GetOrCreateForUser) — dùng chung 1 instance cho cả bootstrap
