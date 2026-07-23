@@ -91,6 +91,11 @@ async function createCharacter() {
     })
     gameStore.setMyCharacter(character)
     gameStore.setSpritesheetConfig(option.spritesheet)
+
+    if (options.value.length > 0) {
+      gameStore.characterOptions = options.value
+    }
+
     await router.replace({ name: 'game' })
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Không tạo được nhân vật'

@@ -19,7 +19,7 @@ export class PreloadScene extends Phaser.Scene {
 
   preload() {
     const bootstrap = this.sceneData.bootstrap
-    const config = this.sceneData.spritesheetConfig
+    const options = this.sceneData.characterOptions
 
     this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
 
@@ -27,11 +27,13 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(tilesetName, `/assets/tiles/${tilesetName}.png`)
     }
 
-    this.load.spritesheet(
-      this.sceneData.textureKey,
-      getCharacterSpriteUrl(this.sceneData.baseAssetKey),
-      { frameWidth: config.frame_width, frameHeight: config.frame_height },
-    )
+    for (const option of options) {
+      this.load.spritesheet(
+        option.base_asset_key,
+        getCharacterSpriteUrl(option.base_asset_key),
+        { frameWidth: option.spritesheet.frame_width, frameHeight: option.spritesheet.frame_height },
+      )
+    }
   }
 
   create() {

@@ -7,22 +7,24 @@ import "backend/internal/module/realtime/room"
 // docs/Phaser-Frontend-Guide.md mục 2 ("Không dùng chung một object cho DB entity, WebSocket
 // event và Phaser sprite state").
 type roomPlayerDTO struct {
-	CharacterID string `json:"characterId"`
-	Name        string `json:"name"`
-	X           int    `json:"x"`
-	Y           int    `json:"y"`
-	Direction   string `json:"direction"`
-	Moving      bool   `json:"moving"`
+	CharacterID  string `json:"characterId"`
+	Name         string `json:"name"`
+	BaseAssetKey string `json:"baseAssetKey"`
+	X            int    `json:"x"`
+	Y            int    `json:"y"`
+	Direction    string `json:"direction"`
+	Moving       bool   `json:"moving"`
 }
 
 func toRoomPlayerDTO(p room.RoomPlayer) roomPlayerDTO {
 	return roomPlayerDTO{
-		CharacterID: p.CharacterID,
-		Name:        p.Name,
-		X:           p.X,
-		Y:           p.Y,
-		Direction:   string(p.Direction),
-		Moving:      p.Moving,
+		CharacterID:  p.CharacterID,
+		Name:         p.Name,
+		BaseAssetKey: p.BaseAssetKey,
+		X:            p.X,
+		Y:            p.Y,
+		Direction:    string(p.Direction),
+		Moving:       p.Moving,
 	}
 }
 

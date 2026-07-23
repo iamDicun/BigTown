@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 
+import type { CharacterOptionDto } from '../services/character.service'
 import type { SpritesheetConfigDto } from '../services/character.service'
 import type { BootstrapDto } from '../services/realtime.service'
 import { bootSceneKey, BootScene } from './BootScene'
@@ -13,6 +14,7 @@ export function createGame(
   baseAssetKey: string,
   textureKey: string,
   spritesheetConfig: SpritesheetConfigDto,
+  characterOptions: CharacterOptionDto[],
 ): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -32,7 +34,14 @@ export function createGame(
     scene: [BootScene, PreloadScene, GameScene],
   })
 
-  game.scene.start(bootSceneKey, { bootstrap, characterId, baseAssetKey, textureKey, spritesheetConfig })
+  game.scene.start(bootSceneKey, {
+    bootstrap,
+    characterId,
+    baseAssetKey,
+    textureKey,
+    spritesheetConfig,
+    characterOptions,
+  })
 
   return game
 }

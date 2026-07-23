@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 import { defaultConfig as defaultSpritesheetConfig } from '../phaser/playerAnimations'
 import * as characterService from '../services/character.service'
-import type { SpritesheetConfigDto } from '../services/character.service'
+import type { CharacterOptionDto, SpritesheetConfigDto } from '../services/character.service'
 
 type LeaderboardEntry = {
   characterId: string
@@ -17,10 +17,16 @@ export const useGameStore = defineStore('game', {
     characterName: null as string | null,
     characterBaseAssetKey: null as string | null,
     spritesheetConfig: defaultSpritesheetConfig() as SpritesheetConfigDto,
+    characterOptions: [] as CharacterOptionDto[],
   }),
   getters: {
     textureKey(): string {
-      return this.characterBaseAssetKey ?? 'player'
+      const key = this.characterBaseAssetKey
+      if (key === 'cute_fantasy/player_base') return 'player'
+      return key ?? 'player'
+    },
+    normalizedBaseAssetKey(): string {
+      return this.textureKey
     },
   },
   actions: {
@@ -46,7 +52,9 @@ export const useGameStore = defineStore('game', {
     async loadMatchingConfig(baseAssetKey: string) {
       try {
         const options = await characterService.getOptions()
-        const match = options.find((o) => o.base_asset_key === baseAssetKey)
+        this.characterOptions = options
+        const normalizedKey = baseAssetKey === 'cute_fantasy/player_base' ? 'player' : baseAssetKey
+        const match = options.find((o) => o.base_asset_key === normalizedKey)
         if (match) {
           this.spritesheetConfig = match.spritesheet
         }

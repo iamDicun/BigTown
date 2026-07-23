@@ -22,6 +22,7 @@ export type PlayerMoveEvent = {
 export type RoomPlayerDto = {
   characterId: string
   name: string
+  baseAssetKey: string
   x: number
   y: number
   direction: Direction

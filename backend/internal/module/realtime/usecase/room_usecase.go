@@ -83,14 +83,15 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 	spawnX, spawnY := resolveSpawnPosition(mapInfo.SpawnX, mapInfo.SpawnY, existing, character.ID)
 
 	candidate := room.RoomPlayer{
-		CharacterID: character.ID,
-		Name:        character.Name,
-		UserID:      userID,
-		ClientID:    clientID,
-		X:           spawnX,
-		Y:           spawnY,
-		Direction:   room.DirectionDown,
-		Moving:      false,
+		CharacterID:  character.ID,
+		Name:         character.Name,
+		UserID:       userID,
+		ClientID:     clientID,
+		BaseAssetKey: character.BaseAssetKey,
+		X:            spawnX,
+		Y:            spawnY,
+		Direction:    room.DirectionDown,
+		Moving:       false,
 	}
 
 	snapshot, joined, isFirstConnection, err := u.store.JoinRoom(ctx, roomID, candidate)

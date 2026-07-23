@@ -70,10 +70,12 @@ export class LocalPlayerController {
     this.sprite.setScale(scale)
 
     const body = this.sprite.body as Phaser.Physics.Arcade.Body
-    body.setSize(PLAYER_BODY_SIZE.width, PLAYER_BODY_SIZE.height)
+    // setSize luôn dùng local coordinate của sprite (trước scale). Với scale < 1, body bị thu nhỏ
+    // trong world space — phải bù ngược để body luôn ~16×12 trong world space bất kể scale.
+    body.setSize(PLAYER_BODY_SIZE.width / scale, PLAYER_BODY_SIZE.height / scale)
     body.setOffset(
-      (config.frame_width - PLAYER_BODY_SIZE.width) / 2,
-      config.frame_height - PLAYER_BODY_SIZE.height - 2,
+      (config.frame_width - PLAYER_BODY_SIZE.width / scale) / 2,
+      config.frame_height - PLAYER_BODY_SIZE.height / scale - 2 / scale,
     )
 
     this.sprite.anims.play(idleAnimKey(textureKey, this.facing))

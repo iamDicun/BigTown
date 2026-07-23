@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 
+import type { CharacterOptionDto, SpritesheetConfigDto } from '../services/character.service'
 import type { BootstrapDto } from '../services/realtime.service'
-import type { SpritesheetConfigDto } from '../services/character.service'
 import { preloadSceneKey } from './PreloadScene'
 
 export const bootSceneKey = 'boot'
@@ -12,6 +12,7 @@ export type GameSceneData = {
   baseAssetKey: string
   textureKey: string
   spritesheetConfig: SpritesheetConfigDto
+  characterOptions: CharacterOptionDto[]
 }
 
 export class BootScene extends Phaser.Scene {

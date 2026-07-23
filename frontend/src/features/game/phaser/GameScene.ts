@@ -31,12 +31,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const { bootstrap, characterId, textureKey, spritesheetConfig } = this.sceneData
+    const { bootstrap, characterId, textureKey, spritesheetConfig, characterOptions } = this.sceneData
     this.localCharacterId = characterId
 
     const { collisionGroup, aboveLayer } = buildMap(this, bootstrap)
     this.aboveLayerFade = aboveLayer ? createAboveLayerFade(aboveLayer) : null
-    createAnimations(this, textureKey, spritesheetConfig)
+
+    for (const option of characterOptions) {
+      createAnimations(this, option.base_asset_key, option.spritesheet)
+    }
 
     this.localPlayer = new LocalPlayerController(
       this,
@@ -45,14 +48,14 @@ export class GameScene extends Phaser.Scene {
       bootstrap.spawn_y,
       (command) =>
         this.gameSocket?.sendMove(command).catch(() => {
-          // RPC lỗi (mất kết nối tạm thời) — bỏ qua, network tick tiếp theo sẽ tự gửi lại vị trí mới nhất.
         }),
       spritesheetConfig,
     )
     this.physics.add.collider(this.localPlayer.sprite, collisionGroup)
     this.localPlayer.sprite.setCollideWorldBounds(true)
 
-    this.remotePlayers = new RemotePlayerManager(this, textureKey, spritesheetConfig)
+    this.remotePlayers = new RemotePlayerManager(this, characterOptions)
+
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height)
@@ -73,7 +76,7 @@ export class GameScene extends Phaser.Scene {
             this.localPlayer.setName(p.name)
             continue
           }
-          this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving, p.name)
+          this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving, p.baseAssetKey, p.name)
         }
       },
       onPlayerJoined: (event) => {
@@ -84,6 +87,7 @@ export class GameScene extends Phaser.Scene {
           event.player.y,
           event.player.direction,
           event.player.moving,
+          event.player.baseAssetKey,
           event.player.name,
         )
       },

@@ -39,6 +39,7 @@ onMounted(async () => {
         gameStore.characterBaseAssetKey,
         gameStore.textureKey,
         gameStore.spritesheetConfig,
+        gameStore.characterOptions,
       )
     }
   } catch (err) {
