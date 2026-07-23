@@ -1,3 +1,17 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue'
+
+import { playMusic, stopMusic } from '@/shared/audio/audio.service'
+
+onMounted(() => {
+  playMusic('/assets/sounds/intro.mp3', { fadeMs: 1600, volume: 0.25 })
+})
+
+onBeforeUnmount(() => {
+  stopMusic()
+})
+</script>
+
 <template>
   <div class="auth-layout">
     <div class="auth-layout__scrim" />

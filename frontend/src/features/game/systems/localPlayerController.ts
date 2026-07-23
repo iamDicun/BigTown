@@ -1,5 +1,7 @@
 import type Phaser from 'phaser'
 
+import { playRandomSfx } from '@/shared/audio/audio.service'
+
 import type { Direction, PlayerMoveCommand } from '../network/gameEvents'
 import {
   facingForDirection,
@@ -22,6 +24,17 @@ const PLAYER_SPEED = 120
 const MOVEMENT_THRESHOLD_MS = 100
 const PLAYER_BODY_SIZE = { width: 16, height: 12 }
 const PLAYER_BODY_OFFSET = { x: 8, y: 18 }
+const FOOTSTEP_INTERVAL_MS = 460
+const FOOTSTEP_VOLUME = 0.38
+const FOOTSTEP_SOUNDS = [
+  '/assets/sounds/f1.mp3',
+  '/assets/sounds/f2.mp3',
+  '/assets/sounds/f3.mp3',
+  '/assets/sounds/f4.mp3',
+  '/assets/sounds/f5.mp3',
+  '/assets/sounds/f6.mp3',
+  '/assets/sounds/f7.mp3',
+]
 
 // Gói toàn bộ local player: sprite, input -> velocity/animation, throttle + gửi RPC player_move,
 // và snap về vị trí authoritative (join snapshot / correction). Tách khỏi GameScene để scene
@@ -36,6 +49,7 @@ export class LocalPlayerController {
   private readonly sendMove: (command: PlayerMoveCommand) => void
   private readonly scene: Phaser.Scene
   private nameTag: Phaser.GameObjects.Text | null = null
+  private lastFootstepAt = 0
 
   constructor(scene: Phaser.Scene, x: number, y: number, sendMove: (command: PlayerMoveCommand) => void) {
     this.sendMove = sendMove
@@ -80,6 +94,7 @@ export class LocalPlayerController {
       tickMovementThrottle(this.movementThrottle, time, MOVEMENT_THRESHOLD_MS, this.sendMove)
     }
     this.wasMoving = moving
+    this.playFootstepIfNeeded(time, moving)
 
     if (this.nameTag) {
       updateNameTagPosition(this.nameTag, this.sprite)
@@ -128,6 +143,14 @@ export class LocalPlayerController {
 
     this.facing = facingForDirection(direction)
     this.lastDirection = direction
+  }
+
+  private playFootstepIfNeeded(time: number, moving: boolean): void {
+    if (!moving) return
+    if (time - this.lastFootstepAt < FOOTSTEP_INTERVAL_MS) return
+
+    this.lastFootstepAt = time
+    playRandomSfx(FOOTSTEP_SOUNDS, FOOTSTEP_VOLUME)
   }
 }
 

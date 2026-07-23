@@ -78,7 +78,7 @@ async function rawRequest<T>(
 // các request còn lại chờ chung promise này rồi tự retry (mục 14.1 frontend-architecture doc).
 let refreshPromise: Promise<string> | null = null
 
-function refreshAccessTokenOnce(): Promise<string> {
+export function refreshAccessTokenOnce(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = rawRequest<{ access_token: string }>('POST', '/auth/refresh', undefined, {
       auth: false,
