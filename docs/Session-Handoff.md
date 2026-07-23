@@ -1,19 +1,55 @@
 # BigTown Session Handoff
 **Đọc file này trước khi làm tiếp — tóm tắt trạng thái dự án và những gì vừa được implement, để session/người mới không phải đọc lại toàn bộ lịch sử chat.**
 
+Cập nhật lần cuối: **Session 2** (production debug + improvements)
+
 ---
 
 ## 1. Trạng thái hiện tại (tóm tắt 1 phút)
 
-MVP đã có: đăng nhập (local + Teams SSO), tạo character tự động, map `village_adventure` render bằng Phaser với player di chuyển 4 hướng, multiplayer realtime (thấy người khác di chuyển, join/leave), chat (HTTP POST + broadcast qua Centrifuge), khung chat expand/collapse.
+MVP hoạt động: đăng nhập (local + Teams SSO), tạo character tự động, map `village_adventure` render bằng Phaser, multiplayer realtime (thấy/nghe người khác di chuyển + chat). **Toàn bộ code chưa commit vào git** — xem mục 3.
 
-**Toàn bộ code đã viết nhưng CHƯA commit vào git** — xem mục 3. Cũng CHƯA được xác nhận bằng mắt trên trình duyệt thật (không có công cụ browser trong phiên làm việc) — xem mục 5.
+**Session 2 chính**: production debug (BE Render + FE Vercel) → tìm & sửa 7 nhóm vấn đề realtime/loading/session, cải thiện hiệu năng hot-path từ 3 round-trip DB xuống RAM thuần, thêm UI (tên nhân vật, fade tán cây che người chơi).
 
-Chi tiết đầy đủ từng bước, từng quyết định kỹ thuật nằm ở **`docs/Movement-Chat-Spawn-Plan.md`** — file đó là nhật ký chi tiết (checklist A→I + audit kiến trúc), file này chỉ là bản tóm tắt điều hướng.
+Chi tiết đầy đủ từng bước, từng quyết định kỹ thuật nằm ở các file `docs/*.md` — xem mục 8 để biết đọc theo thứ tự nào.
 
 ---
 
-## 2. Việc đã làm trong session vừa rồi
+## 2. Session 2 — Tóm tắt nhanh (production debug + improvements)
+
+### 2.1. Realtime bugs (đã sửa)
+1. **Multi-ClientID per character**: 1 user mở 2 connection (ChatPanel + GameScene) → server xoá player khỏi room khi 1 connection rớt dù connection kia còn → sửa bằng cơ chế `Clients map[string]map[string]struct{}` (1 character → tập hợp ClientID), chỉ xoá player khi **cả tập hợp rỗng**.
+2. **Race condition `isFirstConnection`**: 2 connection join gần đồng thời của cùng user → cả 2 đều thấy "chưa tồn tại" → sửa bằng cách dịch quyết định vào `MemoryRoomStore.JoinRoom` (cùng 1 lock).
+3. **Remote player jitter khi va chạm**: gắn dynamic body lên sprite tween → Arcade tự sync lại position mỗi frame → xung đột tween → sửa bằng cách tách sprite (tween) khỏi va chạm (Zone + static body riêng).
+4. **"Đi qua rồi giật lại"**: zone chặn remote player là hình vuông 16×12 (nhỏ hơn minDistance 24px server dùng) → local player lách vào rồi bị correction → sửa bằng cách đổi zone thành hình vuông 48×48 (= 2×minDistance) dùng AABB-vs-AABB chắc chắn hơn (hoặc thử hình tròn bán kính 26+ nếu muốn tự nhiên hơn).
+
+### 2.2. Hiệu năng hot-path (đã sửa)
+- **`player_move` RPC gọi DB 3 lần** (tra user, sync map, lấy bounds map) mỗi tick ~100ms → trễ 4-5s production → sửa:
+  - Cache `GetDefaultMap` trong RAM (map tĩnh, không đổi lúc server chạy).
+  - Thêm index RAM `PlayersByUser: map[string]string` (userID → characterID) trong `GameRoom`.
+  - `MovePlayer` tra luôn RAM, không gọi DB → hot-path 100% RAM, không round-trip nào.
+
+### 2.3. Loading chậm (đã cải thiện 1 phần)
+- Song song hoá 2 API độc lập (`loadMyCharacter` + `getBootstrap`) ở `GameCanvas.vue` bằng `Promise.all` → giảm thời gian chờ từ tổng 2 lệnh xuống bằng lệnh chậm nhất.
+- **Chưa fix hoàn toàn**: `main.ts` chặn `app.mount()` trên `tryRestoreSession()` → login screen trống 3-4s nếu token refresh bị reload cũng thất bại. Nghi vấn là Render free-tier cold start (sleep 15min, wake slow), chưa confirm.
+
+### 2.4. Logout/F5 session (đã sửa gần hết)
+- **Logout không navigate**: `auth.store.ts` `logout()` thiếu `catch` → exception chặn `router.push` ở `Navbar.vue` → sửa thêm `catch {}`.
+- **F5 mất session + cross-site cookie**: logout không disconnect thật ở prod (FE Vercel, BE Render khác domain) → sửa code (logout best-effort), nhưng **còn thiếu step quan trọng**: set `COOKIE_SAME_SITE=None` + `COOKIE_SECURE=true` trên Render dashboard (không làm được, chờ user xác nhận).
+- **2 nhân vật khi đổi tài khoản cùng tab**: `gameStore.characterId` không reset lúc logout → `Navbar.vue` thêm `gameStore.$reset()` ngay khi logout.
+
+### 2.5. UI mới
+- **Tên nhân vật trên đầu**: lấy `character.Name` từ DB qua broadcast `room_snapshot`/`player_joined`, render `Phaser.GameObjects.Text` trên đầu sprite. Cập nhật vị trí mỗi frame (đọc lại vị trí render thật, không tween — khớp sprite chính).
+- **Fix tên "Player" mặc định**: `GetOrCreateForUser` (safety net tạo character cho user cũ chưa có) không tra `app_user.full_name` → sửa bằng cách thêm `port.UserReader` vào `CharacterUsecase`, tra tên thật trước khi tạo.
+- **Fade DecorationAbove layer**: file mới `aboveLayerFadeSystem.ts`, mỗi frame kiểm tra tile nào overlap bounding box local player thì tween alpha xuống 0.35.
+
+### 2.6. Tài liệu mới
+- `docs/Realtime-Performance-Techniques.md`: 8 kỹ thuật chung (race condition, static vs dynamic body, server-authoritative, hot-path optimization, RAM index, song song API, cross-site cookie, best-effort error handling).
+- `docs/Realtime-Performance-Fixes.md`: chi tiết 6 nhóm vấn đề + trạng thái (đã sửa/chưa làm/cần xác nhận).
+
+---
+
+## 3. Session 1 — Việc đã làm (tóm tắt từ chat cũ)
 
 Theo đúng thứ tự trong `docs/Movement-Chat-Spawn-Plan.md`:
 
@@ -27,11 +63,14 @@ Theo đúng thứ tự trong `docs/Movement-Chat-Spawn-Plan.md`:
 
 ---
 
-## 3. Trạng thái git — QUAN TRỌNG
+## 4. Trạng thái git — QUAN TRỌNG
 
-**Chưa có commit nào cho toàn bộ việc trên.** `git log` gần nhất vẫn là `86cd8a4` (trước khi bắt đầu session). Toàn bộ thay đổi đang nằm ở working tree (`git status` sẽ thấy rất nhiều file M/??). Nếu muốn giữ lại, cần commit trước khi làm gì có rủi ro mất dữ liệu (checkout, reset, clean...).
+**Chưa commit nào cho Session 1 + Session 2.** `git log` gần nhất vẫn là `e3bb021` (cũ). Toàn bộ ~200+ file thay đổi nằm ở working tree. **Session 2 có uncommitted local changes ở một vài file config** (`backend/internal/platform/config/config.go`), chủ yếu là test data thay đổi, không ảnh hưởng logic. **Nếu muốn giữ lại, cần commit ngay** (vì working tree dễ mất nếu do lỗi tay hay crash).
 
-File mới quan trọng (chưa track): `backend/internal/module/character/`, `backend/internal/module/chat/`, `backend/internal/module/realtime/{room,port}/`, `backend/internal/database/seed.sql`, `frontend/public/assets/`, `frontend/src/features/game/{phaser/createGame.ts,phaser/playerAnimations.ts,systems/{mapSystem,localPlayerController,remotePlayerManager}.ts,services/}`, `asset/tools/`, và các doc `docs/Movement-Chat-Spawn-Plan.md`, `docs/Session-Handoff.md` (file này).
+**File mới/sửa chính** (Session 2): 
+- Backend: `room/state.go` (thêm `Name`, `UserID`, `PlayersByUser`), `memory_store.go` (multi-ClientID logic, `GetPlayerByUserID`), `room_usecase.go` (bỏ DB khỏi `MovePlayer`), `character/port/user_reader.go` (mới), `character/usecase/character_usecase.go` (cache map, tra user real name).
+- Frontend: `nameTagSystem.ts` (mới), `remotePlayerManager.ts` (static collision zone, name tag), `localPlayerController.ts` (name tag), `aboveLayerFadeSystem.ts` (mới), `GameScene.ts` (wire name tag + fade), `gameSocket.ts` (thêm `name` field), `Navbar.vue` (reset gameStore), `auth.store.ts` (catch logout), `GameCanvas.vue` (song song API).
+- Doc: `Realtime-Performance-Techniques.md` (mới), `Realtime-Performance-Fixes.md` (mới).
 
 ---
 
@@ -64,33 +103,67 @@ Test nhanh không cần trình duyệt: `POST /api/auth/register` → `/api/auth
 
 ---
 
-## 6. Quyết định kiến trúc cần nhớ (tránh hỏi lại/làm lại)
+## 5. Quyết định kiến trúc cần nhớ (tránh hỏi lại/làm lại)
 
-- **Movement**: pixel/free, `minDistance = 24px`, throttle gửi 100ms, coalesce latest event, gửi ngay khi vừa dừng.
-- **Correction**: qua personal channel (`personal:<userID>`, Centrifuge server-side subscription), không qua response RPC.
-- **Spawn**: luôn dùng spawn point mặc định của map (không đọc `characters.last_x/last_y`); nếu bị chiếm thì dò vòng xoắn ốc tìm chỗ trống.
-- **NPC hiện tại trong map** (sheep/chicken/villager...) = flavor/decoration, **không đánh được**. Enemy combat thật (`npc_types`/`map_npc_spawns`/`enemy_hit`) là việc **chưa làm**, để sau.
-- **Đổi map sau này**: seed map mới + đổi `GAME_DEFAULT_MAP_CODE`, không sửa code gì khác (xem `docs/Architecture.md` mục 9.1).
-- **2 connection Centrifuge riêng** (ChatPanel + GameScene) cho cùng 1 user — biết và chấp nhận, chưa gộp lại (xem mục G trong Movement-Chat-Spawn-Plan.md).
+**Movement & realtime**:
+- **Server-authoritative**: client optimistic render (tween 100ms), gửi RPC throttle 100ms, server validate atomic (tốc độ/bounds/occupied), response ngay (ack) nhưng correction gửi riêng qua personal channel.
+- **minDistance = 24px**: tra khoảng cách 2 tâm sprite (x/y tính từ DB), kiểm tra cả lúc spawn và mỗi move.
+- **Collision client-side**: zone static body quanh remote player (hình vuông 48×48 = 2×minDistance, AABB-vs-AABB chắc chắn) để chặn local player trước khi server bắt buộc correction.
+- **Multi-ClientID**: 1 character = tập hợp ClientID, chỉ xoá player khỏi room khi tập hợp rỗng (tất cả connection rớt).
+- **Correction**: qua personal channel (server-side subscription), không qua response RPC.
+- **Spawn**: luôn dùng spawn point mặc định (không lưu last_x/last_y), nếu chiếm thì dò vòng xoắn ốc.
+- **Database truy cập**:
+  - `JoinRoom`/`LeaveRoom`: gọi DB là bình thường (chỉ lần đầu/cuối phiên).
+  - `MovePlayer` (hot-path): 100% RAM, không DB nào — cache `GetDefaultMap`, index `PlayersByUser`.
+- **NPC hiện tại** trong map = flavor, không đánh. Enemy combat = chưa làm.
+- **2 connection Centrifuge** (ChatPanel + GameScene) cùng user — biết, chấp nhận, chưa gộp.
 
 ---
 
-## 7. Việc chưa làm / hướng tiếp theo
+## 6. Việc chưa làm / tồn đọng (phạm vi chưa giải quyết)
 
-Xem `docs/Movement-Chat-Spawn-Plan.md` mục 3 "Ngoài phạm vi batch này":
+### Tồn đọng từ Session 2
+- **Set `COOKIE_SAME_SITE=None` + `COOKIE_SECURE=true` trên Render**: code đã sửa xong (logout best-effort), nhưng env var thực thế Render dashboard chưa được set. Cần user tự làm hoặc cấp quyền.
+- **Load time 3-4s lúc login/map**: song song hoá 1 phần, nhưng `main.ts` vẫn chặn `app.mount()` trên `tryRestoreSession()`. Nghi vấn Render cold start, chưa confirm bằng cách reload 2 lần để xem lần 2 nhanh hay không.
+- **Remote collision zone**: hiện dùng hình vuông 48×48 (AABB), chứng kiến "nhích" từng chút khi circle. User prefer circle (tự nhiên hơn) nhưng cần điều chỉnh lực va chạm hoặc tăng bán kính. **Hành động tiếp**: thử hình tròn bán kính 28-30px (lớn hơn 26px lần trước) để chặn sớm hơn, giảm "nhích".
 
-- Enemy NPC thật (spawn, HP, `enemy_hit`, reward, animation từ `Player_Actions.png`).
-- Debounced position persistence (`characters.last_x/last_y`) khi đứng yên/rời room/logout.
+### Chưa làm theo kế hoạch gốc
+- Enemy NPC thật (spawn, HP, `enemy_hit`, reward, `Player_Actions.png` animation).
+- Position persistence (`characters.last_x/last_y`) — debounce update lúc đứng yên / rời room.
 - Avatar builder, shop, inventory UI.
 - Teams SSO auto-login trong `GameView`.
-- Cân nhắc gộp 2 connection Centrifuge (ChatPanel + GameScene) làm 1.
+- Gộp 2 Centrifuge connection thành 1 (cân nhắc hiệu suất/độ phức tạp).
+
+---
+
+## 7. Cách chạy & test
+
+```bash
+# Backend: Postgres + seed + go run
+cd backend && docker compose up -d
+docker exec -i backend-postgres-1 psql -U postgres -d app_db < backend/internal/database/seed.sql
+go run ./cmd/server  # :8080
+
+# Frontend
+cd frontend && npm run dev  # :5173
+
+# Quick test (curl, không cần browser)
+POST /api/auth/register → /api/auth/login → GET /api/characters/me (with Bearer token)
+```
 
 ---
 
 ## 8. Tài liệu tham khảo (đọc theo thứ tự nếu cần hiểu sâu)
 
-1. `docs/Architecture.md` — tổng quan kiến trúc, mục 9.1 quan trọng (cách đổi map).
-2. `docs/Storage-Design.md` — thiết kế DB/RAM/Frontend state.
-3. `docs/Realtime-Room-State-Decisions.md` — quyết định chi tiết RoomStore/movement/chat (nguồn tham chiếu chính cho phần realtime).
-4. `docs/Phaser-Frontend-Guide.md` — hướng dẫn tổ chức code Phaser.
-5. `docs/Movement-Chat-Spawn-Plan.md` — **nhật ký chi tiết nhất của session vừa rồi**, checklist A→I, audit kiến trúc, mọi phát hiện kỹ thuật (Phaser không hỗ trợ external tileset, sprite layout thật, v.v.).
+**Thiết kế & quyết định**:
+1. `docs/Architecture.md` — tổng quan (mục 9.1: cách đổi map).
+2. `docs/Storage-Design.md` — DB/RAM/FE state design.
+3. `docs/Realtime-Room-State-Decisions.md` — chi tiết RoomStore/movement/chat (tài liệu chuẩn cho realtime).
+
+**Implementation & optimization**:
+4. `docs/Realtime-Performance-Techniques.md` — 8 kỹ thuật chung (race condition, body va chạm, hot-path, RAM index, v.v.).
+5. `docs/Realtime-Performance-Fixes.md` — chi tiết 7 nhóm vấn đề + trạng thái (đã sửa/chưa/cần xác nhận).
+
+**Code organization**:
+6. `docs/Phaser-Frontend-Guide.md` — tổ chức code Phaser, systems architecture.
+7. `docs/Movement-Chat-Spawn-Plan.md` — nhật ký chi tiết Session 1 (checklist A→I, audit, phát hiện Phaser).

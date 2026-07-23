@@ -1,5 +1,6 @@
 import { Centrifuge, type Subscription } from 'centrifuge'
 
+import { refreshAccessTokenOnce } from '@/shared/api/http'
 import { getAccessToken } from '@/shared/api/tokenStorage'
 
 import type {
@@ -49,7 +50,13 @@ export function createGameSocket(url: string, options: GameSocketOptions) {
     throw new Error('Missing access token for realtime connection')
   }
 
-  const centrifuge = new Centrifuge(url, { token })
+  const centrifuge = new Centrifuge(url, {
+    token,
+    // Access token chỉ sống 15 phút. Khi server báo token hết hạn, Centrifuge cần callback này
+    // để lấy token mới bằng refresh_token HttpOnly cookie; nếu thiếu sẽ báo
+    // "token expired but no getToken function set in the configuration".
+    getToken: () => refreshAccessTokenOnce(),
+  })
   const subscription: Subscription = centrifuge.newSubscription(options.channel)
 
   subscription.on('subscribed', (ctx) => {
