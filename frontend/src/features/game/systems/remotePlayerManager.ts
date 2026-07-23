@@ -1,7 +1,8 @@
 import type Phaser from 'phaser'
 
 import type { Direction } from '../network/gameEvents'
-import { facingForDirection, idleAnimForFacing, walkAnimForFacing } from '../phaser/playerAnimations'
+import { facingForDirection, idleAnimKey, walkAnimKey } from '../phaser/playerAnimations'
+import type { SpritesheetConfigDto } from '../services/character.service'
 import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 
 const TWEEN_DURATION_MS = 100
@@ -36,12 +37,14 @@ export class RemotePlayerManager {
   private readonly zones = new Map<string, Phaser.GameObjects.Zone>()
   private readonly nameTags = new Map<string, Phaser.GameObjects.Text>()
   private readonly scene: Phaser.Scene
-  // Group vật lý (static) chứa toàn bộ zone va chạm hiện có — GameScene chỉ cần đăng ký 1 collider
-  // với group này lúc create(), member thêm/xoá sau tự động được collider áp dụng.
+  private readonly textureKey: string
+  private readonly spriteScale: number
   readonly group: Phaser.Physics.Arcade.StaticGroup
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, textureKey: string, config: SpritesheetConfigDto) {
     this.scene = scene
+    this.textureKey = textureKey
+    this.spriteScale = 32 / config.frame_height
     this.group = scene.physics.add.staticGroup()
   }
 
@@ -52,7 +55,8 @@ export class RemotePlayerManager {
     let sprite = this.sprites.get(characterId)
 
     if (!sprite) {
-      sprite = this.scene.add.sprite(x, y, 'player', 0)
+      sprite = this.scene.add.sprite(x, y, this.textureKey, 0)
+      sprite.setScale(this.spriteScale)
       this.sprites.set(characterId, sprite)
 
       const zone = this.scene.add.zone(x, y, REMOTE_BLOCK_RADIUS * 2, REMOTE_BLOCK_RADIUS * 2)
@@ -74,7 +78,7 @@ export class RemotePlayerManager {
     ;(zone.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject()
 
     sprite.setFlipX(facing === 'side' && direction === 'left')
-    sprite.anims.play(moving ? walkAnimForFacing(facing) : idleAnimForFacing(facing), true)
+    sprite.anims.play(moving ? walkAnimKey(this.textureKey, facing) : idleAnimKey(this.textureKey, facing), true)
   }
 
   // Gọi mỗi frame từ GameScene.update() — name tag không tween theo sprite, mà đọc lại vị trí

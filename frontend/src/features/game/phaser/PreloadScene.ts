@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 
 import type { GameSceneData } from './BootScene'
 import { gameSceneKey } from './GameScene'
+import { getCharacterSpriteUrl } from '../services/character.service'
 
 export const preloadSceneKey = 'preload'
 
@@ -18,16 +19,19 @@ export class PreloadScene extends Phaser.Scene {
 
   preload() {
     const bootstrap = this.sceneData.bootstrap
+    const config = this.sceneData.spritesheetConfig
 
     this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
 
-    // Không hardcode danh sách tileset — parse từ tileset_asset_key mà bootstrap trả về, khớp
-    // đúng file .png đã copy vào frontend/public/assets/tiles/ (xem docs/Architecture.md mục 9.1).
     for (const tilesetName of bootstrap.tileset_asset_key.split(',')) {
       this.load.image(tilesetName, `/assets/tiles/${tilesetName}.png`)
     }
 
-    this.load.spritesheet('player', '/assets/player/Player.png', { frameWidth: 32, frameHeight: 32 })
+    this.load.spritesheet(
+      this.sceneData.textureKey,
+      getCharacterSpriteUrl(this.sceneData.baseAssetKey),
+      { frameWidth: config.frame_width, frameHeight: config.frame_height },
+    )
   }
 
   create() {

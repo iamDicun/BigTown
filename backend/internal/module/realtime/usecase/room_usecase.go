@@ -10,8 +10,6 @@ import (
 )
 
 const (
-	defaultCharacterName = "Player"
-
 	// minDistancePx/tileSize khớp quyết định đã chốt trong docs/Realtime-Room-State-Decisions.md
 	// mục 5 và docs/Movement-Chat-Spawn-Plan.md (pixel/free movement, minDistance 24px).
 	minDistancePx = 24.0
@@ -67,7 +65,7 @@ func (u *RoomUsecase) DefaultRoomID(ctx context.Context) (string, error) {
 // thời của cùng user), MemoryRoomStore.JoinRoom sẽ tự bỏ qua ứng viên này và giữ nguyên vị trí cũ,
 // đồng thời trả isFirstConnection=false atomic — không phụ thuộc vào phép tính ở đây.
 func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string, clientID string) (*room.RoomSnapshot, *room.RoomPlayer, bool, error) {
-	character, err := u.characters.GetOrCreateForUser(ctx, userID, defaultCharacterName)
+	character, err := u.characters.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -106,7 +104,7 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 // LeaveRoom trả lại player vừa rời đi (để transport broadcast `player_left`); trả nil, nil nếu
 // user chưa từng join room đó (không phải lỗi).
 func (u *RoomUsecase) LeaveRoom(ctx context.Context, roomID string, userID string, clientID string) (*room.RoomPlayer, error) {
-	character, err := u.characters.GetOrCreateForUser(ctx, userID, defaultCharacterName)
+	character, err := u.characters.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

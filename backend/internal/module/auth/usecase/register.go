@@ -56,10 +56,6 @@ func (u *AuthUsecase) Register(ctx context.Context, input RegisterInput) (*Regis
 		return nil, apperror.Internal(err)
 	}
 
-	if _, err := u.characterProvisioner.CreateDefaultWithTx(ctx, tx, user.ID, fullName); err != nil {
-		return nil, apperror.Internal(err)
-	}
-
 	if err := tx.Commit(); err != nil {
 		return nil, apperror.Internal(err)
 	}

@@ -1,51 +1,59 @@
 import type { Direction } from '../network/gameEvents'
+import type { SpritesheetConfigDto } from '../services/character.service'
 
-// Player.png là spritesheet 6 cột x 10 hàng, khung 32x32px (xem docs/Movement-Chat-Spawn-Plan.md
-// mục D — soi pixel thật, không phải 12x20 @16px như nhận định ban đầu). Frame index = row*6 + col.
-//
-// Hàng 0: idle-down · Hàng 1: walk-down · Hàng 2: idle-up · Hàng 3: walk-up · Hàng 4: walk-left.
-// Không có hàng walk-right riêng biệt rõ ràng — dùng chung hàng 4 + setFlipX(true) khi đi sang phải.
-// Hàng 5-9 là attack/hurt, dành cho combat NPC ở phase sau, chưa dùng ở đây.
+// Animation key suffix constants — các key animation thực tế sẽ là "{textureKey}-idle-down", v.v.
+// Dùng chung suffix này cho các hàm lookup animation ở local/remote player.
+const SUFFIX_IDLE_DOWN = '-idle-down'
+const SUFFIX_WALK_DOWN = '-walk-down'
+const SUFFIX_IDLE_UP = '-idle-up'
+const SUFFIX_WALK_UP = '-walk-up'
+const SUFFIX_IDLE_SIDE = '-idle-side'
+const SUFFIX_WALK_SIDE = '-walk-side'
 
-const COLS_PER_ROW = 6
+// createAnimations tạo animation Phaser từ config spritesheet và textureKey.
+// Dùng chung cho mọi loại nhân vật — mỗi loại chỉ khác config (số cột, thứ tự hàng, frame rate).
+export function createAnimations(scene: Phaser.Scene, textureKey: string, config: SpritesheetConfigDto): void {
+  const rowFrames = (row: number) =>
+    Array.from({ length: config.columns }, (_, i) => row * config.columns + i)
 
-const ROW = {
-  idleDown: 0,
-  walkDown: 1,
-  idleUp: 2,
-  walkUp: 3,
-  walkSide: 4,
-}
+  const frames = (row: number) => scene.anims.generateFrameNumbers(textureKey, { frames: rowFrames(row) })
 
-function rowFrames(row: number): number[] {
-  return Array.from({ length: COLS_PER_ROW }, (_, i) => row * COLS_PER_ROW + i)
-}
-
-export const playerAnimKey = {
-  idleDown: 'player-idle-down',
-  walkDown: 'player-walk-down',
-  idleUp: 'player-idle-up',
-  walkUp: 'player-walk-up',
-  idleSide: 'player-idle-side',
-  walkSide: 'player-walk-side',
-} as const
-
-export function createPlayerAnimations(scene: Phaser.Scene): void {
-  const frames = (row: number) => scene.anims.generateFrameNumbers('player', { frames: rowFrames(row) })
-
-  scene.anims.create({ key: playerAnimKey.idleDown, frames: frames(ROW.idleDown), frameRate: 4, repeat: -1 })
-  scene.anims.create({ key: playerAnimKey.walkDown, frames: frames(ROW.walkDown), frameRate: 8, repeat: -1 })
-  scene.anims.create({ key: playerAnimKey.idleUp, frames: frames(ROW.idleUp), frameRate: 4, repeat: -1 })
-  scene.anims.create({ key: playerAnimKey.walkUp, frames: frames(ROW.walkUp), frameRate: 8, repeat: -1 })
-  scene.anims.create({ key: playerAnimKey.walkSide, frames: frames(ROW.walkSide), frameRate: 8, repeat: -1 })
   scene.anims.create({
-    key: playerAnimKey.idleSide,
-    frames: [{ key: 'player', frame: rowFrames(ROW.walkSide)[0] }],
+    key: textureKey + SUFFIX_IDLE_DOWN,
+    frames: frames(config.row_idle_down),
+    frameRate: config.idle_frame_rate,
+    repeat: -1,
+  })
+  scene.anims.create({
+    key: textureKey + SUFFIX_WALK_DOWN,
+    frames: frames(config.row_walk_down),
+    frameRate: config.walk_frame_rate,
+    repeat: -1,
+  })
+  scene.anims.create({
+    key: textureKey + SUFFIX_IDLE_UP,
+    frames: frames(config.row_idle_up),
+    frameRate: config.idle_frame_rate,
+    repeat: -1,
+  })
+  scene.anims.create({
+    key: textureKey + SUFFIX_WALK_UP,
+    frames: frames(config.row_walk_up),
+    frameRate: config.walk_frame_rate,
+    repeat: -1,
+  })
+  scene.anims.create({
+    key: textureKey + SUFFIX_WALK_SIDE,
+    frames: frames(config.row_walk_side),
+    frameRate: config.walk_frame_rate,
+    repeat: -1,
+  })
+  scene.anims.create({
+    key: textureKey + SUFFIX_IDLE_SIDE,
+    frames: [{ key: textureKey, frame: rowFrames(config.row_walk_side)[0] }],
   })
 }
 
-// Facing gộp left/right thành 'side' (khác biệt chỉ ở setFlipX) — dùng chung cho local player
-// (GameScene.update) và remote player (applyRemoteMove) để không lặp logic chọn animation.
 export type Facing = 'down' | 'up' | 'side'
 
 export function facingForDirection(direction: Direction): Facing {
@@ -54,14 +62,34 @@ export function facingForDirection(direction: Direction): Facing {
   return 'down'
 }
 
-export function walkAnimForFacing(facing: Facing): string {
-  if (facing === 'up') return playerAnimKey.walkUp
-  if (facing === 'side') return playerAnimKey.walkSide
-  return playerAnimKey.walkDown
+// Các hàm dưới dùng textureKey + suffix để chọn đúng animation key khi character có texture riêng.
+// LocalPlayerController và RemotePlayerManager sẽ gọi với textureKey tương ứng của character đó.
+
+export function walkAnimKey(textureKey: string, facing: Facing): string {
+  if (facing === 'up') return textureKey + SUFFIX_WALK_UP
+  if (facing === 'side') return textureKey + SUFFIX_WALK_SIDE
+  return textureKey + SUFFIX_WALK_DOWN
 }
 
-export function idleAnimForFacing(facing: Facing): string {
-  if (facing === 'up') return playerAnimKey.idleUp
-  if (facing === 'side') return playerAnimKey.idleSide
-  return playerAnimKey.idleDown
+export function idleAnimKey(textureKey: string, facing: Facing): string {
+  if (facing === 'up') return textureKey + SUFFIX_IDLE_UP
+  if (facing === 'side') return textureKey + SUFFIX_IDLE_SIDE
+  return textureKey + SUFFIX_IDLE_DOWN
+}
+
+// defaultConfig trả về config mặc định (dùng cho fallback khi store chưa có).
+// Luôn giữ đồng bộ với backend SpritesheetConfig của "Nhà thám hiểm".
+export function defaultConfig(): SpritesheetConfigDto {
+  return {
+    frame_width: 32,
+    frame_height: 32,
+    columns: 6,
+    row_idle_down: 0,
+    row_walk_down: 1,
+    row_idle_up: 2,
+    row_walk_up: 3,
+    row_walk_side: 4,
+    walk_frame_rate: 8,
+    idle_frame_rate: 4,
+  }
 }

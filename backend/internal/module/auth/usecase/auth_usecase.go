@@ -11,12 +11,11 @@ const accessTokenTTL = 15 * time.Minute
 const refreshTokenTTL = 7 * 24 * time.Hour
 
 type AuthUsecase struct {
-	db                   *sql.DB
-	authRepo             port.AuthRepository
-	userReader           port.UserReader
-	teamsTokenVerifier   port.TeamsTokenVerifier
-	characterProvisioner port.CharacterProvisioner
-	jwtSecret            string
+	db                 *sql.DB
+	authRepo           port.AuthRepository
+	userReader         port.UserReader
+	teamsTokenVerifier port.TeamsTokenVerifier
+	jwtSecret          string
 }
 
 type TokenPair struct {
@@ -25,6 +24,6 @@ type TokenPair struct {
 	ExpiresIn    int64
 }
 
-func NewAuthUsecase(db *sql.DB, authRepo port.AuthRepository, userReader port.UserReader, teamsTokenVerifier port.TeamsTokenVerifier, characterProvisioner port.CharacterProvisioner, jwtSecret string) *AuthUsecase {
-	return &AuthUsecase{db: db, authRepo: authRepo, userReader: userReader, teamsTokenVerifier: teamsTokenVerifier, characterProvisioner: characterProvisioner, jwtSecret: jwtSecret}
+func NewAuthUsecase(db *sql.DB, authRepo port.AuthRepository, userReader port.UserReader, teamsTokenVerifier port.TeamsTokenVerifier, jwtSecret string) *AuthUsecase {
+	return &AuthUsecase{db: db, authRepo: authRepo, userReader: userReader, teamsTokenVerifier: teamsTokenVerifier, jwtSecret: jwtSecret}
 }

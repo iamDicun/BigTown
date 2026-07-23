@@ -11,10 +11,6 @@ import (
 
 var _ port.CharacterRepository = (*CharacterRepository)(nil)
 
-// defaultBaseAssetKey được dùng khi tạo character mặc định lúc user mới đăng ký/login lần đầu.
-// Avatar builder thật sẽ cho user đổi asset_key này sau, xem docs/Phaser-Frontend-Guide.md mục 7.
-const defaultBaseAssetKey = "cute_fantasy/player_base"
-
 const characterColumns = `id::text, user_id::text, name, map_id::text, base_asset_key, coins, score, last_x, last_y`
 
 const selectCharacterByUserIDQuery = `SELECT ` + characterColumns + ` FROM characters WHERE user_id = $1`
@@ -45,9 +41,7 @@ func (r *CharacterRepository) FindByUserID(ctx context.Context, userID string) (
 	return scanCharacter(r.db.QueryRowContext(ctx, selectCharacterByUserIDQuery, userID))
 }
 
-// CreateDefaultWithTx gán luôn map_id theo map mặc định hiện hành. Nếu map mặc định chưa được
-// seed (sql.ErrNoRows), vẫn tạo character với map_id NULL thay vì chặn đăng ký/login toàn bộ.
-func (r *CharacterRepository) CreateDefaultWithTx(ctx context.Context, tx *sql.Tx, userID string, name string) (*entity.Character, error) {
+func (r *CharacterRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, userID string, name string, baseAssetKey string) (*entity.Character, error) {
 	var mapID *string
 
 	mapInfo, err := scanMap(tx.QueryRowContext(ctx, selectMapByCodeQuery, r.defaultMapCode))
@@ -57,15 +51,15 @@ func (r *CharacterRepository) CreateDefaultWithTx(ctx context.Context, tx *sql.T
 		return nil, err
 	}
 
-	return scanCharacter(tx.QueryRowContext(ctx, insertDefaultCharacterQuery, userID, name, defaultBaseAssetKey, mapID))
+	return scanCharacter(tx.QueryRowContext(ctx, insertDefaultCharacterQuery, userID, name, baseAssetKey, mapID))
 }
 
 func (r *CharacterRepository) FindMapByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
 	return scanMap(r.db.QueryRowContext(ctx, selectMapByCodeQuery, code))
 }
 
-// SyncMapID đồng bộ map_id của character theo map mặc định hiện hành mỗi lần được gọi (login/bootstrap
-// — xem CharacterUsecase.GetOrCreateForUser). Không ghi DB nếu đã khớp; không chặn nếu map mặc định
+// SyncMapID đồng bộ map_id của character theo map mặc định hiện hành mỗi lần được gọi (login/bootstrap).
+// Không ghi DB nếu đã khớp; không chặn nếu map mặc định
 // chưa seed (giữ nguyên currentMapID).
 func (r *CharacterRepository) SyncMapID(ctx context.Context, characterID string, currentMapID *string) (*string, error) {
 	mapInfo, err := r.FindMapByCode(ctx, r.defaultMapCode)

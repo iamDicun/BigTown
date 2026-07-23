@@ -5,10 +5,11 @@ import { playRandomSfx } from '@/shared/audio/audio.service'
 import type { Direction, PlayerMoveCommand } from '../network/gameEvents'
 import {
   facingForDirection,
-  idleAnimForFacing,
-  walkAnimForFacing,
+  idleAnimKey,
+  walkAnimKey,
   type Facing,
 } from '../phaser/playerAnimations'
+import type { SpritesheetConfigDto } from '../services/character.service'
 import {
   createMovementThrottle,
   flushMovementThrottle,
@@ -23,7 +24,6 @@ import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 const PLAYER_SPEED = 120
 const MOVEMENT_THRESHOLD_MS = 100
 const PLAYER_BODY_SIZE = { width: 16, height: 12 }
-const PLAYER_BODY_OFFSET = { x: 8, y: 18 }
 const FOOTSTEP_INTERVAL_MS = 460
 const FOOTSTEP_VOLUME = 0.38
 const FOOTSTEP_SOUNDS = [
@@ -42,6 +42,7 @@ const FOOTSTEP_SOUNDS = [
 export class LocalPlayerController {
   readonly sprite: Phaser.Physics.Arcade.Sprite
 
+  private readonly textureKey: string
   private facing: Facing = 'down'
   private lastDirection: Direction = 'down'
   private wasMoving = false
@@ -51,16 +52,31 @@ export class LocalPlayerController {
   private nameTag: Phaser.GameObjects.Text | null = null
   private lastFootstepAt = 0
 
-  constructor(scene: Phaser.Scene, x: number, y: number, sendMove: (command: PlayerMoveCommand) => void) {
+  constructor(
+    scene: Phaser.Scene,
+    textureKey: string,
+    x: number,
+    y: number,
+    sendMove: (command: PlayerMoveCommand) => void,
+    config: SpritesheetConfigDto,
+  ) {
     this.sendMove = sendMove
     this.scene = scene
-    this.sprite = scene.physics.add.sprite(x, y, 'player', 0)
+    this.textureKey = textureKey
+
+    const scale = 32 / config.frame_height
+
+    this.sprite = scene.physics.add.sprite(x, y, textureKey, 0)
+    this.sprite.setScale(scale)
 
     const body = this.sprite.body as Phaser.Physics.Arcade.Body
     body.setSize(PLAYER_BODY_SIZE.width, PLAYER_BODY_SIZE.height)
-    body.setOffset(PLAYER_BODY_OFFSET.x, PLAYER_BODY_OFFSET.y)
+    body.setOffset(
+      (config.frame_width - PLAYER_BODY_SIZE.width) / 2,
+      config.frame_height - PLAYER_BODY_SIZE.height - 2,
+    )
 
-    this.sprite.anims.play(idleAnimForFacing(this.facing))
+    this.sprite.anims.play(idleAnimKey(textureKey, this.facing))
   }
 
   update(time: number, cursors: MovementKeys): void {
@@ -77,7 +93,7 @@ export class LocalPlayerController {
     if (direction) {
       this.applyMovement(direction)
     }
-    this.sprite.anims.play(moving ? walkAnimForFacing(this.facing) : idleAnimForFacing(this.facing), true)
+    this.sprite.anims.play(moving ? walkAnimKey(this.textureKey, this.facing) : idleAnimKey(this.textureKey, this.facing), true)
 
     recordMovement(this.movementThrottle, {
       x: Math.round(this.sprite.x),

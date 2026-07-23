@@ -8,6 +8,8 @@ import (
 
 func RegisterRoutes(r *gin.RouterGroup, handler *delivery.CharacterHandler) {
 	r.GET("/characters/me", handler.GetMe)
+	r.GET("/characters/options", handler.ListOptions)
+	r.POST("/characters", handler.Create)
 }
 
 func (m *CharacterModule) RegisterPublicRoutes(r *gin.RouterGroup) {}

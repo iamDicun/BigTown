@@ -6,17 +6,12 @@ import { LocalPlayerController, type MovementKeys } from '../systems/localPlayer
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
 import type { GameSceneData } from './BootScene'
-import { createPlayerAnimations } from './playerAnimations'
+import { createAnimations } from './playerAnimations'
 
 export const gameSceneKey = 'game'
 
 const CAMERA_ZOOM = 2
 
-// GameScene chỉ đóng vai trò orchestrator: dựng map/player/remote-players qua các system riêng
-// (systems/mapSystem.ts, systems/localPlayerController.ts, systems/remotePlayerManager.ts) và nối
-// dây sự kiện realtime (network/gameSocket.ts). Khi thêm tính năng mới (NPC, combat, HP bar, chat
-// bubble...), thêm system mới rồi wire vào đây — không nhét thẳng logic vào file này để tránh
-// phình to, xem docs/Phaser-Frontend-Guide.md mục 19 ("khi dài ra thì tách sang systems/").
 export class GameScene extends Phaser.Scene {
   private sceneData!: GameSceneData
   private localCharacterId = ''
@@ -36,24 +31,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const bootstrap = this.sceneData.bootstrap
-    this.localCharacterId = this.sceneData.characterId
+    const { bootstrap, characterId, textureKey, spritesheetConfig } = this.sceneData
+    this.localCharacterId = characterId
 
     const { collisionGroup, aboveLayer } = buildMap(this, bootstrap)
     this.aboveLayerFade = aboveLayer ? createAboveLayerFade(aboveLayer) : null
-    createPlayerAnimations(this)
+    createAnimations(this, textureKey, spritesheetConfig)
 
-    this.localPlayer = new LocalPlayerController(this, bootstrap.spawn_x, bootstrap.spawn_y, (command) =>
-      this.gameSocket?.sendMove(command).catch(() => {
-        // RPC lỗi (mất kết nối tạm thời) — bỏ qua, network tick tiếp theo sẽ tự gửi lại vị trí mới nhất.
-      }),
+    this.localPlayer = new LocalPlayerController(
+      this,
+      textureKey,
+      bootstrap.spawn_x,
+      bootstrap.spawn_y,
+      (command) =>
+        this.gameSocket?.sendMove(command).catch(() => {
+          // RPC lỗi (mất kết nối tạm thời) — bỏ qua, network tick tiếp theo sẽ tự gửi lại vị trí mới nhất.
+        }),
+      spritesheetConfig,
     )
     this.physics.add.collider(this.localPlayer.sprite, collisionGroup)
     this.localPlayer.sprite.setCollideWorldBounds(true)
 
-    this.remotePlayers = new RemotePlayerManager(this)
-    // Chặn hình ảnh local player đè lên remote player ngay lập tức (không đợi BE correction) — xem
-    // ghi chú trong remotePlayerManager.ts. Vị trí hợp lệ cuối cùng vẫn do BE quyết định qua RPC.
+    this.remotePlayers = new RemotePlayerManager(this, textureKey, spritesheetConfig)
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height)
@@ -96,8 +95,6 @@ export class GameScene extends Phaser.Scene {
       onCorrection: (event) => this.localPlayer.applyCorrection(event.x, event.y),
     })
 
-    // GameCanvas.vue chỉ gọi game.destroy() — Centrifuge connection không tự đóng theo, phải
-    // đóng tường minh lúc scene shutdown để tránh leak connection khi rời GameView.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.gameSocket?.close()
       this.gameSocket = null
