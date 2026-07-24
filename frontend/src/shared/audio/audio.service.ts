@@ -153,7 +153,7 @@ function fadeMusicTo(targetVolume: number, durationMs: number): void {
 
   const tick = (now: number) => {
     const progress = durationMs <= 0 ? 1 : Math.min((now - startedAt) / durationMs, 1)
-    audio.volume = startVolume + (targetVolume - startVolume) * progress
+    audio.volume = clamp01(startVolume + (targetVolume - startVolume) * progress)
     if (progress < 1 && audio === currentMusic) {
       fadeFrame = requestAnimationFrame(tick)
     }

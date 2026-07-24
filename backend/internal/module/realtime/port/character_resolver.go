@@ -10,5 +10,5 @@ import (
 // cần character_id thật của user đang giữ kết nối để join room/validate movement, nhưng không phụ
 // thuộc vào character/port hay character/repository. Bind bằng *character/usecase.CharacterUsecase.
 type CharacterResolver interface {
-	GetOrCreateForUser(ctx context.Context, userID string, defaultName string) (*characterentity.Character, error)
+	GetByUserID(ctx context.Context, userID string) (*characterentity.Character, error)
 }

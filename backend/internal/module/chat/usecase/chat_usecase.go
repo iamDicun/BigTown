@@ -15,7 +15,6 @@ const (
 	maxMessageLength    = 500
 	defaultHistoryLimit = 50
 	maxHistoryLimit     = 100
-	defaultSenderName   = "Player"
 )
 
 type ChatUsecase struct {
@@ -59,7 +58,7 @@ func (u *ChatUsecase) SendMessage(ctx context.Context, input SendMessageInput) (
 		return nil, apperror.BadRequest("Nội dung chat quá dài", nil)
 	}
 
-	character, err := u.characters.GetOrCreateForUser(ctx, input.UserID, defaultSenderName)
+	character, err := u.characters.GetByUserID(ctx, input.UserID)
 	if err != nil {
 		return nil, err
 	}

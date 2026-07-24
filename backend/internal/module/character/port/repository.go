@@ -9,7 +9,7 @@ import (
 
 type CharacterRepository interface {
 	FindByUserID(ctx context.Context, userID string) (*entity.Character, error)
-	CreateDefaultWithTx(ctx context.Context, tx *sql.Tx, userID string, name string) (*entity.Character, error)
+	CreateWithTx(ctx context.Context, tx *sql.Tx, userID string, name string, baseAssetKey string) (*entity.Character, error)
 
 	// FindMapByCode đọc metadata map theo `code` (bảng `maps`). Dùng cho cả provisioning
 	// (resolve map_id lúc tạo character) lẫn realtime bootstrap (trả asset key/spawn point thật).

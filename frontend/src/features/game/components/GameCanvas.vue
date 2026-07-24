@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type Phaser from 'phaser'
+import { useRouter } from 'vue-router'
+
+import { ApiError } from '@/shared/api/http'
 
 import { createGame } from '../phaser/createGame'
 import * as realtimeService from '../services/realtime.service'
@@ -11,6 +14,7 @@ const error = ref('')
 const loading = ref(true)
 
 const gameStore = useGameStore()
+const router = useRouter()
 let game: Phaser.Game | null = null
 
 onMounted(async () => {
@@ -23,14 +27,26 @@ onMounted(async () => {
       realtimeService.getBootstrap(),
     ])
 
-    if (!gameStore.characterId) {
+    if (!gameStore.characterId || !gameStore.characterBaseAssetKey) {
       throw new Error('Không lấy được character của bạn')
     }
 
     if (containerEl.value) {
-      game = createGame(containerEl.value, bootstrap, gameStore.characterId)
+      game = createGame(
+        containerEl.value,
+        bootstrap,
+        gameStore.characterId,
+        gameStore.characterBaseAssetKey,
+        gameStore.textureKey,
+        gameStore.spritesheetConfig,
+        gameStore.characterOptions,
+      )
     }
   } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      await router.replace({ name: 'character-create' })
+      return
+    }
     error.value = err instanceof Error ? err.message : 'Không thể khởi tạo game'
   } finally {
     loading.value = false

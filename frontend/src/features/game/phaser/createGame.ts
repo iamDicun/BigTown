@@ -1,11 +1,21 @@
 import Phaser from 'phaser'
 
+import type { CharacterOptionDto } from '../services/character.service'
+import type { SpritesheetConfigDto } from '../services/character.service'
 import type { BootstrapDto } from '../services/realtime.service'
 import { bootSceneKey, BootScene } from './BootScene'
 import { PreloadScene } from './PreloadScene'
 import { GameScene } from './GameScene'
 
-export function createGame(parent: HTMLElement, bootstrap: BootstrapDto, characterId: string): Phaser.Game {
+export function createGame(
+  parent: HTMLElement,
+  bootstrap: BootstrapDto,
+  characterId: string,
+  baseAssetKey: string,
+  textureKey: string,
+  spritesheetConfig: SpritesheetConfigDto,
+  characterOptions: CharacterOptionDto[],
+): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -24,10 +34,14 @@ export function createGame(parent: HTMLElement, bootstrap: BootstrapDto, charact
     scene: [BootScene, PreloadScene, GameScene],
   })
 
-  // Phaser có thể auto-start scene đầu tiên trong config `scene: [...]` ngay khi document đã
-  // sẵn sàng, trước khi dòng dưới đây kịp chạy. Gọi start() tường minh với data vẫn an toàn:
-  // nếu BootScene đã tự chạy (không data), Phaser sẽ restart nó sạch sẽ với data đúng.
-  game.scene.start(bootSceneKey, { bootstrap, characterId })
+  game.scene.start(bootSceneKey, {
+    bootstrap,
+    characterId,
+    baseAssetKey,
+    textureKey,
+    spritesheetConfig,
+    characterOptions,
+  })
 
   return game
 }

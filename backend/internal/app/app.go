@@ -48,19 +48,19 @@ func (a *App) registerMiddleware() {
 func (a *App) registerModules() {
 	defaultMapCode := a.container.Config.Game.DefaultMapCode
 
-	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID, defaultMapCode, a.container.Config.Cookie)
+	authModule := auth.NewAuthModule(a.container.DB, a.container.Config.Auth.JWTSecret, a.container.Config.Teams.ClientID, a.container.Config.Teams.TenantID, a.container.Config.Cookie)
 
 	// characterModule đứng trước realtimeModule vì RealtimeUsecase cần characterModule.Usecase()
 	// (implement port.MapReader) để trả bootstrap map thật thay vì hardcode — xem
 	// docs/Architecture.md mục 9.1. characterModule.RegisterProtectedRoutes() vẫn gọi ở cuối,
 	// route registration không phụ thuộc thứ tự construction.
 	//
-	// userrepo truyền vào để CharacterUsecase lấy full_name thật của user khi tạo character qua
-	// đường an toàn dự phòng (GetOrCreateForUser) — xem character/port/user_reader.go.
+	// userrepo truyền vào để CharacterUsecase lấy full_name thật của user nếu cần migrate/fallback
+	// cho user cũ — xem character/port/user_reader.go.
 	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode)
 
 	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
-	// port.CharacterResolver (GetOrCreateForUser) — dùng chung 1 instance cho cả bootstrap
+	// port.CharacterResolver (GetByUserID) — dùng chung 1 instance cho cả bootstrap
 	// map lẫn resolve character khi join room/movement.
 	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -22,6 +23,49 @@ type CharacterUsecase struct {
 	mapCache   *entity.MapInfo
 }
 
+type SpritesheetConfig struct {
+	FrameWidth    int `json:"frame_width"`
+	FrameHeight   int `json:"frame_height"`
+	Columns       int `json:"columns"`
+	RowIdleDown   int `json:"row_idle_down"`
+	RowWalkDown   int `json:"row_walk_down"`
+	RowIdleUp     int `json:"row_idle_up"`
+	RowWalkUp     int `json:"row_walk_up"`
+	RowWalkSide   int `json:"row_walk_side"`
+	WalkFrameRate int `json:"walk_frame_rate"`
+	IdleFrameRate int `json:"idle_frame_rate"`
+}
+
+type CharacterOption struct {
+	Name         string
+	BaseAssetKey string
+	PreviewURL   string
+	Spritesheet  SpritesheetConfig
+}
+
+var explorerConfig = SpritesheetConfig{
+	FrameWidth: 32, FrameHeight: 32,
+	Columns:     6,
+	RowIdleDown: 0, RowWalkDown: 1,
+	RowIdleUp: 2, RowWalkUp: 3,
+	RowWalkSide:   4,
+	WalkFrameRate: 8, IdleFrameRate: 4,
+}
+
+var knightConfig = SpritesheetConfig{
+	FrameWidth: 110, FrameHeight: 110,
+	Columns:     4,
+	RowIdleDown: 0, RowWalkDown: 1,
+	RowIdleUp: 2, RowWalkUp: 3,
+	RowWalkSide:   4,
+	WalkFrameRate: 8, IdleFrameRate: 4,
+}
+
+var characterOptions = []CharacterOption{
+	{Name: "Nhà thám hiểm", BaseAssetKey: "player", PreviewURL: "/assets/player/Player.png", Spritesheet: explorerConfig},
+	{Name: "Hiệp sĩ", BaseAssetKey: "knight", PreviewURL: "/assets/player/knight.png", Spritesheet: knightConfig},
+}
+
 func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, users port.UserReader, defaultMapCode string) *CharacterUsecase {
 	return &CharacterUsecase{db: db, repo: repo, users: users, defaultMapCode: defaultMapCode}
 }
@@ -34,28 +78,31 @@ func (u *CharacterUsecase) GetByUserID(ctx context.Context, userID string) (*ent
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
-	return character, nil
+	return u.syncMap(ctx, character)
 }
 
-// GetOrCreateForUser là safety net cho các user được tạo trước khi Register/TeamsLogin tự tạo
-// character mặc định (xem auth/usecase/register.go, teams_login.go). Các module khác (chat,
-// realtime) nên gọi hàm này thay vì GetByUserID để không bao giờ bị chặn bởi lỗi NotFound.
-func (u *CharacterUsecase) GetOrCreateForUser(ctx context.Context, userID string, defaultName string) (*entity.Character, error) {
-	character, err := u.repo.FindByUserID(ctx, userID)
-	if err == nil {
-		return u.syncMap(ctx, character)
+func (u *CharacterUsecase) ListOptions() []CharacterOption {
+	return characterOptions
+}
+
+func (u *CharacterUsecase) CreateForUser(ctx context.Context, userID string, name string, baseAssetKey string) (*entity.Character, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, apperror.BadRequest("Tên nhân vật không được để trống", nil)
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, apperror.Internal(err)
+	if len(name) > 80 {
+		return nil, apperror.BadRequest("Tên nhân vật quá dài", nil)
 	}
 
-	// Ưu tiên full_name thật của user (bảng app_user) làm tên character thay vì defaultName cứng
-	// ("Player") — đường này chỉ chạy cho user cũ chưa từng có character (safety net), nhưng họ vẫn
-	// có full_name thật từ lúc đăng ký, không có lý do gì hiển thị tên chung chung thay vì tên đó.
-	// Tra cứu lỗi (hiếm, không phải luồng chính) thì rơi về defaultName, không chặn tạo character.
-	name := defaultName
-	if user, uerr := u.users.FindByID(ctx, userID); uerr == nil && strings.TrimSpace(user.FullName) != "" {
-		name = user.FullName
+	baseAssetKey = strings.TrimSpace(baseAssetKey)
+	if !isAllowedBaseAssetKey(baseAssetKey) {
+		return nil, apperror.BadRequest("Nhân vật đã chọn không hợp lệ", fmt.Errorf("invalid base_asset_key: %s", baseAssetKey))
+	}
+
+	if _, err := u.repo.FindByUserID(ctx, userID); err == nil {
+		return nil, apperror.BadRequest("User đã có nhân vật", nil)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, apperror.Internal(err)
 	}
 
 	tx, err := u.db.BeginTx(ctx, nil)
@@ -64,7 +111,7 @@ func (u *CharacterUsecase) GetOrCreateForUser(ctx context.Context, userID string
 	}
 	defer tx.Rollback()
 
-	created, err := u.repo.CreateDefaultWithTx(ctx, tx, userID, name)
+	created, err := u.repo.CreateWithTx(ctx, tx, userID, name, baseAssetKey)
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
@@ -116,4 +163,13 @@ func (u *CharacterUsecase) GetDefaultMap(ctx context.Context) (*entity.MapInfo, 
 	u.mapCacheMu.Unlock()
 
 	return mapInfo, nil
+}
+
+func isAllowedBaseAssetKey(baseAssetKey string) bool {
+	for _, option := range characterOptions {
+		if option.BaseAssetKey == baseAssetKey {
+			return true
+		}
+	}
+	return false
 }

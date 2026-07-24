@@ -10,5 +10,5 @@ import (
 // character_id + display name của user gửi tin, nhưng không phụ thuộc vào character/port.
 // Bind bằng *character/usecase.CharacterUsecase (get-or-create) ở chat/module.go.
 type CharacterReader interface {
-	GetOrCreateForUser(ctx context.Context, userID string, defaultName string) (*characterentity.Character, error)
+	GetByUserID(ctx context.Context, userID string) (*characterentity.Character, error)
 }
