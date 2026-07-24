@@ -41,6 +41,7 @@ const statusBadgeClass = computed(() => {
 
 let gameSocket: ReturnType<typeof createGameSocket> | null = null
 let roomId = ''
+let mapChangedHandler: ((e: Event) => void) | null = null
 
 const canSend = computed(() => !sending.value && draft.value.trim().length > 0)
 
@@ -49,18 +50,20 @@ function toggleCollapsed() {
   if (!collapsed.value) scrollToBottom()
 }
 
-onMounted(async () => {
-  try {
-    if (!gameStore.characterId) {
-      await gameStore.loadMyCharacter()
-    }
-  } catch {
-    // Không chặn chat nếu chưa load được character — "mine" chỉ tạm sai, vẫn nhận/gửi được tin.
-  }
+function disconnectSocket() {
+  gameSocket?.close()
+  gameSocket = null
+}
+
+async function connectToRoom(mapCode?: string) {
+  disconnectSocket()
+  status.value = 'connecting'
+  error.value = ''
+  messages.value = []
 
   let bootstrap: Awaited<ReturnType<typeof realtimeService.getBootstrap>>
   try {
-    bootstrap = await realtimeService.getBootstrap()
+    bootstrap = await realtimeService.getBootstrap(mapCode)
     roomId = bootstrap.default_room_id
   } catch (err) {
     status.value = 'error'
@@ -99,11 +102,34 @@ onMounted(async () => {
     status.value = 'error'
     error.value = err instanceof Error ? err.message : 'Không thể kết nối realtime'
   }
+}
+
+onMounted(async () => {
+  try {
+    if (!gameStore.characterId) {
+      await gameStore.loadMyCharacter()
+    }
+  } catch {
+    // Không chặn chat nếu chưa load được character — "mine" chỉ tạm sai, vẫn nhận/gửi được tin.
+  }
+
+  await connectToRoom()
+
+  mapChangedHandler = (e: Event) => {
+    const detail = (e as CustomEvent).detail as { mapCode: string }
+    if (detail?.mapCode) {
+      connectToRoom(detail.mapCode)
+    }
+  }
+  window.addEventListener('game:mapChanged', mapChangedHandler)
 })
 
 onBeforeUnmount(() => {
-  gameSocket?.close()
-  gameSocket = null
+  disconnectSocket()
+  if (mapChangedHandler) {
+    window.removeEventListener('game:mapChanged', mapChangedHandler)
+    mapChangedHandler = null
+  }
 })
 
 async function sendMessage() {

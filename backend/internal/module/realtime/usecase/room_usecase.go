@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	// minDistancePx/tileSize khớp quyết định đã chốt trong docs/Realtime-Room-State-Decisions.md
+	// minDistancePx khớp quyết định đã chốt trong docs/Realtime-Room-State-Decisions.md
 	// mục 5 và docs/Movement-Chat-Spawn-Plan.md (pixel/free movement, minDistance 24px).
 	minDistancePx = 24.0
-	tileSize      = 16
 
 	// maxSpeedPxPerSec có slack so với PLAYER_SPEED=120px/s ở FE (xem GameScene.ts) để chịu
 	// jitter mạng/throttle 100ms, không phải giới hạn gameplay thật.
@@ -70,7 +69,7 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 		return nil, nil, false, err
 	}
 
-	mapInfo, err := u.maps.GetDefaultMap(ctx)
+	mapInfo, err := u.maps.GetMapByCode(ctx, roomID)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -135,13 +134,13 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 	}
 	character := current.CharacterID
 
-	mapInfo, err := u.maps.GetDefaultMap(ctx)
+	mapInfo, err := u.maps.GetMapByCode(ctx, roomID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	maxX := mapInfo.Width*tileSize - 1
-	maxY := mapInfo.Height*tileSize - 1
+	maxX := mapInfo.MaxPixelX()
+	maxY := mapInfo.MaxPixelY()
 	if movement.X < 0 || movement.Y < 0 || movement.X > maxX || movement.Y > maxY {
 		return nil, &MovementRejection{CharacterID: character, Reason: "out_of_bounds", X: current.X, Y: current.Y}, nil
 	}
@@ -223,4 +222,28 @@ func isOccupied(x, y int, players []room.RoomPlayer, excludeCharacterID string) 
 		}
 	}
 	return false
+}
+
+type WarpDestination struct {
+	MapCode string
+	X       int
+	Y       int
+}
+
+func (u *RoomUsecase) WarpPlayer(ctx context.Context, roomID string, userID string, destMap string, destX int, destY int) (*WarpDestination, error) {
+	_, err := u.maps.GetMapByCode(ctx, destMap)
+	if err != nil {
+		return nil, err
+	}
+
+	character, err := u.characters.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, _, err := u.store.LeaveRoom(ctx, roomID, character.ID, ""); err != nil {
+		return nil, err
+	}
+
+	return &WarpDestination{MapCode: destMap, X: destX, Y: destY}, nil
 }

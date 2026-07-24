@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	characterentity "backend/internal/module/character/entity"
 	"backend/internal/module/realtime/port"
 )
 
@@ -18,22 +19,31 @@ type BootstrapData struct {
 	DefaultChannel   string
 	ProtocolFeatures []string
 
-	// Map asset info thật (bảng `maps`, resolve theo GAME_DEFAULT_MAP_CODE) — frontend dùng để
-	// load tilemap/tileset/spawn point mà không hardcode tên map, xem docs/Architecture.md mục 9.1.
-	TilemapAssetKey string
-	TilesetAssetKey string
-	SpawnX          int
-	SpawnY          int
-	MapWidth        int
-	MapHeight       int
+	TilemapAssetKey   string
+	TilesetAssetKey   string
+	SpawnX            int
+	SpawnY            int
+	MapWidth          int
+	MapHeight         int
+	TileSize          int
+	LayerNames        []string
+	AboveLayerName    string
+	CollisionLayerName string
 }
 
 func NewRealtimeUsecase(mapReader port.MapReader) *RealtimeUsecase {
 	return &RealtimeUsecase{mapReader: mapReader}
 }
 
-func (u *RealtimeUsecase) GetBootstrap(ctx context.Context) (*BootstrapData, error) {
-	mapInfo, err := u.mapReader.GetDefaultMap(ctx)
+func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*BootstrapData, error) {
+	var mapInfo *characterentity.MapInfo
+	var err error
+
+	if mapCode != "" {
+		mapInfo, err = u.mapReader.GetMapByCode(ctx, mapCode)
+	} else {
+		mapInfo, err = u.mapReader.GetDefaultMap(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -51,11 +61,15 @@ func (u *RealtimeUsecase) GetBootstrap(ctx context.Context) (*BootstrapData, err
 			"chat_bubble",
 			"npc_combat",
 		},
-		TilemapAssetKey: mapInfo.TilemapAssetKey,
-		TilesetAssetKey: mapInfo.TilesetAssetKey,
-		SpawnX:          mapInfo.SpawnX,
-		SpawnY:          mapInfo.SpawnY,
-		MapWidth:        mapInfo.Width,
-		MapHeight:       mapInfo.Height,
+		TilemapAssetKey:   mapInfo.TilemapAssetKey,
+		TilesetAssetKey:   mapInfo.TilesetAssetKey,
+		SpawnX:            mapInfo.SpawnX,
+		SpawnY:            mapInfo.SpawnY,
+		MapWidth:       mapInfo.Width,
+		MapHeight:      mapInfo.Height,
+		TileSize:       mapInfo.TileSize,
+		LayerNames:     mapInfo.LayerNames,
+		AboveLayerName:    mapInfo.AboveLayerName,
+		CollisionLayerName: mapInfo.CollisionLayerName,
 	}, nil
 }

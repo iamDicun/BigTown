@@ -58,6 +58,10 @@ CREATE TABLE maps (
     spawn_y INTEGER NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
+    tile_size INTEGER NOT NULL DEFAULT 16,
+    layer_names VARCHAR(500),
+    above_layer_name VARCHAR(80),
+    collision_layer_name VARCHAR(80),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

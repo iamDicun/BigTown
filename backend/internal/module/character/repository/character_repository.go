@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"backend/internal/module/character/entity"
 	"backend/internal/module/character/port"
@@ -22,7 +23,7 @@ const insertDefaultCharacterQuery = `
 
 const updateCharacterMapIDQuery = `UPDATE characters SET map_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`
 
-const mapColumns = `id::text, code, name, tilemap_asset_key, tileset_asset_key, collision_asset_key, spawn_x, spawn_y, width, height`
+const mapColumns = `id::text, code, name, tilemap_asset_key, tileset_asset_key, collision_asset_key, spawn_x, spawn_y, width, height, COALESCE(tile_size, 16), COALESCE(layer_names, ''), COALESCE(above_layer_name, ''), COALESCE(collision_layer_name, '')`
 
 const selectMapByCodeQuery = `SELECT ` + mapColumns + ` FROM maps WHERE code = $1`
 
@@ -112,10 +113,12 @@ func scanCharacter(row rowScanner) (*entity.Character, error) {
 func scanMap(row rowScanner) (*entity.MapInfo, error) {
 	var m entity.MapInfo
 	var collisionAssetKey sql.NullString
+	var layerNamesRaw string
 
 	if err := row.Scan(
 		&m.ID, &m.Code, &m.Name, &m.TilemapAssetKey, &m.TilesetAssetKey, &collisionAssetKey,
-		&m.SpawnX, &m.SpawnY, &m.Width, &m.Height,
+		&m.SpawnX, &m.SpawnY, &m.Width, &m.Height, &m.TileSize,
+		&layerNamesRaw, &m.AboveLayerName, &m.CollisionLayerName,
 	); err != nil {
 		return nil, err
 	}
@@ -123,6 +126,24 @@ func scanMap(row rowScanner) (*entity.MapInfo, error) {
 	if collisionAssetKey.Valid {
 		m.CollisionAssetKey = &collisionAssetKey.String
 	}
+	m.LayerNames = parseLayerNames(layerNamesRaw)
 
 	return &m, nil
+}
+
+func parseLayerNames(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }

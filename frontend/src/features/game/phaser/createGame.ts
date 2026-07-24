@@ -21,7 +21,7 @@ export function createGame(
     parent,
     width: parent.clientWidth || 960,
     height: parent.clientHeight || 540,
-    backgroundColor: '#1d2a1d',
+    backgroundColor: '#808080',
     pixelArt: true,
     physics: {
       default: 'arcade',
