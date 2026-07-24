@@ -49,7 +49,7 @@ var explorerConfig = SpritesheetConfig{
 	Columns:     6,
 	RowIdleDown: 0, RowWalkDown: 1,
 	RowIdleUp: 2, RowWalkUp: 3,
-	RowWalkSide:   4,	
+	RowWalkSide:   4,
 	WalkFrameRate: 8, IdleFrameRate: 4,
 }
 
@@ -62,9 +62,39 @@ var knightConfig = SpritesheetConfig{
 	WalkFrameRate: 8, IdleFrameRate: 4,
 }
 
+var wizardConfig = SpritesheetConfig{
+	FrameWidth: 110, FrameHeight: 110,
+	Columns:     4,
+	RowIdleDown: 0, RowWalkDown: 1,
+	RowIdleUp: 2, RowWalkUp: 3,
+	RowWalkSide:   4,
+	WalkFrameRate: 8, IdleFrameRate: 4,
+}
+
+var tankerConfig = SpritesheetConfig{
+	FrameWidth: 110, FrameHeight: 110,
+	Columns:     4,
+	RowIdleDown: 0, RowWalkDown: 1,
+	RowIdleUp: 2, RowWalkUp: 3,
+	RowWalkSide:   4,
+	WalkFrameRate: 8, IdleFrameRate: 4,
+}
+
+var hunterConfig = SpritesheetConfig{
+	FrameWidth: 110, FrameHeight: 110,
+	Columns:     4,
+	RowIdleDown: 0, RowWalkDown: 1,
+	RowIdleUp: 2, RowWalkUp: 3,
+	RowWalkSide:   4,
+	WalkFrameRate: 8, IdleFrameRate: 4,
+}
+
 var characterOptions = []CharacterOption{
 	{Name: "Nhà thám hiểm", BaseAssetKey: "player", PreviewURL: "/assets/player/Player.png", Spritesheet: explorerConfig},
 	{Name: "Hiệp sĩ", BaseAssetKey: "knight", PreviewURL: "/assets/player/knight.png", Spritesheet: knightConfig},
+	{Name: "Phù thủy", BaseAssetKey: "wizard", PreviewURL: "/assets/player/wizard.png", Spritesheet: wizardConfig},
+	{Name: "Đỡ đòn", BaseAssetKey: "tanker", PreviewURL: "/assets/player/tanker.png", Spritesheet: tankerConfig},
+	{Name: "Thợ săn", BaseAssetKey: "hunter", PreviewURL: "/assets/player/hunter.png", Spritesheet: hunterConfig},
 }
 
 func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, users port.UserReader, defaultMapCode string) *CharacterUsecase {

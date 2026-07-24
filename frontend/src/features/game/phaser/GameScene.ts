@@ -67,11 +67,19 @@ export class GameScene extends Phaser.Scene {
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height, bootstrap.tile_size)
     const keyboard = this.input.keyboard!
+    const upArr = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP)
+    const downArr = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
+    const leftArr = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT)
+    const rightArr = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT)
+    const upW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)
+    const downW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
+    const leftW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)
+    const rightW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
     this.cursors = {
-      up: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      down: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-      left: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+      get up() { return { isDown: upArr.isDown || upW.isDown } as Phaser.Input.Keyboard.Key },
+      get down() { return { isDown: downArr.isDown || downW.isDown } as Phaser.Input.Keyboard.Key },
+      get left() { return { isDown: leftArr.isDown || leftW.isDown } as Phaser.Input.Keyboard.Key },
+      get right() { return { isDown: rightArr.isDown || rightW.isDown } as Phaser.Input.Keyboard.Key },
     }
 
     this.gameSocket = createGameSocket(getDefaultRealtimeUrl(), {

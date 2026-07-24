@@ -15,7 +15,7 @@ const maps = ref<MapItem[]>([
   {
     code: 'dark_village',
     name: 'Graveyard',
-    displayName: 'Nghĩa Trang (Graveyard)',
+    displayName: 'Nghĩa Trang',
     emoji: '🪦',
     themeClass: 'theme-graveyard',
     description: 'Một khu nghĩa trang cổ kính, u tối đầy rẫy bia mộ cổ và sương mù dày đặc bao phủ. Nơi các linh hồn lang thang tìm kiếm sự yên nghỉ và những điều bí ẩn đang chờ đợi kẻ thám hiểm gan dạ.'
@@ -23,7 +23,7 @@ const maps = ref<MapItem[]>([
   {
     code: 'winter',
     name: 'Nivalis',
-    displayName: 'Nivalis (Băng Giá)',
+    displayName: 'Nivalis',
     emoji: '❄️',
     themeClass: 'theme-nivalis',
     description: 'Vùng cao nguyên tuyết trắng quanh năm lạnh giá. Gió bão buốt giá luôn rít qua các rặng thông phủ đầy tuyết trắng. Hãy sẵn sàng trang bị ấm áp trước khi bước vào nơi này!'
@@ -31,7 +31,7 @@ const maps = ref<MapItem[]>([
   {
     code: 'village_adventure',
     name: 'Village',
-    displayName: 'Thung Lũng Gỗ (Village)',
+    displayName: 'Thung Lũng Gỗ',
     emoji: '🏡',
     themeClass: 'theme-village',
     description: 'Ngôi làng trù phú, yên bình với những trảng cỏ xanh mướt, hàng rào gỗ quanh co và dòng suối trong vắt trôi lững lờ. Đây là điểm khởi đầu hoàn hảo cho mọi cuộc phiêu lưu.'
@@ -91,7 +91,7 @@ function handleConfirm() {
 <template>
   <div class="map-switcher">
     <button class="pixel-button pixel-button--sm map-switcher__btn" @click="openModal">
-      🗺️ {{ currentMapName }} ▾
+      {{ currentMapName }} ▾
     </button>
 
     <!-- Teleport modal to body to prevent rendering issues in game layout -->
@@ -118,7 +118,6 @@ function handleConfirm() {
                 }"
                 @click="selectMap(m.code)"
               >
-                <span class="map-emoji">{{ m.emoji }}</span>
                 <div class="map-item-info">
                   <span class="map-name">{{ m.displayName }}</span>
                   <span v-if="m.code === current" class="current-badge">Bản đồ hiện tại</span>
@@ -141,8 +140,7 @@ function handleConfirm() {
                   
                   <div v-else class="preview-fallback">
                     <div class="fallback-glow"></div>
-                    <div class="fallback-art">{{ selectedMap.emoji }}</div>
-                    <div class="fallback-title">{{ selectedMap.name }}</div>
+                    <div class="fallback-title">{{ selectedMap.displayName }}</div>
                   </div>
                 </div>
                 
@@ -209,6 +207,7 @@ function handleConfirm() {
 }
 
 .modal-box {
+  font-family: var(--pixel-font), monospace, sans-serif;
   background-color: var(--pixel-parchment, #f4ecd8);
   border: 4px solid var(--pixel-ink, #1a1c1e);
   box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.4);
@@ -244,7 +243,7 @@ function handleConfirm() {
 }
 
 .modal-title {
-  font-family: var(--pixel-font, inherit);
+  font-family: var(--pixel-font), monospace, sans-serif;
   color: var(--pixel-parchment, #f4ecd8);
   font-size: 24px;
   margin: 0;
@@ -255,7 +254,7 @@ function handleConfirm() {
 .close-btn {
   background: none;
   border: none;
-  font-family: var(--pixel-font, inherit);
+  font-family: var(--pixel-font), monospace, sans-serif;
   font-size: 28px;
   color: var(--pixel-parchment, #f4ecd8);
   cursor: pointer;
@@ -299,7 +298,7 @@ function handleConfirm() {
   border-radius: 4px;
   cursor: pointer;
   text-align: left;
-  font-family: inherit;
+  font-family: var(--pixel-font), monospace, sans-serif;
   transition: all 0.1s;
 }
 
@@ -320,23 +319,21 @@ function handleConfirm() {
   border-style: double;
 }
 
-.map-emoji {
-  font-size: 24px;
-}
-
 .map-item-info {
   display: flex;
   flex-direction: column;
 }
 
 .map-name {
+  font-family: var(--pixel-font), monospace, sans-serif;
   font-weight: bold;
-  font-size: 15px;
+  font-size: 18px;
   color: var(--pixel-ink, #1a1c1e);
 }
 
 .current-badge {
-  font-size: 11px;
+  font-family: var(--pixel-font), monospace, sans-serif;
+  font-size: 13px;
   color: #27ae60;
   font-weight: bold;
   margin-top: 2px;
@@ -434,25 +431,9 @@ function handleConfirm() {
   background: radial-gradient(circle, #ffeb3b, transparent);
 }
 
-.fallback-art {
-  font-size: 54px;
-  margin-bottom: 8px;
-  z-index: 1;
-  animation: float-emoji 3s infinite ease-in-out;
-}
-
-@keyframes float-emoji {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
 .fallback-title {
-  font-family: var(--pixel-font, inherit);
-  font-size: 20px;
+  font-family: var(--pixel-font), monospace, sans-serif;
+  font-size: 24px;
   font-weight: bold;
   letter-spacing: 1px;
   z-index: 1;
@@ -467,14 +448,15 @@ function handleConfirm() {
 }
 
 .preview-title {
-  font-family: var(--pixel-font, inherit);
-  font-size: 18px;
+  font-family: var(--pixel-font), monospace, sans-serif;
+  font-size: 20px;
   color: var(--pixel-ink, #1a1c1e);
   margin: 0;
 }
 
 .preview-desc {
-  font-size: 12px;
+  font-family: var(--pixel-font), monospace, sans-serif;
+  font-size: 14px;
   line-height: 1.5;
   color: #555;
   margin: 0;
@@ -491,12 +473,14 @@ function handleConfirm() {
 }
 
 .btn-cancel {
+  font-family: var(--pixel-font), monospace, sans-serif;
   background: linear-gradient(180deg, #e0e0e0 0%, #bdbdbd 100%);
   border-color: #1a1c1e;
   color: #1a1c1e;
 }
 
 .btn-confirm {
+  font-family: var(--pixel-font), monospace, sans-serif;
   background: linear-gradient(180deg, #8bc34a 0%, #689f38 100%);
   border-color: #1a1c1e;
   color: #fff;
