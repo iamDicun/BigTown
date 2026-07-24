@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 
+const NAME_TAG_DEPTH = 5
 const NAME_TAG_OFFSET_Y = -20
 // Khớp font pixel dùng chung toàn hệ thống (xem --pixel-font trong assets/css/style.css).
 // fontSize nhỏ vì camera zoom x2 (GameScene.ts CAMERA_ZOOM) sẽ phóng to gấp đôi kích thước hiển thị
@@ -21,6 +22,7 @@ const NAME_TAG_STYLE = {
 export function createNameTag(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite, name: string): Phaser.GameObjects.Text {
   const text = scene.add.text(sprite.x, sprite.y + NAME_TAG_OFFSET_Y, name, NAME_TAG_STYLE)
   text.setOrigin(0.5, 1)
+  text.setDepth(NAME_TAG_DEPTH)
   return text
 }
 

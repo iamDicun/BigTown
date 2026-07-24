@@ -48,7 +48,7 @@ var explorerConfig = SpritesheetConfig{
 	Columns:     6,
 	RowIdleDown: 0, RowWalkDown: 1,
 	RowIdleUp: 2, RowWalkUp: 3,
-	RowWalkSide:   4,
+	RowWalkSide:   4,	
 	WalkFrameRate: 8, IdleFrameRate: 4,
 }
 

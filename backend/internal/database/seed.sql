@@ -3,7 +3,8 @@
 
 INSERT INTO maps (
     code, name, tilemap_asset_key, tileset_asset_key,
-    collision_asset_key, spawn_x, spawn_y, width, height
+    collision_asset_key, spawn_x, spawn_y, width, height, tile_size,
+    layer_names, above_layer_name, collision_layer_name
 ) VALUES (
     'village_adventure',
     'Village Adventure',
@@ -13,7 +14,11 @@ INSERT INTO maps (
     384,
     512,
     50,
-    35
+    35,
+    16,
+    'Ground,DecorationBelow,Objects,DecorationAbove',
+    'DecorationAbove',
+    'Collision'
 )
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
@@ -24,4 +29,8 @@ ON CONFLICT (code) DO UPDATE SET
     spawn_y = EXCLUDED.spawn_y,
     width = EXCLUDED.width,
     height = EXCLUDED.height,
+    tile_size = EXCLUDED.tile_size,
+    layer_names = EXCLUDED.layer_names,
+    above_layer_name = EXCLUDED.above_layer_name,
+    collision_layer_name = EXCLUDED.collision_layer_name,
     updated_at = CURRENT_TIMESTAMP;

@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	// minDistancePx/tileSize khớp quyết định đã chốt trong docs/Realtime-Room-State-Decisions.md
+	// minDistancePx khớp quyết định đã chốt trong docs/Realtime-Room-State-Decisions.md
 	// mục 5 và docs/Movement-Chat-Spawn-Plan.md (pixel/free movement, minDistance 24px).
 	minDistancePx = 24.0
-	tileSize      = 16
 
 	// maxSpeedPxPerSec có slack so với PLAYER_SPEED=120px/s ở FE (xem GameScene.ts) để chịu
 	// jitter mạng/throttle 100ms, không phải giới hạn gameplay thật.
@@ -140,8 +139,8 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 		return nil, nil, err
 	}
 
-	maxX := mapInfo.Width*tileSize - 1
-	maxY := mapInfo.Height*tileSize - 1
+	maxX := mapInfo.MaxPixelX()
+	maxY := mapInfo.MaxPixelY()
 	if movement.X < 0 || movement.Y < 0 || movement.X > maxX || movement.Y > maxY {
 		return nil, &MovementRejection{CharacterID: character, Reason: "out_of_bounds", X: current.X, Y: current.Y}, nil
 	}

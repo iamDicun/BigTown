@@ -39,6 +39,10 @@ func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
 			SpawnY:           data.SpawnY,
 			MapWidth:         data.MapWidth,
 			MapHeight:        data.MapHeight,
+			TileSize:         data.TileSize,
+			LayerNames:       data.LayerNames,
+			AboveLayerName:   data.AboveLayerName,
+			CollisionLayerName: data.CollisionLayerName,
 		},
 	})
 }

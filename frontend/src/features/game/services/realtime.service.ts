@@ -14,6 +14,11 @@ export interface BootstrapDto {
   spawn_y: number
   map_width: number
   map_height: number
+  tile_size: number
+  // Cho phép mỗi map định nghĩa tên layer riêng. Nếu thiếu, mapSystem dùng default cũ.
+  layer_names?: string[]
+  above_layer_name?: string
+  collision_layer_name?: string
 }
 
 export function getBootstrap() {

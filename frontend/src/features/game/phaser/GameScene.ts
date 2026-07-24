@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 
 import { createGameSocket, getDefaultRealtimeUrl, type GameSocket } from '../network/gameSocket'
-import { buildMap, TILE_SIZE } from '../systems/mapSystem'
+import { buildMap, PLAYER_DEPTH } from '../systems/mapSystem'
 import { LocalPlayerController, type MovementKeys } from '../systems/localPlayerController'
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
@@ -51,6 +51,7 @@ export class GameScene extends Phaser.Scene {
         }),
       spritesheetConfig,
     )
+    this.localPlayer.sprite.setDepth(PLAYER_DEPTH)
     this.physics.add.collider(this.localPlayer.sprite, collisionGroup)
     this.localPlayer.sprite.setCollideWorldBounds(true)
 
@@ -58,7 +59,7 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
-    this.setupCamera(bootstrap.map_width, bootstrap.map_height)
+    this.setupCamera(bootstrap.map_width, bootstrap.map_height, bootstrap.tile_size)
     const keyboard = this.input.keyboard!
     this.cursors = {
       up: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
@@ -114,9 +115,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private setupCamera(mapWidthTiles: number, mapHeightTiles: number) {
-    const widthPx = mapWidthTiles * TILE_SIZE
-    const heightPx = mapHeightTiles * TILE_SIZE
+  private setupCamera(mapWidthTiles: number, mapHeightTiles: number, tileSize: number) {
+    const widthPx = mapWidthTiles * tileSize
+    const heightPx = mapHeightTiles * tileSize
 
     this.cameras.main.setBounds(0, 0, widthPx, heightPx)
     this.cameras.main.startFollow(this.localPlayer.sprite, true)

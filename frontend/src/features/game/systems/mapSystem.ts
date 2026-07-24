@@ -5,20 +5,29 @@ import type { BootstrapDto } from '../services/realtime.service'
 export const TILE_SIZE = 16
 
 const ABOVE_LAYER_NAME = 'DecorationAbove'
-const TILE_LAYER_NAMES = ['Ground', 'DecorationBelow', 'Objects', ABOVE_LAYER_NAME]
+const DEFAULT_TILE_LAYER_NAMES = ['Ground', 'DecorationBelow', 'Objects', ABOVE_LAYER_NAME]
+
+function resolveTileLayerNames(bootstrap: BootstrapDto): string[] {
+  if (bootstrap.layer_names && bootstrap.layer_names.length > 0) {
+    return bootstrap.layer_names
+  }
+  return DEFAULT_TILE_LAYER_NAMES
+}
+
+function resolveAboveLayerName(bootstrap: BootstrapDto): string {
+  return bootstrap.above_layer_name || ABOVE_LAYER_NAME
+}
+
+function resolveCollisionLayerName(bootstrap: BootstrapDto): string {
+  return bootstrap.collision_layer_name || 'Collision'
+}
 
 export type MapBuildResult = {
   map: Phaser.Tilemaps.Tilemap
   collisionGroup: Phaser.Physics.Arcade.StaticGroup
-  // Layer tán cây/mái nhà vẽ đè lên player (xem generate_map.js: canopy Oak_Tree ở decoAbove,
-  // trunk collision hẹp hơn canopy nên player đi được vào vùng bị canopy che) — dùng cho
-  // aboveLayerFadeSystem.ts để mờ đúng tile đang che player, không mờ cả layer.
   aboveLayer: Phaser.Tilemaps.TilemapLayerBase | null
 }
 
-// Dựng tilemap + layer + collision group từ bootstrap (tilemap/tileset đã embed sẵn, xem
-// asset/tools/embed_tilesets.js). Tách khỏi GameScene để dễ mở rộng map/layer sau này mà không
-// phải sửa trực tiếp scene chính — xem docs/Phaser-Frontend-Guide.md mục 19.
 export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuildResult {
   const map = scene.make.tilemap({ key: 'map' })
 
@@ -29,28 +38,77 @@ export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuild
     return tileset
   })
 
+  const layerNames = resolveTileLayerNames(bootstrap)
+  const aboveLayerName = resolveAboveLayerName(bootstrap)
+  const collisionLayerName = resolveCollisionLayerName(bootstrap)
+
   let aboveLayer: Phaser.Tilemaps.TilemapLayerBase | null = null
-  for (const layerName of TILE_LAYER_NAMES) {
+  let collisionTilesLayer: Phaser.Tilemaps.TilemapLayerBase | null = null
+
+  for (const layerName of layerNames) {
     const layer = map.createLayer(layerName, tilesets, 0, 0)
-    if (layerName === ABOVE_LAYER_NAME) aboveLayer = layer
+    if (!layer) continue
+
+    // Adjust Y coordinates for tiles with heights larger than map's tileHeight
+    layer.forEachTile((tile: any) => {
+      if (tile && tile.index > 0 && tile.tileset) {
+        const heightDiff = tile.tileset.tileHeight - map.tileHeight
+        if (heightDiff > 0) {
+          tile.pixelY -= heightDiff
+        }
+      }
+    })
+
+    if (layerName === collisionLayerName) {
+      collisionTilesLayer = layer
+      layer.setVisible(false)
+      continue
+    }
+    if (layerName === aboveLayerName) aboveLayer = layer
   }
 
-  return { map, collisionGroup: buildCollisionGroup(scene, map), aboveLayer }
+  if (aboveLayer) {
+    aboveLayer.setDepth(10)
+  }
+
+  const collisionGroup = buildCollisionGroup(scene, map, collisionLayerName, collisionTilesLayer)
+
+  return { map, collisionGroup, aboveLayer }
 }
 
-// Collision đọc từ object layer "Collision" (map thực tế build bằng asset/tools/generate_map.js
-// dùng object layer, không dùng tile property như draft đầu Phaser-Frontend-Guide).
-// Object layer "NPCSpawns" (animal/villager) là flavor/decoration, cố tình không đọc ở đây —
-// enemy combat thật sẽ có spawn riêng ở phase sau, xem docs/Movement-Chat-Spawn-Plan.md mục I.
-function buildCollisionGroup(scene: Phaser.Scene, map: Phaser.Tilemaps.Tilemap): Phaser.Physics.Arcade.StaticGroup {
+export const PLAYER_DEPTH = 3
+
+function buildCollisionGroup(
+  scene: Phaser.Scene,
+  map: Phaser.Tilemaps.Tilemap,
+  collisionLayerName: string,
+  collisionTilesLayer: Phaser.Tilemaps.TilemapLayerBase | null,
+): Phaser.Physics.Arcade.StaticGroup {
   const staticGroup = scene.physics.add.staticGroup()
 
-  const collisionLayer = map.getObjectLayer('Collision')
-  if (!collisionLayer) return staticGroup
+  buildCollisionFromObjectLayer(staticGroup, scene, map, collisionLayerName)
+
+  if (collisionTilesLayer) {
+    buildCollisionFromRenderedLayer(staticGroup, scene, collisionTilesLayer)
+  }
+
+  return staticGroup
+}
+
+function buildCollisionFromObjectLayer(
+  staticGroup: Phaser.Physics.Arcade.StaticGroup,
+  scene: Phaser.Scene,
+  map: Phaser.Tilemaps.Tilemap,
+  layerName: string,
+): void {
+  const collisionLayer = map.getObjectLayer(layerName)
+  if (!collisionLayer) return
 
   for (const obj of collisionLayer.objects) {
     const width = obj.width ?? 0
     const height = obj.height ?? 0
+    if (width <= 0 || height <= 0) continue
+
     const centerX = (obj.x ?? 0) + width / 2
     const centerY = (obj.y ?? 0) + height / 2
 
@@ -58,6 +116,32 @@ function buildCollisionGroup(scene: Phaser.Scene, map: Phaser.Tilemaps.Tilemap):
     scene.physics.add.existing(zone, true)
     staticGroup.add(zone)
   }
+}
 
-  return staticGroup
+function buildCollisionFromRenderedLayer(
+  staticGroup: Phaser.Physics.Arcade.StaticGroup,
+  scene: Phaser.Scene,
+  layer: Phaser.Tilemaps.TilemapLayerBase,
+): void {
+  layer.forEachTile((tile: Phaser.Tilemaps.Tile) => {
+    if (!tile || tile.index < 0) return
+    if (!isCollidableTile(tile)) return
+
+    const zone = scene.add.zone(tile.getCenterX(), tile.getCenterY(), tile.width, tile.height)
+    scene.physics.add.existing(zone, true)
+    staticGroup.add(zone)
+  })
+}
+
+function isCollidableTile(tile: Phaser.Tilemaps.Tile): boolean {
+  if (!tile.properties) return true
+  if (!('collides' in tile.properties)) return true
+  return isTruthy(tile.properties.collides)
+}
+
+function isTruthy(value: unknown): boolean {
+  if (value === undefined || value === null) return false
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value.toLowerCase() !== 'false' && value !== '0' && value !== ''
+  return true
 }
