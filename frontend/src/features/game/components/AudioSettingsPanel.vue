@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { ref } from 'vue'
 
-import { audioState, setMusicMuted, setMusicVolume, setSfxVolume, toggleMusicMuted } from '@/shared/audio/audio.service'
+import { audioState, setMusicVolume, setSfxVolume, toggleMusicMuted } from '@/shared/audio/audio.service'
 
 const open = ref(false)
 const musicVolume = computed(() => audioState.musicVolume.value)
@@ -31,11 +31,6 @@ function updateSfxVolume(event: Event) {
         <strong>Âm thanh</strong>
         <button type="button" class="close-button" aria-label="Đóng cài đặt âm thanh" @click="open = false">×</button>
       </header>
-
-      <label class="toggle-row">
-        <input :checked="musicMuted" type="checkbox" @change="setMusicMuted(($event.target as HTMLInputElement).checked)" />
-        Tắt nhạc nền
-      </label>
 
       <label>
         <span>Nhạc nền {{ musicVolumePercent }}%</span>
@@ -98,15 +93,11 @@ function updateSfxVolume(event: Event) {
   box-shadow: 4px 4px 0 #000;
 }
 
-.settings-panel header,
-.toggle-row {
+.settings-panel header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-
-.settings-panel header {
   margin-bottom: 12px;
   font-size: 22px;
 }
@@ -126,10 +117,6 @@ label {
 
 input[type='range'] {
   width: 100%;
-  accent-color: #d9a441;
-}
-
-input[type='checkbox'] {
   accent-color: #d9a441;
 }
 
