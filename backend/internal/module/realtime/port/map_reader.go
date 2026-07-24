@@ -12,4 +12,5 @@ import (
 // Bind bằng *character/usecase.CharacterUsecase.GetDefaultMap ở realtime/provider.go.
 type MapReader interface {
 	GetDefaultMap(ctx context.Context) (*characterentity.MapInfo, error)
+	GetMapByCode(ctx context.Context, code string) (*characterentity.MapInfo, error)
 }

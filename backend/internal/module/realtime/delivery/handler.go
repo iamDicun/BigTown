@@ -18,7 +18,8 @@ func NewRealtimeHandler(usecase *usecase.RealtimeUsecase) *RealtimeHandler {
 }
 
 func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
-	data, err := h.usecase.GetBootstrap(ctx.Request.Context())
+	mapCode := ctx.Query("map_code")
+	data, err := h.usecase.GetBootstrap(ctx.Request.Context(), mapCode)
 	if err != nil {
 		ctx.Error(err)
 		return

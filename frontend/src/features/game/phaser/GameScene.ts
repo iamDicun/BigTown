@@ -1,12 +1,13 @@
 import Phaser from 'phaser'
 
 import { createGameSocket, getDefaultRealtimeUrl, type GameSocket } from '../network/gameSocket'
-import { buildMap, PLAYER_DEPTH } from '../systems/mapSystem'
+import { buildMap, PLAYER_DEPTH, type WarpZone } from '../systems/mapSystem'
 import { LocalPlayerController, type MovementKeys } from '../systems/localPlayerController'
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
 import type { GameSceneData } from './BootScene'
 import { createAnimations } from './playerAnimations'
+import * as realtimeService from '../services/realtime.service'
 
 export const gameSceneKey = 'game'
 
@@ -21,6 +22,9 @@ export class GameScene extends Phaser.Scene {
   private remotePlayers!: RemotePlayerManager
   private aboveLayerFade: AboveLayerFade | null = null
   private gameSocket: GameSocket | null = null
+  private warpZones: WarpZone[] = []
+  private warping = false
+  private switchMapHandler: ((e: Event) => void) | null = null
 
   constructor() {
     super(gameSceneKey)
@@ -28,13 +32,15 @@ export class GameScene extends Phaser.Scene {
 
   init(data: GameSceneData) {
     this.sceneData = data
+    this.warping = false
   }
 
   create() {
     const { bootstrap, characterId, textureKey, spritesheetConfig, characterOptions } = this.sceneData
     this.localCharacterId = characterId
 
-    const { collisionGroup, aboveLayer } = buildMap(this, bootstrap)
+    const { collisionGroup, aboveLayer, warpZones } = buildMap(this, bootstrap)
+    this.warpZones = warpZones
     this.aboveLayerFade = aboveLayer ? createAboveLayerFade(aboveLayer) : null
 
     for (const option of characterOptions) {
@@ -44,8 +50,8 @@ export class GameScene extends Phaser.Scene {
     this.localPlayer = new LocalPlayerController(
       this,
       textureKey,
-      bootstrap.spawn_x,
-      bootstrap.spawn_y,
+      this.sceneData.warpX ?? bootstrap.spawn_x,
+      this.sceneData.warpY ?? bootstrap.spawn_y,
       (command) =>
         this.gameSocket?.sendMove(command).catch(() => {
         }),
@@ -104,7 +110,19 @@ export class GameScene extends Phaser.Scene {
       this.gameSocket?.close()
       this.gameSocket = null
       this.remotePlayers.destroyAll()
+      if (this.switchMapHandler) {
+        window.removeEventListener('game:switchMap', this.switchMapHandler)
+        this.switchMapHandler = null
+      }
     })
+
+    this.switchMapHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { mapCode: string }
+      if (detail?.mapCode && !this.warping) {
+        this.switchToMap(detail.mapCode)
+      }
+    }
+    window.addEventListener('game:switchMap', this.switchMapHandler)
   }
 
   update(time: number) {
@@ -112,6 +130,96 @@ export class GameScene extends Phaser.Scene {
     this.remotePlayers.update()
     if (this.aboveLayerFade) {
       updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite)
+    }
+    this.checkWarps()
+  }
+
+  private checkWarps() {
+    if (this.warping || !this.gameSocket) return
+    const px = this.localPlayer.sprite.x
+    const py = this.localPlayer.sprite.y
+    for (const w of this.warpZones) {
+      const bounds = (w.zone.body as Phaser.Physics.Arcade.StaticBody)
+      if (px >= bounds.x && px <= bounds.x + bounds.width && py >= bounds.y && py <= bounds.y + bounds.height) {
+        this.startWarp(w)
+        return
+      }
+    }
+  }
+
+  private async startWarp(warp: WarpZone) {
+    this.warping = true
+    try {
+      await this.gameSocket!.centrifuge.rpc('player_warp', { dest_map: warp.destMap, dest_x: warp.destX, dest_y: warp.destY })
+      this.gameSocket?.close()
+      this.gameSocket = null
+      this.remotePlayers.destroyAll()
+
+      const newBootstrap = await realtimeService.getBootstrap(warp.destMap)
+      window.dispatchEvent(new CustomEvent('game:mapChanged', { detail: { mapCode: warp.destMap } }))
+
+      await this.preloadMapAssets(newBootstrap)
+
+      this.scene.restart({
+        bootstrap: newBootstrap,
+        characterId: this.sceneData.characterId,
+        baseAssetKey: this.sceneData.baseAssetKey,
+        textureKey: this.sceneData.textureKey,
+        spritesheetConfig: this.sceneData.spritesheetConfig,
+        characterOptions: this.sceneData.characterOptions,
+        warpX: warp.destX,
+        warpY: warp.destY,
+      })
+    } catch {
+      this.warping = false
+    }
+  }
+
+  private preloadMapAssets(bootstrap: realtimeService.BootstrapDto): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.cache?.tilemap?.exists?.('map')) this.cache.tilemap.remove('map')
+      this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
+      for (const tilesetName of bootstrap.tileset_asset_key.split(',')) {
+        this.load.image(tilesetName, `/assets/tiles/${tilesetName}.png`)
+      }
+      this.load.once('complete', resolve)
+      this.load.start()
+    })
+  }
+
+  private async switchToMap(mapCode: string) {
+    this.warping = true
+    try {
+      const newBootstrap = await realtimeService.getBootstrap(mapCode)
+      window.dispatchEvent(new CustomEvent('game:mapChanged', { detail: { mapCode } }))
+
+      if (this.gameSocket) {
+        await this.gameSocket.centrifuge.rpc('player_warp', {
+          dest_map: mapCode,
+          dest_x: newBootstrap.spawn_x,
+          dest_y: newBootstrap.spawn_y,
+        })
+      }
+
+      await this.preloadMapAssets(newBootstrap)
+
+      this.gameSocket?.close()
+      this.gameSocket = null
+      this.remotePlayers.destroyAll()
+
+      this.scene.restart({
+        bootstrap: newBootstrap,
+        characterId: this.sceneData.characterId,
+        baseAssetKey: this.sceneData.baseAssetKey,
+        textureKey: this.sceneData.textureKey,
+        spritesheetConfig: this.sceneData.spritesheetConfig,
+        characterOptions: this.sceneData.characterOptions,
+        warpX: newBootstrap.spawn_x,
+        warpY: newBootstrap.spawn_y,
+      })
+    } catch (err) {
+      console.error('Failed to switch map:', err)
+      this.warping = false
     }
   }
 

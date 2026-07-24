@@ -21,6 +21,7 @@ export interface BootstrapDto {
   collision_layer_name?: string
 }
 
-export function getBootstrap() {
-  return http.get<BootstrapDto>('/realtime/bootstrap')
+export function getBootstrap(mapCode?: string) {
+  const query = mapCode ? `?map_code=${encodeURIComponent(mapCode)}` : ''
+  return http.get<BootstrapDto>(`/realtime/bootstrap${query}`)
 }

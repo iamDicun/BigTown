@@ -21,6 +21,7 @@ type CharacterUsecase struct {
 
 	mapCacheMu sync.RWMutex
 	mapCache   *entity.MapInfo
+	mapByCode  map[string]*entity.MapInfo
 }
 
 type SpritesheetConfig struct {
@@ -160,6 +161,39 @@ func (u *CharacterUsecase) GetDefaultMap(ctx context.Context) (*entity.MapInfo, 
 
 	u.mapCacheMu.Lock()
 	u.mapCache = mapInfo
+	u.mapCacheMu.Unlock()
+
+	return mapInfo, nil
+}
+
+func (u *CharacterUsecase) GetMapByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return u.GetDefaultMap(ctx)
+	}
+
+	u.mapCacheMu.RLock()
+	if u.mapByCode != nil {
+		if cached, ok := u.mapByCode[code]; ok {
+			u.mapCacheMu.RUnlock()
+			return cached, nil
+		}
+	}
+	u.mapCacheMu.RUnlock()
+
+	mapInfo, err := u.repo.FindMapByCode(ctx, code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, apperror.NotFound("Không tìm thấy map: "+code, err)
+	}
+	if err != nil {
+		return nil, apperror.Internal(err)
+	}
+
+	u.mapCacheMu.Lock()
+	if u.mapByCode == nil {
+		u.mapByCode = make(map[string]*entity.MapInfo)
+	}
+	u.mapByCode[code] = mapInfo
 	u.mapCacheMu.Unlock()
 
 	return mapInfo, nil

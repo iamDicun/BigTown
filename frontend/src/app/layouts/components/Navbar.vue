@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useGameStore } from '@/features/game/stores/game.store'
+import MapSwitcher from '@/features/game/components/MapSwitcher.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const gameStore = useGameStore()
 
@@ -26,6 +28,7 @@ async function handleLogout() {
     <span class="navbar-brand">BigTown</span>
     <div v-if="authStore.isAuthenticated" class="navbar-user">
       <span class="pixel-badge pixel-badge--ok">Online</span>
+      <MapSwitcher v-if="route.name === 'game'" />
       <button class="pixel-button pixel-button--sm" @click="handleLogout">Đăng xuất</button>
     </div>
   </header>

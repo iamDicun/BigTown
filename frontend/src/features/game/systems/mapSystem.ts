@@ -22,10 +22,18 @@ function resolveCollisionLayerName(bootstrap: BootstrapDto): string {
   return bootstrap.collision_layer_name || 'Collision'
 }
 
+export type WarpZone = {
+  zone: Phaser.GameObjects.Zone
+  destMap: string
+  destX: number
+  destY: number
+}
+
 export type MapBuildResult = {
   map: Phaser.Tilemaps.Tilemap
   collisionGroup: Phaser.Physics.Arcade.StaticGroup
   aboveLayer: Phaser.Tilemaps.TilemapLayerBase | null
+  warpZones: WarpZone[]
 }
 
 export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuildResult {
@@ -72,8 +80,9 @@ export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuild
   }
 
   const collisionGroup = buildCollisionGroup(scene, map, collisionLayerName, collisionTilesLayer)
+  const warpZones = buildWarpZones(scene, map)
 
-  return { map, collisionGroup, aboveLayer }
+  return { map, collisionGroup, aboveLayer, warpZones }
 }
 
 export const PLAYER_DEPTH = 3
@@ -144,4 +153,35 @@ function isTruthy(value: unknown): boolean {
   if (typeof value === 'boolean') return value
   if (typeof value === 'string') return value.toLowerCase() !== 'false' && value !== '0' && value !== ''
   return true
+}
+
+function buildWarpZones(scene: Phaser.Scene, map: Phaser.Tilemaps.Tilemap): WarpZone[] {
+  const warps: WarpZone[] = []
+  for (const layer of map.objects) {
+    if (!layer?.objects) continue
+    for (const obj of layer.objects) {
+      if (obj.type !== 'warp') continue
+      const destMap = getProperty(obj, 'dest_map')
+      const destX = parseInt(getProperty(obj, 'dest_x') || '0', 10)
+      const destY = parseInt(getProperty(obj, 'dest_y') || '0', 10)
+      if (!destMap) continue
+
+      const width = obj.width ?? 32
+      const height = obj.height ?? 32
+      const centerX = (obj.x ?? 0) + width / 2
+      const centerY = (obj.y ?? 0) + height / 2
+
+      const zone = scene.add.zone(centerX, centerY, width, height)
+      scene.physics.add.existing(zone, true)
+      warps.push({ zone, destMap, destX, destY })
+    }
+  }
+  return warps
+}
+
+function getProperty(obj: any, name: string): string | undefined {
+  for (const prop of obj.properties ?? []) {
+    if (prop.name === name) return prop.value?.toString()
+  }
+  return undefined
 }

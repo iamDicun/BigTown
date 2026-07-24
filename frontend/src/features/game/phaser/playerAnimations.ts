@@ -18,38 +18,38 @@ export function createAnimations(scene: Phaser.Scene, textureKey: string, config
 
   const frames = (row: number) => scene.anims.generateFrameNumbers(textureKey, { frames: rowFrames(row) })
 
-  scene.anims.create({
-    key: textureKey + SUFFIX_IDLE_DOWN,
+  const safeCreate = (key: string, animConfig: any) => {
+    if (!scene.anims.exists(key)) {
+      scene.anims.create({ key, ...animConfig })
+    }
+  }
+
+  safeCreate(textureKey + SUFFIX_IDLE_DOWN, {
     frames: frames(config.row_idle_down),
     frameRate: config.idle_frame_rate,
     repeat: -1,
   })
-  scene.anims.create({
-    key: textureKey + SUFFIX_WALK_DOWN,
+  safeCreate(textureKey + SUFFIX_WALK_DOWN, {
     frames: frames(config.row_walk_down),
     frameRate: config.walk_frame_rate,
     repeat: -1,
   })
-  scene.anims.create({
-    key: textureKey + SUFFIX_IDLE_UP,
+  safeCreate(textureKey + SUFFIX_IDLE_UP, {
     frames: frames(config.row_idle_up),
     frameRate: config.idle_frame_rate,
     repeat: -1,
   })
-  scene.anims.create({
-    key: textureKey + SUFFIX_WALK_UP,
+  safeCreate(textureKey + SUFFIX_WALK_UP, {
     frames: frames(config.row_walk_up),
     frameRate: config.walk_frame_rate,
     repeat: -1,
   })
-  scene.anims.create({
-    key: textureKey + SUFFIX_WALK_SIDE,
+  safeCreate(textureKey + SUFFIX_WALK_SIDE, {
     frames: frames(config.row_walk_side),
     frameRate: config.walk_frame_rate,
     repeat: -1,
   })
-  scene.anims.create({
-    key: textureKey + SUFFIX_IDLE_SIDE,
+  safeCreate(textureKey + SUFFIX_IDLE_SIDE, {
     frames: [{ key: textureKey, frame: rowFrames(config.row_walk_side)[0] }],
   })
 }

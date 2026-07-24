@@ -69,7 +69,7 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 		return nil, nil, false, err
 	}
 
-	mapInfo, err := u.maps.GetDefaultMap(ctx)
+	mapInfo, err := u.maps.GetMapByCode(ctx, roomID)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -134,7 +134,7 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 	}
 	character := current.CharacterID
 
-	mapInfo, err := u.maps.GetDefaultMap(ctx)
+	mapInfo, err := u.maps.GetMapByCode(ctx, roomID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -222,4 +222,28 @@ func isOccupied(x, y int, players []room.RoomPlayer, excludeCharacterID string) 
 		}
 	}
 	return false
+}
+
+type WarpDestination struct {
+	MapCode string
+	X       int
+	Y       int
+}
+
+func (u *RoomUsecase) WarpPlayer(ctx context.Context, roomID string, userID string, destMap string, destX int, destY int) (*WarpDestination, error) {
+	_, err := u.maps.GetMapByCode(ctx, destMap)
+	if err != nil {
+		return nil, err
+	}
+
+	character, err := u.characters.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, _, err := u.store.LeaveRoom(ctx, roomID, character.ID, ""); err != nil {
+		return nil, err
+	}
+
+	return &WarpDestination{MapCode: destMap, X: destX, Y: destY}, nil
 }

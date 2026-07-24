@@ -82,3 +82,15 @@ type positionCorrectionEvent struct {
 	X           int    `json:"x"`
 	Y           int    `json:"y"`
 }
+
+type playerWarpCommand struct {
+	DestMap string `json:"dest_map"`
+	DestX   int    `json:"dest_x"`
+	DestY   int    `json:"dest_y"`
+}
+
+type playerWarpResult struct {
+	MapCode string `json:"map_code"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+}

@@ -13,6 +13,8 @@ export type GameSceneData = {
   textureKey: string
   spritesheetConfig: SpritesheetConfigDto
   characterOptions: CharacterOptionDto[]
+  warpX?: number
+  warpY?: number
 }
 
 export class BootScene extends Phaser.Scene {

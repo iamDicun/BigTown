@@ -68,29 +68,28 @@ func NewCentrifugeTransport(jwtSecret string, allowedOrigins []string, roomUseca
 		})
 
 		client.OnDisconnect(func(event centrifuge.DisconnectEvent) {
-			// MVP chỉ có 1 room/map tại một thời điểm (xem docs/Architecture.md mục 9.1), nên
-			// disconnect luôn leave đúng room mặc định mà không cần track channel client đã
-			// subscribe. Cần sửa lại nếu sau này có nhiều room cùng lúc.
-			roomID, err := roomUsecase.DefaultRoomID(context.Background())
-			if err != nil {
-				return
+			for _, ch := range client.Channels() {
+				if !isRoomChannel(ch) {
+					continue
+				}
+				roomID := strings.TrimPrefix(ch, roomChannelPrefix)
+				handleLeaveRoom(node, roomUsecase, roomID, client.UserID(), client.ID())
 			}
-			handleLeaveRoom(node, roomUsecase, roomID, client.UserID(), client.ID())
 		})
 
-		// Gameplay/chat event giờ đều đi qua HTTP hoặc RPC/command để backend validate và tự
-		// publish (xem docs/Realtime-Room-State-Decisions.md mục 8-9). Client không còn publish
-		// trực tiếp vào room channel nữa nên OnPublish luôn từ chối.
 		client.OnPublish(func(event centrifuge.PublishEvent, cb centrifuge.PublishCallback) {
 			cb(centrifuge.PublishReply{}, centrifuge.ErrorPermissionDenied)
 		})
 
 		client.OnRPC(func(event centrifuge.RPCEvent, cb centrifuge.RPCCallback) {
-			if event.Method != "player_move" {
+			switch event.Method {
+			case "player_move":
+				handlePlayerMove(node, roomUsecase, client, event, cb)
+			case "player_warp":
+				handlePlayerWarp(node, roomUsecase, client, event, cb)
+			default:
 				cb(centrifuge.RPCReply{}, centrifuge.ErrorMethodNotFound)
-				return
 			}
-			handlePlayerMove(node, roomUsecase, client, event, cb)
 		})
 	})
 
@@ -181,9 +180,9 @@ func handlePlayerMove(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, c
 		return
 	}
 
-	roomID, err := roomUsecase.DefaultRoomID(context.Background())
-	if err != nil {
-		cb(centrifuge.RPCReply{}, centrifuge.ErrorInternal)
+	roomID := clientRoomID(client)
+	if roomID == "" {
+		cb(centrifuge.RPCReply{}, centrifuge.ErrorPermissionDenied)
 		return
 	}
 
@@ -226,6 +225,37 @@ func handlePlayerMove(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, c
 	cb(centrifuge.RPCReply{}, nil)
 }
 
+func handlePlayerWarp(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, client *centrifuge.Client, event centrifuge.RPCEvent, cb centrifuge.RPCCallback) {
+	var cmd playerWarpCommand
+	if err := json.Unmarshal(event.Data, &cmd); err != nil {
+		cb(centrifuge.RPCReply{}, centrifuge.ErrorBadRequest)
+		return
+	}
+
+	roomID := clientRoomID(client)
+	if roomID == "" {
+		cb(centrifuge.RPCReply{}, centrifuge.ErrorPermissionDenied)
+		return
+	}
+
+	result, err := roomUsecase.WarpPlayer(context.Background(), roomID, client.UserID(), cmd.DestMap, cmd.DestX, cmd.DestY)
+	if err != nil {
+		cb(centrifuge.RPCReply{}, centrifuge.ErrorInternal)
+		return
+	}
+	if result == nil {
+		cb(centrifuge.RPCReply{}, centrifuge.ErrorInternal)
+		return
+	}
+
+	data, _ := json.Marshal(playerWarpResult{
+		MapCode: result.MapCode,
+		X:       result.X,
+		Y:       result.Y,
+	})
+	cb(centrifuge.RPCReply{Data: data}, nil)
+}
+
 func publishRoomEvent(node *centrifuge.Node, roomID string, event any) {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -244,6 +274,15 @@ func sendPersonalEvent(node *centrifuge.Node, userID string, event any) {
 
 func isRoomChannel(channel string) bool {
 	return strings.HasPrefix(channel, roomChannelPrefix)
+}
+
+func clientRoomID(client *centrifuge.Client) string {
+	for _, ch := range client.Channels() {
+		if isRoomChannel(ch) {
+			return strings.TrimPrefix(ch, roomChannelPrefix)
+		}
+	}
+	return ""
 }
 
 func allowOrigin(allowedOrigins []string) func(*http.Request) bool {

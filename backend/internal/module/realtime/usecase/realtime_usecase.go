@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	characterentity "backend/internal/module/character/entity"
 	"backend/internal/module/realtime/port"
 )
 
@@ -34,8 +35,15 @@ func NewRealtimeUsecase(mapReader port.MapReader) *RealtimeUsecase {
 	return &RealtimeUsecase{mapReader: mapReader}
 }
 
-func (u *RealtimeUsecase) GetBootstrap(ctx context.Context) (*BootstrapData, error) {
-	mapInfo, err := u.mapReader.GetDefaultMap(ctx)
+func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*BootstrapData, error) {
+	var mapInfo *characterentity.MapInfo
+	var err error
+
+	if mapCode != "" {
+		mapInfo, err = u.mapReader.GetMapByCode(ctx, mapCode)
+	} else {
+		mapInfo, err = u.mapReader.GetDefaultMap(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
