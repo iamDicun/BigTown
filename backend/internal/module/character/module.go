@@ -11,8 +11,8 @@ type CharacterModule struct {
 	provider *Provider
 }
 
-func NewCharacterModule(db *sql.DB, users port.UserReader, defaultMapCode string) *CharacterModule {
-	return &CharacterModule{provider: NewProvider(db, users, defaultMapCode)}
+func NewCharacterModule(db *sql.DB, users port.UserReader, defaultMapCode string, startingCoins int) *CharacterModule {
+	return &CharacterModule{provider: NewProvider(db, users, defaultMapCode, startingCoins)}
 }
 
 // Usecase() cho phép module khác (chat, realtime) tái dùng cùng CharacterUsecase để get-or-create

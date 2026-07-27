@@ -13,19 +13,20 @@ type Provider struct {
 	db             *sql.DB
 	users          port.UserReader
 	defaultMapCode string
+	startingCoins  int
 
 	repo    port.CharacterRepository
 	usecase *usecase.CharacterUsecase
 	handler *delivery.CharacterHandler
 }
 
-func NewProvider(db *sql.DB, users port.UserReader, defaultMapCode string) *Provider {
-	return &Provider{db: db, users: users, defaultMapCode: defaultMapCode}
+func NewProvider(db *sql.DB, users port.UserReader, defaultMapCode string, startingCoins int) *Provider {
+	return &Provider{db: db, users: users, defaultMapCode: defaultMapCode, startingCoins: startingCoins}
 }
 
 func (p *Provider) Repository() port.CharacterRepository {
 	if p.repo == nil {
-		p.repo = repository.NewCharacterRepository(p.db, p.defaultMapCode)
+		p.repo = repository.NewCharacterRepository(p.db, p.defaultMapCode, p.startingCoins)
 	}
 	return p.repo
 }

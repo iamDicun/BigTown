@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -50,6 +51,7 @@ type TeamsConfig struct {
 // (xem docs/Architecture.md mục 9.1). Character mới/cũ đều được đồng bộ map_id theo giá trị này.
 type GameConfig struct {
 	DefaultMapCode string
+	StartingCoins  int
 }
 
 func Load() *Config {
@@ -74,6 +76,7 @@ func Load() *Config {
 		},
 		Game: GameConfig{
 			DefaultMapCode: getEnv("GAME_DEFAULT_MAP_CODE", "village_adventure"),
+			StartingCoins:  getIntEnv("GAME_STARTING_COINS", 5000),
 		},
 		Web: WebConfig{
 			AllowedOrigins: getCSVEnv("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}),
@@ -118,4 +121,15 @@ func getBoolEnv(key string, fallback bool) bool {
 		return fallback
 	}
 	return value == "true" || value == "1" || value == "yes"
+}
+
+func getIntEnv(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	if n, err := strconv.Atoi(value); err == nil {
+		return n
+	}
+	return fallback
 }

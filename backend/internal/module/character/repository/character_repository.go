@@ -17,8 +17,8 @@ const characterColumns = `id::text, user_id::text, name, map_id::text, base_asse
 const selectCharacterByUserIDQuery = `SELECT ` + characterColumns + ` FROM characters WHERE user_id = $1`
 
 const insertDefaultCharacterQuery = `
-	INSERT INTO characters (user_id, name, base_asset_key, map_id)
-	VALUES ($1, $2, $3, $4)
+	INSERT INTO characters (user_id, name, base_asset_key, map_id, coins)
+	VALUES ($1, $2, $3, $4, $5)
 	RETURNING ` + characterColumns
 
 const updateCharacterMapIDQuery = `UPDATE characters SET map_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`
@@ -32,10 +32,11 @@ const selectMapByCodeQuery = `SELECT ` + mapColumns + ` FROM maps WHERE code = $
 type CharacterRepository struct {
 	db             *sql.DB
 	defaultMapCode string
+	startingCoins  int
 }
 
-func NewCharacterRepository(db *sql.DB, defaultMapCode string) *CharacterRepository {
-	return &CharacterRepository{db: db, defaultMapCode: defaultMapCode}
+func NewCharacterRepository(db *sql.DB, defaultMapCode string, startingCoins int) *CharacterRepository {
+	return &CharacterRepository{db: db, defaultMapCode: defaultMapCode, startingCoins: startingCoins}
 }
 
 func (r *CharacterRepository) FindByUserID(ctx context.Context, userID string) (*entity.Character, error) {
@@ -52,7 +53,7 @@ func (r *CharacterRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, user
 		return nil, err
 	}
 
-	return scanCharacter(tx.QueryRowContext(ctx, insertDefaultCharacterQuery, userID, name, baseAssetKey, mapID))
+	return scanCharacter(tx.QueryRowContext(ctx, insertDefaultCharacterQuery, userID, name, baseAssetKey, mapID, r.startingCoins))
 }
 
 func (r *CharacterRepository) FindMapByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
