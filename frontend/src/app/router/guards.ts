@@ -11,12 +11,13 @@ declare module 'vue-router' {
   }
 }
 
-// Chỉ để trải nghiệm điều hướng mượt hơn (redirect sớm trước khi render trang sai quyền).
-// Đây KHÔNG phải security boundary — backend middleware (RequireRoles, AuthMiddleware) mới là
-// nơi thật sự chặn request, xem mục 14 frontend-architecture-it-asset-tracking.md.
 export function attachAuthGuard(router: Router) {
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
     const authStore = useAuthStore()
+
+    if (!authStore.sessionReady) {
+      return false
+    }
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
       return { name: 'game' }
