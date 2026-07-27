@@ -5,6 +5,7 @@ import { buildMap, PLAYER_DEPTH, type WarpZone } from '../systems/mapSystem'
 import { LocalPlayerController, type MovementKeys } from '../systems/localPlayerController'
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
+import { createEnvironmentFx, updateEnvironmentFx, destroyEnvironmentFx, type EnvironmentFx } from '../systems/environmentSystem'
 import type { GameSceneData } from './BootScene'
 import { preloadSceneKey } from './PreloadScene'
 import { createAnimations } from './playerAnimations'
@@ -30,6 +31,7 @@ export class GameScene extends Phaser.Scene {
   private localPlayer!: LocalPlayerController
   private remotePlayers!: RemotePlayerManager
   private aboveLayerFade: AboveLayerFade | null = null
+  private environmentFx: EnvironmentFx = { type: 'none' }
   private gameSocket: GameSocket | null = null
   private warpZones: WarpZone[] = []
   private warping = false
@@ -150,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.environmentFx = destroyEnvironmentFx(this.environmentFx)
       this.gameSocket?.close()
       this.gameSocket = null
       this.remotePlayers.destroyAll()
@@ -175,6 +178,8 @@ export class GameScene extends Phaser.Scene {
       playMusic('/assets/' + bootstrap.music_asset_key)
     }
 
+    this.environmentFx = createEnvironmentFx(this, bootstrap.map_code)
+
     window.dispatchEvent(new CustomEvent('game:ready'))
   }
 
@@ -191,6 +196,7 @@ export class GameScene extends Phaser.Scene {
     if (this.aboveLayerFade) {
       updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite, time)
     }
+    updateEnvironmentFx(this.environmentFx, time, this.localPlayer.sprite)
     this.checkWarps()
   }
 
