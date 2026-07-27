@@ -38,7 +38,7 @@ function updateSfxVolume(event: Event) {
           :value="musicVolume"
           min="0"
           max="1"
-          step="0.05"
+          step="0.01"
           type="range"
           @input="updateMusicVolume"
         />
@@ -46,7 +46,7 @@ function updateSfxVolume(event: Event) {
 
       <label>
         <span>Hiệu ứng {{ sfxVolumePercent }}%</span>
-        <input :value="sfxVolume" min="0" max="1" step="0.05" type="range" @input="updateSfxVolume" />
+        <input :value="sfxVolume" min="0" max="1" step="0.01" type="range" @input="updateSfxVolume" />
       </label>
 
       <button type="button" class="mute-button" @click="toggleMusicMuted">

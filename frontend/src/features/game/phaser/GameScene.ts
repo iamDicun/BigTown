@@ -6,6 +6,7 @@ import { LocalPlayerController, type MovementKeys } from '../systems/localPlayer
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
 import type { GameSceneData } from './BootScene'
+import { preloadSceneKey } from './PreloadScene'
 import { createAnimations } from './playerAnimations'
 import * as realtimeService from '../services/realtime.service'
 import { playMusic } from '@/shared/audio/audio.service'
@@ -229,9 +230,16 @@ export class GameScene extends Phaser.Scene {
       const newBootstrap = await realtimeService.getBootstrap(warp.destMap)
       window.dispatchEvent(new CustomEvent('game:mapChanged', { detail: { mapCode: warp.destMap } }))
 
-      await this.preloadMapAssets(newBootstrap)
+      if (this.chatFocusHandler) {
+        window.removeEventListener('game:chatFocus', this.chatFocusHandler)
+        this.chatFocusHandler = null
+      }
+      if (this.switchMapHandler) {
+        window.removeEventListener('game:switchMap', this.switchMapHandler)
+        this.switchMapHandler = null
+      }
 
-      this.scene.restart({
+      this.scene.start(preloadSceneKey, {
         bootstrap: newBootstrap,
         characterId: this.sceneData.characterId,
         baseAssetKey: this.sceneData.baseAssetKey,
@@ -244,18 +252,6 @@ export class GameScene extends Phaser.Scene {
     } catch {
       this.warping = false
     }
-  }
-
-  private preloadMapAssets(bootstrap: realtimeService.BootstrapDto): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.cache?.tilemap?.exists?.('map')) this.cache.tilemap.remove('map')
-      this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
-      for (const tilesetName of bootstrap.tileset_asset_key.split(',')) {
-        this.load.image(tilesetName, `/assets/tiles/${tilesetName}.png`)
-      }
-      this.load.once('complete', resolve)
-      this.load.start()
-    })
   }
 
   private async switchToMap(mapCode: string) {
@@ -272,13 +268,20 @@ export class GameScene extends Phaser.Scene {
         })
       }
 
-      await this.preloadMapAssets(newBootstrap)
-
       this.gameSocket?.close()
       this.gameSocket = null
       this.remotePlayers.destroyAll()
 
-      this.scene.restart({
+      if (this.chatFocusHandler) {
+        window.removeEventListener('game:chatFocus', this.chatFocusHandler)
+        this.chatFocusHandler = null
+      }
+      if (this.switchMapHandler) {
+        window.removeEventListener('game:switchMap', this.switchMapHandler)
+        this.switchMapHandler = null
+      }
+
+      this.scene.start(preloadSceneKey, {
         bootstrap: newBootstrap,
         characterId: this.sceneData.characterId,
         baseAssetKey: this.sceneData.baseAssetKey,

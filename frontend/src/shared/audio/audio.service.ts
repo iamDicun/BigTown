@@ -36,15 +36,19 @@ export const audioState = {
 }
 
 export function playMusic(src: string, options: MusicOptions = {}): void {
-  pendingMusic = { src, options }
-
   if (currentMusic && currentMusicSrc === src) {
     applyMusicVolume(currentMusic, options.volume)
-    if (currentMusic.paused && !musicMuted.value) void currentMusic.play().catch(() => undefined)
+    if (currentMusic.paused && !musicMuted.value) {
+      void currentMusic.play().catch(() => undefined)
+    }
     return
   }
 
+  // Stop previous music and clear old pending music first
   stopMusic()
+
+  // Now set the new pending music
+  pendingMusic = { src, options }
 
   const audio = new Audio(src)
   audio.loop = options.loop ?? true
@@ -129,7 +133,8 @@ export function initButtonSfx(): void {
   document.addEventListener('click', (event) => {
     const target = event.target
     if (!(target instanceof Element)) return
-    if (!target.closest('button, a, input[type="submit"]')) return
+    const button = target.closest('button, a, input[type="submit"]')
+    if (!button) return
     if (target.closest('input[type="range"]')) return
     playSfx()
   })

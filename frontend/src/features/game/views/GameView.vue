@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount } from 'vue'
 
-import { playMusic, stopMusic } from '@/shared/audio/audio.service'
+import { stopMusic } from '@/shared/audio/audio.service'
 
 import AudioSettingsPanel from '../components/AudioSettingsPanel.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import GameCanvas from '../components/GameCanvas.vue'
-
-onMounted(() => {
-  playMusic('/assets/sounds/bgm.mp3', { fadeMs: 2400, volume: 0.27 })
-})
 
 onBeforeUnmount(() => {
   stopMusic()
