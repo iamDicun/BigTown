@@ -19,6 +19,7 @@ export interface BootstrapDto {
   layer_names?: string[]
   above_layer_name?: string
   collision_layer_name?: string
+  music_asset_key?: string
 }
 
 export function getBootstrap(mapCode?: string) {

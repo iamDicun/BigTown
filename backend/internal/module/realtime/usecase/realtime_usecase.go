@@ -29,6 +29,7 @@ type BootstrapData struct {
 	LayerNames        []string
 	AboveLayerName    string
 	CollisionLayerName string
+	MusicAssetKey      string
 }
 
 func NewRealtimeUsecase(mapReader port.MapReader) *RealtimeUsecase {
@@ -71,5 +72,6 @@ func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*Bo
 		LayerNames:     mapInfo.LayerNames,
 		AboveLayerName:    mapInfo.AboveLayerName,
 		CollisionLayerName: mapInfo.CollisionLayerName,
+		MusicAssetKey:      mapInfo.MusicAssetKey,
 	}, nil
 }

@@ -44,6 +44,7 @@ func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
 			LayerNames:       data.LayerNames,
 			AboveLayerName:   data.AboveLayerName,
 			CollisionLayerName: data.CollisionLayerName,
+			MusicAssetKey:      data.MusicAssetKey,
 		},
 	})
 }

@@ -18,4 +18,5 @@ type BootstrapResponse struct {
 	LayerNames        []string `json:"layer_names,omitempty"`
 	AboveLayerName  string   `json:"above_layer_name,omitempty"`
 	CollisionLayerName string `json:"collision_layer_name,omitempty"`
+	MusicAssetKey      string `json:"music_asset_key,omitempty"`
 }

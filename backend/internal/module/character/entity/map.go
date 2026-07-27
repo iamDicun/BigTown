@@ -9,6 +9,7 @@ type MapInfo struct {
 	TilemapAssetKey   string
 	TilesetAssetKey   string
 	CollisionAssetKey *string
+	MusicAssetKey     string
 	SpawnX            int
 	SpawnY            int
 	Width             int
