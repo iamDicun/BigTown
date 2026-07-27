@@ -168,6 +168,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
     window.addEventListener('game:switchMap', this.switchMapHandler)
+
+    window.dispatchEvent(new CustomEvent('game:ready'))
   }
 
   update(time: number) {
