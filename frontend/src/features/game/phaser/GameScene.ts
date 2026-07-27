@@ -54,7 +54,7 @@ export class GameScene extends Phaser.Scene {
 
     const { collisionGroup, aboveLayer, warpZones } = buildMap(this, bootstrap)
     this.warpZones = warpZones
-    this.aboveLayerFade = aboveLayer ? createAboveLayerFade(aboveLayer) : null
+    this.aboveLayerFade = aboveLayer ? createAboveLayerFade(this, aboveLayer) : null
 
     for (const option of characterOptions) {
       createAnimations(this, option.base_asset_key, option.spritesheet)
@@ -189,7 +189,7 @@ export class GameScene extends Phaser.Scene {
     this.localPlayer.update(time, cursors)
     this.remotePlayers.update()
     if (this.aboveLayerFade) {
-      updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite)
+      updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite, time)
     }
     this.checkWarps()
   }
