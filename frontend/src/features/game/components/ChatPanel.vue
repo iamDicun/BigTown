@@ -24,6 +24,7 @@ const sending = ref(false)
 const status = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting')
 const error = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
+const inputEl = ref<HTMLInputElement | null>(null)
 const collapsed = ref(false)
 
 const statusLabel: Record<typeof status.value, string> = {
@@ -42,12 +43,38 @@ const statusBadgeClass = computed(() => {
 let gameSocket: ReturnType<typeof createGameSocket> | null = null
 let roomId = ''
 let mapChangedHandler: ((e: Event) => void) | null = null
+let focusChatInputHandler: ((e: Event) => void) | null = null
+let blurChatInputHandler: ((e: Event) => void) | null = null
 
 const canSend = computed(() => !sending.value && draft.value.trim().length > 0)
 
 function toggleCollapsed() {
   collapsed.value = !collapsed.value
   if (!collapsed.value) scrollToBottom()
+}
+
+function onInputFocus() {
+  window.dispatchEvent(new CustomEvent('game:chatFocus', { detail: { focused: true } }))
+}
+
+function onInputBlur() {
+  window.dispatchEvent(new CustomEvent('game:chatFocus', { detail: { focused: false } }))
+}
+
+function onInputKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (canSend.value) {
+      sendMessage()
+    } else {
+      inputEl.value?.blur()
+    }
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    inputEl.value?.blur()
+    collapsed.value = true
+  }
 }
 
 function disconnectSocket() {
@@ -122,6 +149,21 @@ onMounted(async () => {
     }
   }
   window.addEventListener('game:mapChanged', mapChangedHandler)
+
+  focusChatInputHandler = () => {
+    if (collapsed.value) {
+      collapsed.value = false
+      nextTick(() => inputEl.value?.focus())
+    } else {
+      inputEl.value?.focus()
+    }
+  }
+  window.addEventListener('game:focusChatInput', focusChatInputHandler)
+
+  blurChatInputHandler = () => {
+    inputEl.value?.blur()
+  }
+  window.addEventListener('game:blurChatInput', blurChatInputHandler)
 })
 
 onBeforeUnmount(() => {
@@ -129,6 +171,14 @@ onBeforeUnmount(() => {
   if (mapChangedHandler) {
     window.removeEventListener('game:mapChanged', mapChangedHandler)
     mapChangedHandler = null
+  }
+  if (focusChatInputHandler) {
+    window.removeEventListener('game:focusChatInput', focusChatInputHandler)
+    focusChatInputHandler = null
+  }
+  if (blurChatInputHandler) {
+    window.removeEventListener('game:blurChatInput', blurChatInputHandler)
+    blurChatInputHandler = null
   }
 })
 
@@ -207,7 +257,7 @@ function scrollToBottom() {
         </article>
       </div>
       <form class="chat-form pixel-field pixel-field--sm" @submit.prevent="sendMessage">
-        <input v-model="draft" type="text" placeholder="Nhắn trong map...">
+        <input ref="inputEl" v-model="draft" type="text" placeholder="Nhắn trong map..." @focus="onInputFocus" @blur="onInputBlur" @keydown="onInputKeydown">
         <button type="submit" class="pixel-button pixel-button--sm" :disabled="!canSend">Gửi</button>
       </form>
     </template>

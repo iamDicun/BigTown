@@ -21,6 +21,10 @@ export class PreloadScene extends Phaser.Scene {
     const bootstrap = this.sceneData.bootstrap
     const options = this.sceneData.characterOptions
 
+    this.load.on('progress', (value: number) => {
+      window.dispatchEvent(new CustomEvent('game:loadProgress', { detail: { value } }))
+    })
+
     this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
 
     for (const tilesetName of bootstrap.tileset_asset_key.split(',')) {
