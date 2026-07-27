@@ -23,7 +23,7 @@ const insertDefaultCharacterQuery = `
 
 const updateCharacterMapIDQuery = `UPDATE characters SET map_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`
 
-const mapColumns = `id::text, code, name, tilemap_asset_key, tileset_asset_key, collision_asset_key, spawn_x, spawn_y, width, height, COALESCE(tile_size, 16), COALESCE(layer_names, ''), COALESCE(above_layer_name, ''), COALESCE(collision_layer_name, '')`
+const mapColumns = `id::text, code, name, tilemap_asset_key, tileset_asset_key, collision_asset_key, spawn_x, spawn_y, width, height, COALESCE(tile_size, 16), COALESCE(layer_names, ''), COALESCE(above_layer_name, ''), COALESCE(collision_layer_name, ''), COALESCE(music_asset_key, '')`
 
 const selectMapByCodeQuery = `SELECT ` + mapColumns + ` FROM maps WHERE code = $1`
 
@@ -119,6 +119,7 @@ func scanMap(row rowScanner) (*entity.MapInfo, error) {
 		&m.ID, &m.Code, &m.Name, &m.TilemapAssetKey, &m.TilesetAssetKey, &collisionAssetKey,
 		&m.SpawnX, &m.SpawnY, &m.Width, &m.Height, &m.TileSize,
 		&layerNamesRaw, &m.AboveLayerName, &m.CollisionLayerName,
+		&m.MusicAssetKey,
 	); err != nil {
 		return nil, err
 	}

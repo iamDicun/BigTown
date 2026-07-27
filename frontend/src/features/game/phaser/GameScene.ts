@@ -8,6 +8,7 @@ import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from 
 import type { GameSceneData } from './BootScene'
 import { createAnimations } from './playerAnimations'
 import * as realtimeService from '../services/realtime.service'
+import { playMusic } from '@/shared/audio/audio.service'
 
 export const gameSceneKey = 'game'
 
@@ -168,6 +169,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
     window.addEventListener('game:switchMap', this.switchMapHandler)
+
+    if (bootstrap.music_asset_key) {
+      playMusic('/assets/' + bootstrap.music_asset_key)
+    }
 
     window.dispatchEvent(new CustomEvent('game:ready'))
   }
