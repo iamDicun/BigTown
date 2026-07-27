@@ -13,6 +13,13 @@ export const gameSceneKey = 'game'
 
 const CAMERA_ZOOM = 2
 
+const EMPTY_CURSORS: MovementKeys = {
+  up: { isDown: false } as Phaser.Input.Keyboard.Key,
+  down: { isDown: false } as Phaser.Input.Keyboard.Key,
+  left: { isDown: false } as Phaser.Input.Keyboard.Key,
+  right: { isDown: false } as Phaser.Input.Keyboard.Key,
+}
+
 export class GameScene extends Phaser.Scene {
   private sceneData!: GameSceneData
   private localCharacterId = ''
@@ -25,6 +32,10 @@ export class GameScene extends Phaser.Scene {
   private warpZones: WarpZone[] = []
   private warping = false
   private switchMapHandler: ((e: Event) => void) | null = null
+  private chatFocusHandler: ((e: Event) => void) | null = null
+  private chatFocused = false
+  private enterKey!: Phaser.Input.Keyboard.Key
+  private movementKeyCodes: number[] = []
 
   constructor() {
     super(gameSceneKey)
@@ -82,6 +93,28 @@ export class GameScene extends Phaser.Scene {
       get right() { return { isDown: rightArr.isDown || rightW.isDown } as Phaser.Input.Keyboard.Key },
     }
 
+    this.movementKeyCodes = [
+      Phaser.Input.Keyboard.KeyCodes.UP, Phaser.Input.Keyboard.KeyCodes.DOWN,
+      Phaser.Input.Keyboard.KeyCodes.LEFT, Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      Phaser.Input.Keyboard.KeyCodes.W, Phaser.Input.Keyboard.KeyCodes.A,
+      Phaser.Input.Keyboard.KeyCodes.S, Phaser.Input.Keyboard.KeyCodes.D,
+    ]
+
+    this.enterKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
+
+    this.chatFocusHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { focused: boolean }
+      this.chatFocused = detail.focused
+      this.setChatInputCapture(detail.focused)
+    }
+    window.addEventListener('game:chatFocus', this.chatFocusHandler)
+
+    this.input.on('pointerdown', () => {
+      if (this.chatFocused) {
+        window.dispatchEvent(new CustomEvent('game:blurChatInput'))
+      }
+    })
+
     this.gameSocket = createGameSocket(getDefaultRealtimeUrl(), {
       channel: bootstrap.default_channel,
       onRoomSnapshot: (data) => {
@@ -122,6 +155,10 @@ export class GameScene extends Phaser.Scene {
         window.removeEventListener('game:switchMap', this.switchMapHandler)
         this.switchMapHandler = null
       }
+      if (this.chatFocusHandler) {
+        window.removeEventListener('game:chatFocus', this.chatFocusHandler)
+        this.chatFocusHandler = null
+      }
     })
 
     this.switchMapHandler = (e: Event) => {
@@ -134,12 +171,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number) {
-    this.localPlayer.update(time, this.cursors)
+    if (Phaser.Input.Keyboard.JustDown(this.enterKey) && !this.chatFocused) {
+      window.dispatchEvent(new CustomEvent('game:focusChatInput'))
+      this.chatFocused = true
+      this.setChatInputCapture(true)
+    }
+
+    const cursors = this.chatFocused ? EMPTY_CURSORS : this.cursors
+    this.localPlayer.update(time, cursors)
     this.remotePlayers.update()
     if (this.aboveLayerFade) {
       updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite)
     }
     this.checkWarps()
+  }
+
+  private setChatInputCapture(focused: boolean): void {
+    const kb = this.input?.keyboard
+    if (!kb) return
+    for (const code of this.movementKeyCodes) {
+      if (focused) {
+        kb.removeCapture(code)
+      } else {
+        kb.addCapture(code)
+      }
+    }
   }
 
   private checkWarps() {
