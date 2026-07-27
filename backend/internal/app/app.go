@@ -57,7 +57,7 @@ func (a *App) registerModules() {
 	//
 	// userrepo truyền vào để CharacterUsecase lấy full_name thật của user nếu cần migrate/fallback
 	// cho user cũ — xem character/port/user_reader.go.
-	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode)
+	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode, a.container.Config.Game.StartingCoins)
 
 	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
 	// port.CharacterResolver (GetByUserID) — dùng chung 1 instance cho cả bootstrap

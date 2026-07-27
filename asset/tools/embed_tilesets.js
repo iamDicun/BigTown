@@ -41,7 +41,25 @@ function parseTsx(content) {
   const imagewidth = parseInt((content.match(/<image[^>]*\swidth="([^"]*)"/) || [])[1]) || 0;
   const imageheight = parseInt((content.match(/<image[^>]*\sheight="([^"]*)"/) || [])[1]) || 0;
 
-  return { columns, image: imageSource, imageheight, imagewidth, name, tilecount, tileheight, tilewidth, margin: 0, spacing: 0 };
+  const tiles = [];
+  const tileBlockRegex = /<tile\s+id="(\d+)"[^>]*>([\s\S]*?)<\/tile>/g;
+  let m;
+  while ((m = tileBlockRegex.exec(content)) !== null) {
+    const tileId = parseInt(m[1]);
+    const tileBody = m[2];
+    const animMatch = tileBody.match(/<animation>([\s\S]*?)<\/animation>/);
+    if (animMatch) {
+      const frames = [];
+      const frameRegex = /<frame\s+tileid="(\d+)"\s+duration="(\d+)"\s*\/>/g;
+      let fm;
+      while ((fm = frameRegex.exec(animMatch[1])) !== null) {
+        frames.push({ duration: parseInt(fm[2]), tileid: parseInt(fm[1]) });
+      }
+      tiles.push({ id: tileId, animation: frames });
+    }
+  }
+
+  return { columns, image: imageSource, imageheight, imagewidth, name, tilecount, tileheight, tilewidth, margin: 0, spacing: 0, tiles };
 }
 
 function normalizeTileset(tsj) {
@@ -69,6 +87,8 @@ map.tilesets = map.tilesets.map((entry) => {
     tsj = normalizeTileset(JSON.parse(content));
   }
 
+  const tilesProp = tsj.tiles && tsj.tiles.length > 0 ? { tiles: tsj.tiles } : {}
+
   return {
     firstgid: entry.firstgid,
     columns: tsj.columns,
@@ -81,6 +101,7 @@ map.tilesets = map.tilesets.map((entry) => {
     tilecount: tsj.tilecount,
     tileheight: tsj.tileheight,
     tilewidth: tsj.tilewidth,
+    ...tilesProp,
   };
 });
 
