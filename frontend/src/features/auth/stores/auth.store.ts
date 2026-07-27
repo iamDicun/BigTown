@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref(getAccessToken())
   const loading = ref(false)
   const error = ref('')
+  const sessionReady = ref(false)
 
   const payload = computed(() => (accessToken.value ? decodeJwtPayload(accessToken.value) : null))
   const isAuthenticated = computed(() => Boolean(accessToken.value))
@@ -63,7 +64,10 @@ export const useAuthStore = defineStore('auth', () => {
   // Gọi lúc app khởi động: nếu browser còn cookie refresh_token hợp lệ thì tự đăng nhập lại
   // mà không cần user nhập lại email/password. Thất bại thì coi như chưa đăng nhập, không throw.
   async function tryRestoreSession() {
-    if (accessToken.value) return
+    if (accessToken.value) {
+      sessionReady.value = true
+      return
+    }
     try {
       const data = await authService.refresh()
       setAccessToken(data.access_token)
@@ -71,6 +75,8 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       clearAccessToken()
       accessToken.value = null
+    } finally {
+      sessionReady.value = true
     }
   }
 
@@ -92,6 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     loading,
     error,
+    sessionReady,
     isAuthenticated,
     role,
     userId,
