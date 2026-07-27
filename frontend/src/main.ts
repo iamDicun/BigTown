@@ -7,6 +7,8 @@ import { useAuthStore } from './features/auth/stores/auth.store'
 import { initButtonSfx } from './shared/audio/audio.service'
 
 async function bootstrap() {
+  initButtonSfx()
+
   const app = createApp(App)
   app.use(pinia)
 
@@ -17,7 +19,6 @@ async function bootstrap() {
   app.mount('#app')
 
   await router.isReady()
-  initButtonSfx()
 }
 
 void bootstrap()

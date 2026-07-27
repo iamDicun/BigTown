@@ -20,6 +20,7 @@ const router = useRouter()
 let game: Phaser.Game | null = null
 let readyHandler: ((e: Event) => void) | null = null
 let progressHandler: ((e: Event) => void) | null = null
+let mapChangedHandler: ((e: Event) => void) | null = null
 
 onMounted(async () => {
   try {
@@ -53,7 +54,13 @@ onMounted(async () => {
       readyHandler = () => {
         loading.value = false
       }
-      window.addEventListener('game:ready', readyHandler, { once: true })
+      window.addEventListener('game:ready', readyHandler)
+
+      mapChangedHandler = () => {
+        progress.value = 0
+        loading.value = true
+      }
+      window.addEventListener('game:mapChanged', mapChangedHandler)
     } else {
       loading.value = false
     }
@@ -75,6 +82,10 @@ onBeforeUnmount(() => {
   if (readyHandler) {
     window.removeEventListener('game:ready', readyHandler)
     readyHandler = null
+  }
+  if (mapChangedHandler) {
+    window.removeEventListener('game:mapChanged', mapChangedHandler)
+    mapChangedHandler = null
   }
   game?.destroy(true)
   game = null

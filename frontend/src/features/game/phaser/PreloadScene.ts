@@ -25,6 +25,9 @@ export class PreloadScene extends Phaser.Scene {
       window.dispatchEvent(new CustomEvent('game:loadProgress', { detail: { value } }))
     })
 
+    if (this.cache.tilemap.exists('map')) {
+      this.cache.tilemap.remove('map')
+    }
     this.load.tilemapTiledJSON('map', `/assets/${bootstrap.tilemap_asset_key}`)
 
     for (const tilesetName of bootstrap.tileset_asset_key.split(',')) {
