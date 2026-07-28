@@ -5,7 +5,7 @@ import { buildMap, PLAYER_DEPTH, type WarpZone } from '../systems/mapSystem'
 import { LocalPlayerController, type MovementKeys } from '../systems/localPlayerController'
 import { RemotePlayerManager } from '../systems/remotePlayerManager'
 import { createAboveLayerFade, updateAboveLayerFade, type AboveLayerFade } from '../systems/aboveLayerFadeSystem'
-import { createEnvironmentFx, updateEnvironmentFx, destroyEnvironmentFx, type EnvironmentFx } from '../systems/environmentSystem'
+import { createEnvironmentFx, updateEnvironmentFx, destroyEnvironmentFx, syncWorldTime, type EnvironmentFx } from '../systems/environmentSystem'
 import type { GameSceneData } from './BootScene'
 import { preloadSceneKey } from './PreloadScene'
 import { createAnimations } from './playerAnimations'
@@ -38,6 +38,7 @@ export class GameScene extends Phaser.Scene {
   private switchMapHandler: ((e: Event) => void) | null = null
   private chatFocusHandler: ((e: Event) => void) | null = null
   private chatFocused = false
+  private envSyncHandler: (() => void) | null = null
   private enterKey!: Phaser.Input.Keyboard.Key
   private movementKeyCodes: number[] = []
 
@@ -153,6 +154,11 @@ export class GameScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.environmentFx = destroyEnvironmentFx(this.environmentFx)
+      if (this.envSyncHandler) {
+        document.removeEventListener('visibilitychange', this.envSyncHandler)
+        window.removeEventListener('focus', this.envSyncHandler)
+        this.envSyncHandler = null
+      }
       this.gameSocket?.close()
       this.gameSocket = null
       this.remotePlayers.destroyAll()
@@ -179,6 +185,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.environmentFx = createEnvironmentFx(this, bootstrap.map_code)
+
+    syncWorldTime()
+    this.envSyncHandler = () => syncWorldTime()
+    document.addEventListener('visibilitychange', this.envSyncHandler)
+    window.addEventListener('focus', this.envSyncHandler)
 
     window.dispatchEvent(new CustomEvent('game:ready'))
   }
