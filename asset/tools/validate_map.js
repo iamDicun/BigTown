@@ -21,8 +21,8 @@ const map = JSON.parse(fs.readFileSync(MAP_PATH, 'utf8'));
 if (map.type !== 'map') fail('root type is not "map"');
 if (map.orientation !== 'orthogonal') fail('orientation must be orthogonal for a top-down map');
 if (map.tilewidth !== 16 || map.tileheight !== 16) fail('tile size is not 16x16');
-if (map.width !== 50 || map.height !== 35) fail('map size is not 50x35, got ' + map.width + 'x' + map.height);
-else ok('map size 50x35, tile size 16x16');
+if (map.width !== 250 || map.height !== 175) fail('map size is not 250x175, got ' + map.width + 'x' + map.height);
+else ok('map size 250x175, tile size 16x16');
 
 // 2. Tileset path resolution ------------------------------------------
 if (!Array.isArray(map.tilesets) || map.tilesets.length === 0) {
@@ -97,7 +97,7 @@ if (spawnLayer) {
 }
 if (npcLayer) {
   const count = (npcLayer.objects || []).length;
-  if (count < 10) fail('expected at least 10 NPC/animal spawns, found ' + count);
+  if (count < 30) fail('expected at least 30 NPC/animal spawns, found ' + count);
   else ok(count + ' NPC/animal spawn points present');
 }
 
@@ -112,9 +112,9 @@ const collisionLayer = byName['Collision'];
 if (collisionLayer && spawnLayer) {
   // Sample the path/gate corridor tiles that must remain walkable: the door threshold and the south gate opening.
   const criticalPoints = [
-    { label: 'door threshold (24,19)', x: 24, y: 19 },
-    { label: 'south gate opening (24,33)', x: 24, y: 33 },
-    { label: 'player_spawn tile (24,32)', x: 24, y: 32 },
+    { label: 'door threshold (122,137)', x: 122, y: 137 },
+    { label: 'south gate opening (125,173)', x: 125, y: 173 },
+    { label: 'player_spawn tile (125,160)', x: 125, y: 160 },
   ];
   for (const cp of criticalPoints) {
     const rect = { x0: cp.x, y0: cp.y, x1: cp.x + 1, y1: cp.y + 1 };
