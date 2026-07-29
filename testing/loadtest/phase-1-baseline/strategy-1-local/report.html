@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BigTown Load Test — Matrix Report</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 24px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { color: #58a6ff; font-size: 26px; margin-bottom: 4px; }
+  h2 { color: #f0883e; font-size: 18px; margin: 28px 0 12px; }
+  h3 { color: #8b949e; font-size: 15px; margin: 16px 0 8px; }
+  .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+  .badge-done { background:#238636; color:#fff; }
+  .badge-pend { background:#21262d; color:#8b949e; border:1px solid #30363d; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
+  th { color: #8b949e; font-weight: 500; }
+  td { font-family: 'Cascadia Code', 'Fira Code', monospace; }
+  .val { color: #7ee787; font-weight: 600; }
+  .val-big { color: #7ee787; font-size: 18px; font-weight: 700; }
+  .val-warn { color: #d2991d; font-weight: 600; }
+  .val-bad { color: #f85149; font-weight: 600; }
+  .matrix { display:grid; grid-template-columns: 160px repeat(3, 1fr); gap: 2px; margin: 16px 0; }
+  .matrix .cell { padding: 12px 14px; text-align: center; border-radius: 4px; font-size: 13px; }
+  .matrix .head { background: #21262d; color: #8b949e; font-weight: 600; text-align: left; }
+  .matrix .done { background: #0d3320; color: #7ee787; }
+  .matrix .pend { background: #161b22; color: #484f58; }
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+  .compare td { font-size: 12px; }
+  .compare .gain { color: #7ee787; }
+  .compare .loss { color: #f85149; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>BigTown Load Test — Matrix Report</h1>
+<p class="subtitle">3 Phases × 3 Strategies &nbsp;|&nbsp; 100 VU × 10 rooms × 5 min</p>
+
+<div class="card">
+  <div class="matrix">
+    <div class="cell head"></div>
+    <div class="cell head">Strategy 1<br><small>Local All</small></div>
+    <div class="cell head">Strategy 2<br><small>k6→Render</small></div>
+    <div class="cell head">Strategy 3<br><small>Grafana Cloud</small></div>
+
+    <div class="cell head">Phase 1<br><small>Baseline</small></div>
+    <div class="cell done">✅ done</div>
+    <div class="cell done">✅ done</div>
+    <div class="cell pend">⬜ pending</div>
+
+    <div class="cell head">Phase 2<br><small>Actor per-room</small></div>
+    <div class="cell pend">⬜ pending</div>
+    <div class="cell pend">⬜ pending</div>
+    <div class="cell pend">⬜ pending</div>
+
+    <div class="cell head">Phase 3<br><small>Tick broadcast</small></div>
+    <div class="cell pend">⬜ pending</div>
+    <div class="cell pend">⬜ pending</div>
+    <div class="cell pend">⬜ pending</div>
+  </div>
+</div>
+
+<h2>Phase 1: Baseline <span class="badge badge-done">active</span></h2>
+
+<h3>Strategy 1 — Local All</h3>
+<div class="cols">
+  <div class="card">
+    <table>
+      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
+      <tr><td>chat_sent</td><td class="val">16,300</td></tr>
+      <tr><td>chat_received</td><td class="val">163,000</td></tr>
+      <tr><td>Delivery rate</td><td class="val">100.0%</td></tr>
+      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
+      <tr><td>move_rpc_sent</td><td class="val">289,322</td></tr>
+      <tr><td>move_broadcast</td><td class="val">2,304,907</td></tr>
+      <tr><td>Delivery rate</td><td class="val-warn">79.7%</td></tr>
+      <tr><td><strong>p95 latency</strong></td><td class="val-big">17.0ms</td></tr>
+      <tr><td>Correction rate</td><td class="val-warn">20.3%</td></tr>
+      <tr><td>Throughput</td><td class="val">~965 RPC/s</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>Strategy 2 — k6 Local → Render</h3>
+<div class="cols">
+  <div class="card">
+    <table>
+      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
+      <tr><td>chat_sent</td><td class="val">14,400</td></tr>
+      <tr><td>chat_received</td><td class="val">143,166</td></tr>
+      <tr><td>Delivery rate</td><td class="val-warn">99.4%</td></tr>
+      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
+      <tr><td>move_rpc_sent</td><td class="val">299,013</td></tr>
+      <tr><td>move_broadcast</td><td class="val">1,407,427</td></tr>
+      <tr><td>Delivery rate</td><td class="val-bad">47.1%</td></tr>
+      <tr><td><strong>p95 latency</strong></td><td class="val-bad">6,429ms</td></tr>
+      <tr><td>Correction rate</td><td class="val-warn">30.8%</td></tr>
+      <tr><td>Throughput</td><td class="val">~997 RPC/s</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>Strategy 1 vs 2 — Comparison</h3>
+<div class="card">
+  <table class="compare">
+    <tr><th>Metric</th><th>Local</th><th>Render</th><th>Delta</th></tr>
+    <tr><td>Chat delivery</td><td class="val">100.0%</td><td class="val-warn">99.4%</td><td class="loss">-0.6pp</td></tr>
+    <tr><td>Move delivery</td><td class="val-warn">79.7%</td><td class="val-bad">47.1%</td><td class="loss">-32.6pp</td></tr>
+    <tr><td>p95 RPC latency</td><td class="val-big">17ms</td><td class="val-bad">6,429ms</td><td class="loss">×378</td></tr>
+    <tr><td>RPC throughput</td><td>~965/s</td><td>~997/s</td><td class="gain">+3%</td></tr>
+    <tr><td>cross_room_leak</td><td class="val">0</td><td class="val">0</td><td>—</td></tr>
+  </table>
+</div>
+
+<p style="margin-top:8px;color:#8b949e;font-size:13px;">
+  Network latency kéo p95 và delivery rate xuống đáng kể ở Strategy 2. Server-side throughput không đổi.
+  Actor migration (Phase 2) sẽ cải thiện server-side, không cải thiện network.
+</p>
+
+<h2>Phase 2: Actor Per-Room <span class="badge badge-pend">pending</span></h2>
+<div class="card">
+  <p style="color:#8b949e;font-size:13px;">
+    Thay global <code>sync.Mutex</code> trên MemoryRoomStore bằng Actor per-room (1 goroutine/room, channel-based).
+    Kỳ vọng: p95 giảm (S1), throughput tăng, CPU trải đều nhiều core. Không ảnh hưởng network latency (S2/S3).
+  </p>
+</div>
+
+<h2>Phase 3: Tick Broadcast <span class="badge badge-pend">pending</span></h2>
+<div class="card">
+  <p style="color:#8b949e;font-size:13px;">
+    Gom movement broadcast 100ms/tick thay vì publish mỗi RPC. Giảm tải Centrifuge, tăng delivery rate, giảm băng thông.
+  </p>
+</div>
+
+<p style="margin-top:24px;color:#484f58;font-size:12px;text-align:center;">
+  Scripts: <code>scripts/</code> &nbsp;|&nbsp; Docs: <code>docs/</code> &nbsp;|&nbsp; Seed: <code>seed.sql</code>
+</p>
+
+</div>
+</body>
+</html>
