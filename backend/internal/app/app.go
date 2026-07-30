@@ -12,6 +12,7 @@ import (
 	userrepo "backend/internal/module/user/repository"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type App struct {
@@ -65,7 +66,7 @@ func (a *App) registerModules() {
 	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)
 	
-	a.router.GET("/metrics", middleware.PrometheusHandler())
+	a.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	publicAPI := a.router.Group("/api")
 	authModule.RegisterPublicRoutes(publicAPI)
