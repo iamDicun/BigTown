@@ -142,7 +142,7 @@
                 <tr>
                     <td><strong>Trạng thái (Status)</strong></td>
                     <td><span class="status-badge status-done">Đã chạy Str. 1, 2, 3</span></td>
-                    <td><span class="status-badge status-done">Đã chạy Strategy 1</span></td>
+                    <td><span class="status-badge status-done">Đã chạy Str. 1 & 2</span></td>
                     <td><span class="status-badge status-pending">Chưa chạy</span></td>
                 </tr>
                 <tr>
@@ -160,7 +160,7 @@
                     </td>
                     <td>
                         Local: <strong>190 ms</strong> (PASS)<br>
-                        Render: -
+                        Render: <strong style="color: var(--danger-color)">1602 ms</strong> (FAIL)
                     </td>
                     <td>-</td>
                 </tr>
@@ -173,7 +173,7 @@
                     </td>
                     <td>
                         Local: <strong>10 ms</strong> (PASS)<br>
-                        Render: -
+                        Render: <strong>165 ms</strong> (PASS)
                     </td>
                     <td>-</td>
                 </tr>
@@ -192,31 +192,33 @@
             </tbody>
         </table>
 
-        <h2>🔍 Chi Tiết Giai Đoạn 1: Baseline (Phase 1)</h2>
+        <h2>🔍 Chi Tiết Giai Đoạn 2: Actor per-room (Phase 2)</h2>
         <div class="grid-2">
             <div class="card">
                 <h3>Strategy 1: Local Only</h3>
-                <p>k6 sinh tải trực tiếp tới Backend chạy local cùng máy.</p>
+                <p>k6 sinh tải trực tiếp tới Backend chạy local cùng máy (sử dụng Actor Store).</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,301 tin gửi | 163,009 tin nhận | p95 latency 88ms</li>
-                    <li><strong>Move:</strong> 329,708 RPC gửi | p95 RPC latency 7ms</li>
-                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-1-local/report.html">Xem report.html của Local</a></li>
+                    <li><strong>Chat:</strong> 16,300 tin gửi | 163,000 tin nhận | p95 latency 190ms</li>
+                    <li><strong>Move:</strong> 329,493 RPC gửi | p95 RPC latency 10ms</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-2-actor/strategy-1-local/report.html">Xem report.html của Phase 2 Local</a></li>
                 </ul>
             </div>
 
             <div class="card">
-                <h3>Strategy 2 & 3: Render & Grafana Cloud</h3>
-                <p>Đo lường từ xa và sử dụng hệ thống cloud.</p>
+                <h3>Strategy 2: Local to Render</h3>
+                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng Actor Store).</p>
                 <ul>
-                    <li><strong>Strategy 2 (Render):</strong> Chat p95 latency <strong style="color: var(--danger-color)">1626 ms (FAIL)</strong> | Ghi DB chậm từ Sing-Japan. <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-2-online/report.html">Xem report.html Render</a></li>
-                    <li><strong>Strategy 3 (Grafana Cloud):</strong> Chat p95 latency <strong style="color: var(--danger-color)">~1850 ms (FAIL)</strong> | Tích lũy độ trễ địa lý Mỹ-Sing-Nhật. <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-3-grafana/report.html">Xem report.html Grafana Cloud</a></li>
+                    <li><strong>Chat:</strong> 16,188 tin gửi | 160,797 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1602 ms (FAIL)</strong></li>
+                    <li><strong>Move:</strong> 326,707 RPC gửi | p95 RPC latency 165ms (PASS)</li>
+                    <li><strong>Phân tích:</strong> Độ trễ chat hầu như không đổi (~1600ms), trực tiếp chứng minh nghẽn chat là do DB Write Latency liên vùng Sing-Nhật chứ không phải tranh chấp lock RAM.</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-2-actor/strategy-2-online/report.html">Xem report.html của Phase 2 Render</a></li>
                 </ul>
             </div>
         </div>
 
         <h2>🛠️ Giai Đoạn Tiếp Theo</h2>
         <div class="card">
-            <p>Sau khi có kết quả Strategy 1, tiếp tục tiến hành deploy code tối ưu lên Render để thực hiện <strong>Strategy 2 của Phase 2</strong> và kiểm tra sự thay đổi của các chỉ số online.</p>
+            <p>Sau khi xác định rõ DB Write latency là bottleneck cho chat, bước tiếp theo có thể áp dụng <strong>Ghi DB bất đồng bộ (Write Behind)</strong> kết hợp hàng đợi bất đồng bộ hoặc tiến hành nâng cấp Phase 3 (Gom di chuyển theo Ticker) để stress test tối ưu hóa cho di chuyển.</p>
         </div>
     </div>
 </body>

@@ -658,13 +658,35 @@ Trước khi triển khai, cần chốt:
 - Correction event gửi riêng cho client bằng cách nào.
 - Room join lấy character position từ DB hay spawn point mặc định nếu chưa có position.
 
-Khuyến nghị hiện tại:
+Khuyến nghị ban đầu cho MVP:
 
 ```text
 Movement: pixel/free movement.
 minDistance: 24px.
 Chat chính thức: HTTP POST -> save DB -> server publish Centrifuge.
-Gameplay: chuyển dần sang server-authoritative command -> server publish accepted event.
 RoomStore: MemoryRoomStore cho MVP.
 Persistence: debounce save last position.
 ```
+
+---
+
+## 14. Quyết định bổ sung tối ưu hóa hiệu năng (Phase 2 & Phase 3)
+
+Qua các đợt load test thực tế ở tải trọng 100 VUs, hệ thống đã phát hiện ra các nút thắt cổ chai về tranh chấp khóa (mutex lock) và độ trễ ghi database Postgres liên vùng. Các quyết định kiến trúc bổ sung sau đây đã được áp dụng:
+
+### 14.1 Di chuyển sang mô hình Actor per-room (Phase 2)
+* **Vấn đề:** `MemoryRoomStore` ban đầu sử dụng một `sync.RWMutex` toàn cục bọc lấy bản đồ tất cả các phòng. Khi số lượng phòng và người chơi tăng lên, mọi thao tác đọc/ghi trạng thái phòng sẽ bị tuần tự hóa (serialize) gây thắt nút cổ chai tranh chấp khóa.
+* **Quyết định:** Chuyển sang mô hình **Actor per-room** (`ActorRoomStore`). Mỗi phòng game được quản lý bởi một Goroutine riêng (Room Actor) làm chủ trạng thái của phòng đó. Các Goroutine khác giao tiếp với Actor thông qua Go Channels (sử dụng closure). Không còn lock thủ công, loại bỏ hoàn toàn nguy cơ tranh chấp khóa và deadlock.
+
+### 14.2 Gom nhóm phát tin phía Server - Server-side Tick Broadcast (Phase 3)
+* **Vấn đề:** Client di chuyển gửi 10 RPC/giây lên server. Khi server broadcast ngay lập tức tọa độ mới cho toàn bộ những người còn lại trong phòng, số lượng gói tin phát ra (broadcast) tăng theo cấp số nhân bậc hai $O(N^2)$: với $N$ người chơi di chuyển, tổng số tin gửi đi mỗi giây là $N \times (N-1) \times 10$. Với 100 người chơi, con số này lên tới **99,000 tin nhắn/giây**, gây quá tải I/O mạng.
+* **Quyết định:** Thiết lập một `time.Ticker` (ví dụ 100ms) ngay tại Room Actor ở phía server. Khi nhận được tọa độ di chuyển mới, Actor chỉ cập nhật vào RAM và đánh dấu trạng thái "dirty". Cứ mỗi 100ms, Actor sẽ thực hiện gom (coalesce) tọa độ của tất cả người chơi thành **một gói tin duy nhất** (Room State Update) và phát tin một lần cho toàn phòng. Điều này đưa độ phức tạp tin nhắn từ **Bình phương $O(N^2)$** về **Tuyến tính $O(N)$** ($N \times 10$ tin nhắn/giây), giảm tải 99% áp lực I/O mạng.
+
+### 14.3 Ghi Database bất đồng bộ cho tin nhắn chat - Asynchronous DB Write (Phase 3)
+* **Vấn đề:** Server đặt tại Singapore nhưng database Postgres đặt tại Nhật Bản. Độ trễ địa lý khứ hồi (RTT) là ~80-100ms. Thao tác HTTP POST gửi tin chat phải đợi ghi Postgres hoàn tất rồi mới trả về kết quả cho client và broadcast đi. Việc này gây nghẽn Connection Pool và kéo dài thời gian phản hồi chat p95 lên tới **~1.6 giây**.
+* **Quyết định:** Áp dụng mô hình **Write Behind (Ghi DB bất đồng bộ)**. Khi client gửi tin chat:
+  1. API Handler lập tức phát tin nhắn realtime qua WebSocket cho cả phòng nhận ngay tức khắc.
+  2. Đồng thời, tác vụ lưu database Postgres được đẩy vào một Go Channel (hàng đợi trong RAM).
+  3. API Handler phản hồi HTTP 201 cho client ngay lập tức mà không cần chờ DB ghi xong (giảm độ trễ từ 1600ms xuống còn dưới 100ms).
+  4. Có một Goroutine chạy ngầm (Background DB Writer) rút các tác vụ ghi từ hàng đợi ra để persist xuống Postgres một cách thầm lặng.
+
