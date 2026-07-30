@@ -22,7 +22,7 @@
       "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
       "targets": [
         {
-          "expr": "rate(node_cpu_seconds_total{mode!=\"idle\",job=\"node\"}[30s])",
+          "expr": "100 * (1 - rate(node_cpu_seconds_total{mode=\"idle\",job=\"node\"}[30s]))",
           "legendFormat": "{{cpu}}"
         }
       ],
@@ -70,17 +70,17 @@
       "yaxes": [{"format": "short"}]
     },
     {
-      "title": "HTTP Request Rate / second",
+      "title": "HTTP Throughput / second",
       "type": "graph",
       "gridPos": {"x": 0, "y": 15, "w": 12, "h": 7},
       "targets": [
         {
-          "expr": "rate(promhttp_metric_handler_requests_total{job=\"bigtown-backend\"}[30s])",
-          "legendFormat": "HTTP req/s"
+          "expr": "sum(rate(http_requests_total{job=\"bigtown-backend\"}[30s]))",
+          "legendFormat": "req/s"
         }
       ],
-      "yaxes": [{"format": "short"}],
-      "description": "Tổng HTTP requests đến backend (REST + WS)"
+      "yaxes": [{"format": "short", "label": "req/s"}],
+      "description": "Tổng HTTP requests/giây qua backend (REST + WS upgrade)"
     },
     {
       "title": "OS Memory (GB)",

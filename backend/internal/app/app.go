@@ -44,6 +44,7 @@ func (a *App) registerMiddleware() {
 	a.router.Use(middleware.CORSMiddleware(a.container.Config.Web.AllowedOrigins))
 	a.router.Use(middleware.ErrorHandlerMiddleware())
 	a.router.Use(middleware.RecoveryMiddleware())
+	a.router.Use(middleware.PrometheusMetrics())
 }
 
 func (a *App) registerModules() {
