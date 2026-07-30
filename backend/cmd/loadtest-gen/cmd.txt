@@ -1,0 +1,2 @@
+cd backend
+$env:JWT_SECRET='change-me'; go run ./cmd/loadtest-gen -users=100 -rooms=10 -ttl=30 -out=../testing/loadtest
