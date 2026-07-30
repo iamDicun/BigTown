@@ -1,0 +1,4 @@
+"time","metric","scenario","group","load_zone","tags","count"
+"2026-07-30T12:19:24+00:00","data_received","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296881', 'k6_cloud_test_name': 'movement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",83092485
+"2026-07-30T12:19:27+00:00","data_received","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296881', 'k6_cloud_test_name': 'movement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",204800556
+"2026-07-30T12:20:06+00:00","data_received","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296881', 'k6_cloud_test_name': 'movement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",27457661
