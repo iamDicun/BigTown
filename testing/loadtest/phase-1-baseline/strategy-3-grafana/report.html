@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigTown - Load Test Report: Phase 1 (Baseline) - Strategy 3 (Grafana Cloud)</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.8);
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --success-color: #2ea043;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0 0 0.5rem 0;
+            font-size: 2.25rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .value-success { color: var(--success-color); }
+        .value-warning { color: var(--warning-color); }
+        .value-danger { color: var(--danger-color); }
+        .value-accent { color: var(--accent-color); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            text-align: left;
+        }
+
+        th {
+            color: #fff;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        .alert-box {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid var(--danger-color);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .alert-box h3 {
+            margin-top: 0;
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Phase 1 (Baseline) - Strategy 3 (Grafana Cloud)</h1>
+            <p class="subtitle">Báo cáo kiểm thử hiệu năng môi trường Grafana Cloud k6 (100 VUs, 10 Rooms)</p>
+        </header>
+
+        <div class="alert-box">
+            <h3>🔴 Xác nhận độ trễ tích lũy địa lý (Geographic Latency Accumulation)</h3>
+            <p>
+                Khi phát tải từ hạ tầng Grafana Cloud (đặt tại Ohio, Mỹ - <strong>load_zone: amazon:us:columbus</strong>) hướng về Server Render (Singapore) và ghi Database (Nhật Bản), độ trễ tích lũy tăng cao rõ rệt:
+                <br>• <strong>Chat Delivery Latency:</strong> p95 đạt khoảng **1.75 - 1.85 giây (1750ms - 1850ms)**.
+                <br>• <strong>HTTP Request Duration:</strong> Trung bình khoảng **1.30 - 1.45 giây (1300ms - 1450ms)**.
+                <br>Điều này chứng minh việc mạng lưới đi qua nhiều chặng lục địa (Mỹ -> Singapore -> Nhật Bản -> Singapore -> Mỹ) cộng thêm việc xếp hàng DB Connection Pool làm độ trễ bị đẩy lên cực hạn.
+            </p>
+        </div>
+
+        <div class="grid-3">
+            <!-- Chat Test Card -->
+            <div class="card">
+                <h2>💬 Chat Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Số lượng VUs tối đa</span>
+                        <span class="metric-value value-accent">100 (Max allowed)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Vùng phát tải (Cloud Zone)</span>
+                        <span class="metric-value">Ohio, US (AWS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tỷ lệ checks thành công</span>
+                        <span class="metric-value value-success">100.00%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Rò rỉ phòng (Room Leak)</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Lỗi kết nối WS</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Movement Test Card -->
+            <div class="card">
+                <h2>🏃 Movement Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">RPC di chuyển đã gửi</span>
+                        <span class="metric-value value-accent">~329K (998.4/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Số di chuyển broadcast</span>
+                        <span class="metric-value value-accent">~2.54M (7708/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Độ trễ RPC p95 (Cloud)</span>
+                        <span class="metric-value value-warning">~300 - 390 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tỷ lệ checks thành công</span>
+                        <span class="metric-value value-success">100.00%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Sự lệch vị trí (Correction)</span>
+                        <span class="metric-value value-warning">~75,109</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Summary Card -->
+            <div class="card">
+                <h2>📊 So sánh RTT Mạng</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Local Loopback</span>
+                        <span class="metric-value value-success">~0.1 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">VN - Sing (Local -> Render)</span>
+                        <span class="metric-value value-warning">~98 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Mỹ - Sing (k6 Cloud -> Render)</span>
+                        <span class="metric-value value-danger">~220 - 280 ms RTT</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Sing - Nhật (Server -> DB)</span>
+                        <span class="metric-value value-danger">~80 - 100 ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⏱️ Chỉ số Độ trễ từ Grafana Cloud CSV (Latency Ranges)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric / Thao tác</th>
+                        <th>Trung bình (Mean / Avg)</th>
+                        <th>Trung vị (Median)</th>
+                        <th>p(95)</th>
+                        <th>Tối đa (Max)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
+                        <td><strong>Chat Delivery (Mỹ -> Sing -> Nhật -> Sing -> Mỹ)</strong></td>
+                        <td>~1490 - 1580 ms</td>
+                        <td>~1500 - 1600 ms</td>
+                        <td>~1750 - 1850 ms</td>
+                        <td>~3238 ms</td>
+                    </tr>
+                    <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
+                        <td><strong>HTTP Req Duration (POST Chat)</strong></td>
+                        <td>~1300 - 1450 ms</td>
+                        <td>~1350 - 1460 ms</td>
+                        <td>~1700 - 1800 ms</td>
+                        <td>~1869 ms</td>
+                    </tr>
+                    <tr class="value-warning" style="background: rgba(210, 153, 34, 0.05);">
+                        <td><strong>Move RPC Latency (WS RPC)</strong></td>
+                        <td>~250 - 280 ms</td>
+                        <td>~250 - 280 ms</td>
+                        <td>~300 - 390 ms</td>
+                        <td>~451 ms</td>
+                    </tr>
+                    <tr class="value-warning" style="background: rgba(210, 153, 34, 0.05);">
+                        <td><strong>WS Connecting (Bắt tay WS liên lục địa)</strong></td>
+                        <td>~750 - 950 ms</td>
+                        <td>~750 - 930 ms</td>
+                        <td>~950 - 1030 ms</td>
+                        <td>~1048 ms</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

@@ -141,8 +141,8 @@
             <tbody>
                 <tr>
                     <td><strong>Trạng thái (Status)</strong></td>
-                    <td><span class="status-badge status-done">Đã chạy Strategy 1 & 2</span></td>
-                    <td><span class="status-badge status-pending">Chưa chạy</span></td>
+                    <td><span class="status-badge status-done">Đã chạy Str. 1, 2, 3</span></td>
+                    <td><span class="status-badge status-done">Đã chạy Strategy 1</span></td>
                     <td><span class="status-badge status-pending">Chưa chạy</span></td>
                 </tr>
                 <tr>
@@ -155,30 +155,38 @@
                     <td><strong>Độ trễ Chat (p95)</strong></td>
                     <td>
                         Local: <strong>88 ms</strong> (PASS)<br>
-                        Render: <strong style="color: var(--danger-color)">1626 ms</strong> (FAIL)
+                        Render: <strong style="color: var(--danger-color)">1626 ms</strong> (FAIL)<br>
+                        Grafana: <strong style="color: var(--danger-color)">1850 ms</strong> (FAIL)
                     </td>
-                    <td>-</td>
+                    <td>
+                        Local: <strong>190 ms</strong> (PASS)<br>
+                        Render: -
+                    </td>
                     <td>-</td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Move RPC (p95)</strong></td>
                     <td>
                         Local: <strong>7 ms</strong> (PASS)<br>
-                        Render: <strong>155 ms</strong> (PASS)
+                        Render: <strong>155 ms</strong> (PASS)<br>
+                        Grafana: -
                     </td>
-                    <td>-</td>
+                    <td>
+                        Local: <strong>10 ms</strong> (PASS)<br>
+                        Render: -
+                    </td>
                     <td>-</td>
                 </tr>
                 <tr>
                     <td><strong>Hành vi tải CPU</strong></td>
                     <td>Các Core chạy nhẹ (&lt; 6% CPU) ở local</td>
-                    <td>Dự kiến trải đều đa Core</td>
+                    <td>Core chạy nhỉnh hơn nhẹ ở tải thấp (Overhead của channel)</td>
                     <td>Dự kiến giảm tải cho Centrifuge</td>
                 </tr>
                 <tr>
                     <td><strong>Rò rỉ Room (Leak)</strong></td>
                     <td>0 (PASS)</td>
-                    <td>-</td>
+                    <td>0 (PASS)</td>
                     <td>-</td>
                 </tr>
             </tbody>
@@ -192,26 +200,23 @@
                 <ul>
                     <li><strong>Chat:</strong> 16,301 tin gửi | 163,009 tin nhận | p95 latency 88ms</li>
                     <li><strong>Move:</strong> 329,708 RPC gửi | p95 RPC latency 7ms</li>
-                    <li><strong>Resource:</strong> Goroutines ~320 | Heap ~45MB | CPU hoạt động nhẹ dưới 6%, chưa có nghẽn mutex</li>
                     <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-1-local/report.html">Xem report.html của Local</a></li>
                 </ul>
             </div>
 
             <div class="card">
-                <h3>Strategy 2: Local to Render</h3>
-                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render.</p>
+                <h3>Strategy 2 & 3: Render & Grafana Cloud</h3>
+                <p>Đo lường từ xa và sử dụng hệ thống cloud.</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,214 tin gửi | 161,294 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1626 ms (FAIL)</strong></li>
-                    <li><strong>Move:</strong> 326,648 RPC gửi | p95 RPC latency 155ms (PASS)</li>
-                    <li><strong>Bottleneck:</strong> HTTP POST Chat Request tốn trung bình 1.13s (ghi database Postgres trên cloud chậm hoặc CPU throttling trên Render Free/Starter).</li>
-                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-2-online/report.html">Xem report.html của Render</a></li>
+                    <li><strong>Strategy 2 (Render):</strong> Chat p95 latency <strong style="color: var(--danger-color)">1626 ms (FAIL)</strong> | Ghi DB chậm từ Sing-Japan. <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-2-online/report.html">Xem report.html Render</a></li>
+                    <li><strong>Strategy 3 (Grafana Cloud):</strong> Chat p95 latency <strong style="color: var(--danger-color)">~1850 ms (FAIL)</strong> | Tích lũy độ trễ địa lý Mỹ-Sing-Nhật. <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-3-grafana/report.html">Xem report.html Grafana Cloud</a></li>
                 </ul>
             </div>
         </div>
 
         <h2>🛠️ Giai Đoạn Tiếp Theo</h2>
         <div class="card">
-            <p>Sau khi xác thực xong code Baseline ở Phase 1, ta sẽ áp dụng các thay đổi trong file <code>Realtime-Room-Actor-Migration.md</code> để chuyển đổi sang mô hình <strong>Actor per-room</strong> và thực hiện lại bộ test của <strong>Phase 2</strong> để so sánh trực quan hiệu quả loại bỏ Lock.</p>
+            <p>Sau khi có kết quả Strategy 1, tiếp tục tiến hành deploy code tối ưu lên Render để thực hiện <strong>Strategy 2 của Phase 2</strong> và kiểm tra sự thay đổi của các chỉ số online.</p>
         </div>
     </div>
 </body>
