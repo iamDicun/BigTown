@@ -48,6 +48,13 @@ export const options = {
       gracefulStop: '30s',
     },
   },
+  ext: {
+    loadimpact: {
+      distribution: {
+        singaporeZone: { loadZone: 'amazon:sg:singapore', percent: 100 },
+      },
+    },
+  },
   thresholds: {
     cross_room_leak:  ['count==0'],       // tuyệt đối không rò tin sang room khác
     chat_delivery_ms: ['p(95)<1000'],     // p95 độ trễ nhận < 1s (tùy chỉnh)
@@ -179,7 +186,8 @@ export function handleSummary(data) {
   const sent = (data.metrics.chat_sent && data.metrics.chat_sent.values.count) || 0;
   const recv = (data.metrics.chat_received && data.metrics.chat_received.values.count) || 0;
   const leak = (data.metrics.cross_room_leak && data.metrics.cross_room_leak.values.count) || 0;
-  const membersPerRoom = Math.floor(100 / NUM_ROOMS);
+  const vus = (data.metrics.vus && data.metrics.vus.values.max) || 500;
+  const membersPerRoom = Math.floor(vus / NUM_ROOMS);
   const expected = sent * membersPerRoom; // mỗi tin đến ~ mọi thành viên (kể cả người gửi)
   const ratio = expected ? (recv / expected) : 0;
 
@@ -191,6 +199,6 @@ export function handleSummary(data) {
 
   return {
     stdout: line,
-    'summary.json': JSON.stringify(data, null, 2),
+    'chat_summary.json': JSON.stringify(data, null, 2),
   };
 }

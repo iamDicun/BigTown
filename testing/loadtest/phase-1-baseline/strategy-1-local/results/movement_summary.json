@@ -1,0 +1,226 @@
+{
+  "metrics": {
+    "move_rpc_error": {
+      "thresholds": {
+        "rate<0.05": {
+          "ok": true
+        }
+      },
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 0,
+        "rate": 0
+      }
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 100,
+        "min": 100,
+        "max": 100
+      }
+    },
+    "move_rpc_latency": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(90)": 4,
+        "p(95)": 7,
+        "avg": 2.072248777706334,
+        "min": 0,
+        "med": 1,
+        "max": 71
+      },
+      "thresholds": {
+        "p(95)<500": {
+          "ok": true
+        }
+      }
+    },
+    "ws_session_duration": {
+      "contains": "time",
+      "values": {
+        "avg": 290036.83675800025,
+        "min": 290012.0277,
+        "med": 290040.2439,
+        "max": 290059.5387,
+        "p(90)": 290051.9338,
+        "p(95)": 290058.4266
+      },
+      "type": "trend"
+    },
+    "move_rpc_sent": {
+      "values": {
+        "rate": 999.0985419560272,
+        "count": 329708
+      },
+      "type": "counter",
+      "contains": "default"
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 34505613,
+        "rate": 104560.7253618321
+      }
+    },
+    "data_received": {
+      "values": {
+        "count": 502726052,
+        "rate": 1523386.953172231
+      },
+      "type": "counter",
+      "contains": "data"
+    },
+    "move_broadcast": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 2588677,
+        "rate": 7844.345348899944
+      }
+    },
+    "ws_msgs_received": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 2460745,
+        "rate": 7456.679066402951
+      }
+    },
+    "move_correction": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 70840,
+        "rate": 214.66309799023674
+      }
+    },
+    "iterations": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 100,
+        "rate": 0.30302526537300495
+      }
+    },
+    "ws_connect_errors": {
+      "contains": "default",
+      "values": {
+        "count": 0,
+        "rate": 0
+      },
+      "thresholds": {
+        "count<5": {
+          "ok": true
+        }
+      },
+      "type": "counter"
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 52.10889999999999,
+        "avg": 33.68634800000001,
+        "min": 3.9249,
+        "med": 35.6143,
+        "max": 55.2455,
+        "p(90)": 47.3417
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "rate": 1004.0530050448759,
+        "count": 331343
+      }
+    },
+    "iteration_duration": {
+      "values": {
+        "med": 290040.2439,
+        "max": 290061.048,
+        "p(90)": 290051.9338,
+        "p(95)": 290058.4266,
+        "avg": 290037.01748300024,
+        "min": 290014.0567
+      },
+      "type": "trend",
+      "contains": "time"
+    },
+    "checks": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 2588877,
+        "fails": 0
+      },
+      "thresholds": {
+        "rate>0.99": {
+          "ok": true
+        }
+      }
+    },
+    "vus_max": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 100,
+        "min": 100,
+        "max": 100
+      }
+    },
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 200,
+        "rate": 0.6060505307460099
+      }
+    }
+  },
+  "root_group": {
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e",
+    "groups": [],
+    "checks": [
+        {
+          "name": "subscribed to room",
+          "path": "::subscribed to room",
+          "id": "be75afd88f211ed70514768077825f15",
+          "passes": 200,
+          "fails": 0
+        },
+        {
+          "path": "::move broadcast có characterId",
+          "id": "165a6bac40eec7713f84e394a337afdd",
+          "passes": 2588677,
+          "fails": 0,
+          "name": "move broadcast có characterId"
+        }
+      ]
+  },
+  "options": {
+    "summaryTrendStats": [
+      "avg",
+      "min",
+      "med",
+      "max",
+      "p(90)",
+      "p(95)"
+    ],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "isStdOutTTY": true,
+    "isStdErrTTY": true,
+    "testRunDurationMs": 330005.4861
+  }
+}

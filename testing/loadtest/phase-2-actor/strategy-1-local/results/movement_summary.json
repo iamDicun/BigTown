@@ -1,0 +1,226 @@
+{
+  "root_group": {
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e",
+    "groups": [],
+    "checks": [
+        {
+          "passes": 200,
+          "fails": 0,
+          "name": "subscribed to room",
+          "path": "::subscribed to room",
+          "id": "be75afd88f211ed70514768077825f15"
+        },
+        {
+          "name": "move broadcast có characterId",
+          "path": "::move broadcast có characterId",
+          "id": "165a6bac40eec7713f84e394a337afdd",
+          "passes": 2543818,
+          "fails": 0
+        }
+      ],
+    "name": ""
+  },
+  "options": {
+    "summaryTrendStats": [
+      "avg",
+      "min",
+      "med",
+      "max",
+      "p(90)",
+      "p(95)"
+    ],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "isStdOutTTY": true,
+    "isStdErrTTY": true,
+    "testRunDurationMs": 330019.0407
+  },
+  "metrics": {
+    "move_rpc_error": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 0,
+        "rate": 0
+      },
+      "thresholds": {
+        "rate<0.05": {
+          "ok": true
+        }
+      }
+    },
+    "ws_msgs_received": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "rate": 7455.945556295292,
+        "count": 2460604
+      }
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 495343623,
+        "rate": 1500954.6780977598
+      }
+    },
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 200,
+        "rate": 0.6060256389321721
+      }
+    },
+    "move_rpc_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 329493,
+        "rate": 998.4060292433909
+      }
+    },
+    "ws_session_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(90)": 290058.2737,
+        "p(95)": 290058.9456,
+        "avg": 290041.9776579999,
+        "min": 290013.9329,
+        "med": 290044.7707,
+        "max": 290061.5975
+      }
+    },
+    "ws_connect_errors": {
+      "contains": "default",
+      "values": {
+        "rate": 0,
+        "count": 0
+      },
+      "thresholds": {
+        "count<5": {
+          "ok": true
+        }
+      },
+      "type": "counter"
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 100,
+        "min": 100,
+        "max": 100
+      }
+    },
+    "move_correction": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 75109,
+        "rate": 227.58989857278254
+      }
+    },
+    "vus_max": {
+      "values": {
+        "value": 100,
+        "min": 100,
+        "max": 100
+      },
+      "type": "gauge",
+      "contains": "default"
+    },
+    "iterations": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 100,
+        "rate": 0.30301281946608605
+      }
+    },
+    "checks": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 2544018,
+        "fails": 0
+      },
+      "thresholds": {
+        "rate>0.99": {
+          "ok": true
+        }
+      }
+    },
+    "iteration_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 290042.2981589999,
+        "min": 290015.4364,
+        "med": 290045.2257,
+        "max": 290061.5975,
+        "p(90)": 290058.2737,
+        "p(95)": 290058.9456
+      }
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 5.8803,
+        "med": 52.6098,
+        "max": 68.749,
+        "p(90)": 60.88845,
+        "p(95)": 62.48049499999999,
+        "avg": 45.65487000000003
+      }
+    },
+    "move_broadcast": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 2543818,
+        "rate": 7708.0946438858
+      }
+    },
+    "move_rpc_latency": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(90)": 6,
+        "p(95)": 10,
+        "avg": 3.2013772758588246,
+        "min": 0,
+        "med": 1,
+        "max": 1042
+      },
+      "thresholds": {
+        "p(95)<500": {
+          "ok": true
+        }
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 331136,
+        "rate": 1003.3845298672186
+      }
+    },
+    "data_sent": {
+      "values": {
+        "count": 34465926,
+        "rate": 104436.1741276948
+      },
+      "type": "counter",
+      "contains": "data"
+    }
+  }
+}

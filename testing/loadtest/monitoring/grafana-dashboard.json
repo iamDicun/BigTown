@@ -9,7 +9,7 @@
       "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
       "targets": [
         {
-          "expr": "go_goroutines{job=\"bigtown-backend\"}",
+          "expr": "go_goroutines{job=\"$job\"}",
           "legendFormat": "goroutines"
         }
       ],
@@ -17,17 +17,17 @@
       "description": "Tăng đơn điệu sau test = goroutine leak"
     },
     {
-      "title": "CPU per Core (host)",
+      "title": "CPU per Core (Local Host Only)",
       "type": "graph",
       "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
       "targets": [
         {
-          "expr": "100 * (1 - rate(node_cpu_seconds_total{mode=\"idle\",job=\"node\"}[30s]))",
+          "expr": "100 * (1 - avg by(cpu) (rate(node_cpu_seconds_total{mode=\"idle\",job=\"node\"}[30s])))",
           "legendFormat": "{{cpu}}"
         }
       ],
-      "yaxes": [{"format": "percentunit", "label": "CPU %"}],
-      "description": "1 core ghim 100% = global mutex. Trải đều = actor migration OK"
+      "yaxes": [{"format": "percent", "label": "CPU %"}],
+      "description": "1 core ghim 100% = global mutex. Trải đều = actor migration OK. (Chỉ hiển thị cho môi trường Local)"
     },
     {
       "title": "Heap Memory (MB)",
@@ -35,11 +35,11 @@
       "gridPos": {"x": 0, "y": 8, "w": 8, "h": 7},
       "targets": [
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"bigtown-backend\"} / 1048576",
+          "expr": "go_memstats_heap_inuse_bytes{job=\"$job\"} / 1048576",
           "legendFormat": "heap in-use"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"bigtown-backend\"} / 1048576",
+          "expr": "go_memstats_heap_alloc_bytes{job=\"$job\"} / 1048576",
           "legendFormat": "heap alloc"
         }
       ],
@@ -51,7 +51,7 @@
       "gridPos": {"x": 8, "y": 8, "w": 8, "h": 7},
       "targets": [
         {
-          "expr": "rate(go_gc_duration_seconds_sum{job=\"bigtown-backend\"}[30s]) / rate(go_gc_duration_seconds_count{job=\"bigtown-backend\"}[30s]) * 1000",
+          "expr": "rate(go_gc_duration_seconds_sum{job=\"$job\"}[30s]) / rate(go_gc_duration_seconds_count{job=\"$job\"}[30s]) * 1000",
           "legendFormat": "avg GC pause"
         }
       ],
@@ -63,7 +63,7 @@
       "gridPos": {"x": 16, "y": 8, "w": 8, "h": 7},
       "targets": [
         {
-          "expr": "rate(go_gc_duration_seconds_count{job=\"bigtown-backend\"}[30s])",
+          "expr": "rate(go_gc_duration_seconds_count{job=\"$job\"}[30s])",
           "legendFormat": "GC runs/s"
         }
       ],
@@ -75,7 +75,7 @@
       "gridPos": {"x": 0, "y": 15, "w": 12, "h": 7},
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{job=\"bigtown-backend\"}[30s]))",
+          "expr": "sum(rate(http_requests_total{job=\"$job\"}[30s]))",
           "legendFormat": "req/s"
         }
       ],
@@ -83,7 +83,7 @@
       "description": "Tổng HTTP requests/giây qua backend (REST + WS upgrade)"
     },
     {
-      "title": "OS Memory (GB)",
+      "title": "OS Memory (Local Host Only)",
       "type": "graph",
       "gridPos": {"x": 12, "y": 15, "w": 12, "h": 7},
       "targets": [
@@ -96,7 +96,32 @@
           "legendFormat": "used"
         }
       ],
-      "yaxes": [{"format": "short", "label": "GB"}]
+      "yaxes": [{"format": "short", "label": "GB"}],
+      "description": "Chỉ hiển thị cho môi trường Local Host."
     }
-  ]
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "value": "bigtown-backend",
+          "text": "bigtown-backend"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Backend Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": "label_values(go_goroutines, job)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query",
+        "datasource": "Prometheus"
+      }
+    ]
+  }
 }

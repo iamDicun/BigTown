@@ -58,6 +58,13 @@ export const options = {
       gracefulStop: '30s',
     },
   },
+  ext: {
+    loadimpact: {
+      distribution: {
+        singaporeZone: { loadZone: 'amazon:sg:singapore', percent: 100 },
+      },
+    },
+  },
   thresholds: {
     move_rpc_latency:  ['p(95)<500'],     // p95 RPC < 500ms (tùy chỉnh theo hạ tầng)
     move_rpc_error:    ['rate<0.05'],      // < 5% RPC lỗi
@@ -209,7 +216,8 @@ export function handleSummary(data) {
   const p95       = (data.metrics.move_rpc_latency  && data.metrics.move_rpc_latency.values['p(95)']) || 0;
   const errRate   = (data.metrics.move_rpc_error    && data.metrics.move_rpc_error.values.rate)      || 0;
 
-  const membersPerRoom = Math.floor(100 / NUM_ROOMS);
+  const vus = (data.metrics.vus && data.metrics.vus.values.max) || 500;
+  const membersPerRoom = Math.floor(vus / NUM_ROOMS);
   const expected = sent * membersPerRoom;
   const ratio = expected ? (broadcast / expected * 100).toFixed(1) : 'N/A';
 

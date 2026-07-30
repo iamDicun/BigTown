@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BigTown - Load Test Report: Phase 1 (Baseline) - Strategy 2 (Render)</title>
+    <title>BigTown - Load Test Report: Phase 1 (Baseline) - Strategy 3 (Grafana Cloud)</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -137,14 +137,17 @@
 <body>
     <div class="container">
         <header>
-            <h1>Phase 1 (Baseline) - Strategy 2 (Render)</h1>
-            <p class="subtitle">Báo cáo kiểm thử hiệu năng môi trường Online (Render Backend, 100 VUs, 10 Rooms)</p>
+            <h1>Phase 1 (Baseline) - Strategy 3 (Grafana Cloud)</h1>
+            <p class="subtitle">Báo cáo kiểm thử hiệu năng môi trường Grafana Cloud k6 (100 VUs, 10 Rooms)</p>
         </header>
 
         <div class="alert-box">
-            <h3>🔴 Cảnh Báo Hiệu Năng: Độ Trễ Chat Nghiêm Trọng (Chat Latency Spill)</h3>
+            <h3>🔴 Xác nhận độ trễ tích lũy địa lý (Geographic Latency Accumulation)</h3>
             <p>
-                Độ trễ truyền nhận tin nhắn Chat (<strong>Chat Delivery Latency p95</strong>) đạt mức cực kì cao: <strong>1.62 giây (1626 ms)</strong>, vượt xa ngưỡng cho phép (&lt;1000ms). Nguyên nhân cốt lõi đến từ việc **HTTP POST Chat Request** bị nghẽn (độ trễ trung bình 1.13 giây). Điều này chỉ ra database write latency của cơ sở dữ liệu Postgres trên Render hoặc CPU throttling trên gói Free/Starter là bottleneck chính khi thực hiện ghi lịch sử Chat.
+                Khi phát tải từ hạ tầng Grafana Cloud (đặt tại Ohio, Mỹ - <strong>load_zone: amazon:us:columbus</strong>) hướng về Server Render (Singapore) và ghi Database (Nhật Bản), độ trễ tích lũy tăng cao rõ rệt:
+                <br>• <strong>Chat Delivery Latency:</strong> p95 đạt khoảng **1.75 - 1.85 giây (1750ms - 1850ms)**.
+                <br>• <strong>HTTP Request Duration:</strong> Trung bình khoảng **1.30 - 1.45 giây (1300ms - 1450ms)**.
+                <br>Điều này chứng minh việc mạng lưới đi qua nhiều chặng lục địa (Mỹ -> Singapore -> Nhật Bản -> Singapore -> Mỹ) cộng thêm việc xếp hàng DB Connection Pool làm độ trễ bị đẩy lên cực hạn.
             </p>
         </div>
 
@@ -154,15 +157,15 @@
                 <h2>💬 Chat Load Test</h2>
                 <div class="metric-group">
                     <div class="metric-row">
-                        <span class="metric-label">Tổng số tin gửi (Sent)</span>
-                        <span class="metric-value value-accent">16,214 (49.13/s)</span>
+                        <span class="metric-label">Số lượng VUs tối đa</span>
+                        <span class="metric-value value-accent">100 (Max allowed)</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Tổng số tin nhận (Received)</span>
-                        <span class="metric-value value-accent">161,294 (488.76/s)</span>
+                        <span class="metric-label">Vùng phát tải (Cloud Zone)</span>
+                        <span class="metric-value">Ohio, US (AWS)</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Tỷ lệ phân phối thành công</span>
+                        <span class="metric-label">Tỷ lệ checks thành công</span>
                         <span class="metric-value value-success">100.00%</span>
                     </div>
                     <div class="metric-row">
@@ -170,8 +173,8 @@
                         <span class="metric-value value-success">0 (PASS)</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">HTTP POST Lỗi</span>
-                        <span class="metric-value value-success">0% (PASS)</span>
+                        <span class="metric-label">Lỗi kết nối WS</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
                     </div>
                 </div>
             </div>
@@ -182,15 +185,15 @@
                 <div class="metric-group">
                     <div class="metric-row">
                         <span class="metric-label">RPC di chuyển đã gửi</span>
-                        <span class="metric-value value-accent">326,648 (989.83/s)</span>
+                        <span class="metric-value value-accent">~329K (998.4/s)</span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Số di chuyển broadcast</span>
-                        <span class="metric-value value-accent">2,486,419 (7,534.50/s)</span>
+                        <span class="metric-value value-accent">~2.54M (7708/s)</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Lỗi di chuyển RPC</span>
-                        <span class="metric-value value-success">0 (PASS)</span>
+                        <span class="metric-label">Độ trễ RPC p95 (Cloud)</span>
+                        <span class="metric-value value-warning">~300 - 390 ms</span>
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Tỷ lệ checks thành công</span>
@@ -198,80 +201,75 @@
                     </div>
                     <div class="metric-row">
                         <span class="metric-label">Sự lệch vị trí (Correction)</span>
-                        <span class="metric-value value-warning">77,744</span>
+                        <span class="metric-value value-warning">~75,109</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Network Overhead Card -->
+            <!-- Comparison Summary Card -->
             <div class="card">
-                <h2>🌐 Độ Trễ Mạng & Bắt Tay (Network & Handshake)</h2>
+                <h2>📊 So sánh RTT Mạng</h2>
                 <div class="metric-group">
                     <div class="metric-row">
-                        <span class="metric-label">Bắt tay WS kết nối (Avg)</span>
-                        <span class="metric-value value-warning">~343 ms</span>
+                        <span class="metric-label">Local Loopback</span>
+                        <span class="metric-value value-success">~0.1 ms</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Bắt tay WS p95</span>
-                        <span class="metric-value value-warning">511.64 ms</span>
+                        <span class="metric-label">VN - Sing (Local -> Render)</span>
+                        <span class="metric-value value-warning">~98 ms</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Khởi tạo HTTP TLS (Avg)</span>
-                        <span class="metric-value">0.39 ms</span>
+                        <span class="metric-label">Mỹ - Sing (k6 Cloud -> Render)</span>
+                        <span class="metric-value value-danger">~220 - 280 ms RTT</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Kết nối TCP HTTP (Avg)</span>
-                        <span class="metric-value">0.27 ms</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Tổng RTT Mạng cơ bản</span>
-                        <span class="metric-value">~98 ms</span>
+                        <span class="metric-label">Sing - Nhật (Server -> DB)</span>
+                        <span class="metric-value value-danger">~80 - 100 ms</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card">
-            <h2>⏱️ Chi tiết Độ trễ (Latency Details)</h2>
+            <h2>⏱️ Chỉ số Độ trễ từ Grafana Cloud CSV (Latency Ranges)</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Loại thao tác</th>
-                        <th>Độ trễ tối thiểu (Min)</th>
-                        <th>Trung bình (Avg)</th>
-                        <th>Trung vị (Med)</th>
-                        <th>p(90)</th>
+                        <th>Metric / Thao tác</th>
+                        <th>Trung bình (Mean / Avg)</th>
+                        <th>Trung vị (Median)</th>
                         <th>p(95)</th>
                         <th>Tối đa (Max)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
-                        <td><strong>Chat Delivery (Gửi → Nhận WS) ❌ FAIL</strong></td>
-                        <td>336 ms</td>
-                        <td>1264.17 ms</td>
-                        <td>1317 ms</td>
-                        <td>1560 ms</td>
-                        <td>1626 ms</td>
-                        <td>3508 ms</td>
+                        <td><strong>Chat Delivery (Mỹ -> Sing -> Nhật -> Sing -> Mỹ)</strong></td>
+                        <td>~1490 - 1580 ms</td>
+                        <td>~1500 - 1600 ms</td>
+                        <td>~1750 - 1850 ms</td>
+                        <td>~3238 ms</td>
                     </tr>
                     <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
-                        <td><strong>HTTP Req Duration (REST API)</strong></td>
-                        <td>341.72 ms</td>
-                        <td>1131.37 ms</td>
-                        <td>1194.96 ms</td>
-                        <td>1470.92 ms</td>
-                        <td>1538.41 ms</td>
-                        <td>2612.17 ms</td>
+                        <td><strong>HTTP Req Duration (POST Chat)</strong></td>
+                        <td>~1300 - 1450 ms</td>
+                        <td>~1350 - 1460 ms</td>
+                        <td>~1700 - 1800 ms</td>
+                        <td>~1869 ms</td>
                     </tr>
-                    <tr class="value-success" style="background: rgba(46, 160, 67, 0.05);">
-                        <td><strong>Move RPC Latency (WS RPC) ✅ PASS</strong></td>
-                        <td>43 ms</td>
-                        <td>98.25 ms</td>
-                        <td>98 ms</td>
-                        <td>137 ms</td>
-                        <td>155 ms</td>
-                        <td>389 ms</td>
+                    <tr class="value-warning" style="background: rgba(210, 153, 34, 0.05);">
+                        <td><strong>Move RPC Latency (WS RPC)</strong></td>
+                        <td>~250 - 280 ms</td>
+                        <td>~250 - 280 ms</td>
+                        <td>~300 - 390 ms</td>
+                        <td>~451 ms</td>
+                    </tr>
+                    <tr class="value-warning" style="background: rgba(210, 153, 34, 0.05);">
+                        <td><strong>WS Connecting (Bắt tay WS liên lục địa)</strong></td>
+                        <td>~750 - 950 ms</td>
+                        <td>~750 - 930 ms</td>
+                        <td>~950 - 1030 ms</td>
+                        <td>~1048 ms</td>
                     </tr>
                 </tbody>
             </table>

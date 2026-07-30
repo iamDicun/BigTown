@@ -34,7 +34,7 @@ func (p *Provider) Usecase() *usecase.RealtimeUsecase {
 
 func (p *Provider) RoomStore() room.RoomStore {
 	if p.roomStore == nil {
-		p.roomStore = room.NewMemoryRoomStore()
+		p.roomStore = room.NewActorRoomStore()
 	}
 	return p.roomStore
 }
