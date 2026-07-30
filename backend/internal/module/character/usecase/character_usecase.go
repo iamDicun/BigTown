@@ -22,6 +22,9 @@ type CharacterUsecase struct {
 	mapCacheMu sync.RWMutex
 	mapCache   *entity.MapInfo
 	mapByCode  map[string]*entity.MapInfo
+
+	// RAM Cache cho nhân vật để triệt tiêu việc query DB Postgres liên tục trên hot path (Chat/Move)
+	charCache sync.Map
 }
 
 type SpritesheetConfig struct {
@@ -102,6 +105,12 @@ func NewCharacterUsecase(db *sql.DB, repo port.CharacterRepository, users port.U
 }
 
 func (u *CharacterUsecase) GetByUserID(ctx context.Context, userID string) (*entity.Character, error) {
+	// 1. Kiểm tra trong RAM Cache trước
+	if val, ok := u.charCache.Load(userID); ok {
+		return val.(*entity.Character), nil
+	}
+
+	// 2. Nếu không có mới truy vấn DB Postgres
 	character, err := u.repo.FindByUserID(ctx, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, apperror.NotFound("Chưa có nhân vật cho user này", err)
@@ -109,7 +118,16 @@ func (u *CharacterUsecase) GetByUserID(ctx context.Context, userID string) (*ent
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
-	return u.syncMap(ctx, character)
+
+	synced, err := u.syncMap(ctx, character)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Lưu vào RAM Cache cho các lần gọi sau
+	u.charCache.Store(userID, synced)
+
+	return synced, nil
 }
 
 func (u *CharacterUsecase) ListOptions() []CharacterOption {

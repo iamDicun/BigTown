@@ -143,7 +143,7 @@
                     <td><strong>Trạng thái (Status)</strong></td>
                     <td><span class="status-badge status-done">Đã chạy Str. 1, 2, 3</span></td>
                     <td><span class="status-badge status-done">Đã chạy Str. 1 & 2</span></td>
-                    <td><span class="status-badge status-pending">Chưa chạy</span></td>
+                    <td><span class="status-badge status-done">Đã chạy Strategy 2</span></td>
                 </tr>
                 <tr>
                     <td><strong>Cơ chế Store chính</strong></td>
@@ -162,7 +162,9 @@
                         Local: <strong>190 ms</strong> (PASS)<br>
                         Render: <strong style="color: var(--danger-color)">1602 ms</strong> (FAIL)
                     </td>
-                    <td>-</td>
+                    <td>
+                        Render: <strong style="color: var(--danger-color)">1293 ms</strong> (FAIL)
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Move RPC (p95)</strong></td>
@@ -175,50 +177,38 @@
                         Local: <strong>10 ms</strong> (PASS)<br>
                         Render: <strong>165 ms</strong> (PASS)
                     </td>
-                    <td>-</td>
+                    <td>
+                        Render: <strong>165 ms</strong> (PASS)
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Hành vi tải CPU</strong></td>
                     <td>Các Core chạy nhẹ (&lt; 6% CPU) ở local</td>
                     <td>Core chạy nhỉnh hơn nhẹ ở tải thấp (Overhead của channel)</td>
-                    <td>Dự kiến giảm tải cho Centrifuge</td>
+                    <td>Tối ưu gộp 10 lần gói tin Centrifuge xuống client</td>
                 </tr>
                 <tr>
                     <td><strong>Rò rỉ Room (Leak)</strong></td>
                     <td>0 (PASS)</td>
                     <td>0 (PASS)</td>
-                    <td>-</td>
+                    <td>0 (PASS)</td>
                 </tr>
             </tbody>
         </table>
 
-        <h2>🔍 Chi Tiết Giai Đoạn 2: Actor per-room (Phase 2)</h2>
+        <h2>🔍 Chi Tiết Giai Đoạn 3: Tối ưu gộp + Ghi DB ngầm (Phase 3)</h2>
         <div class="grid-2">
             <div class="card">
-                <h3>Strategy 1: Local Only</h3>
-                <p>k6 sinh tải trực tiếp tới Backend chạy local cùng máy (sử dụng Actor Store).</p>
-                <ul>
-                    <li><strong>Chat:</strong> 16,300 tin gửi | 163,000 tin nhận | p95 latency 190ms</li>
-                    <li><strong>Move:</strong> 329,493 RPC gửi | p95 RPC latency 10ms</li>
-                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-2-actor/strategy-1-local/report.html">Xem report.html của Phase 2 Local</a></li>
-                </ul>
-            </div>
-
-            <div class="card">
                 <h3>Strategy 2: Local to Render</h3>
-                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng Actor Store).</p>
+                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng tối ưu Phase 3).</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,188 tin gửi | 160,797 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1602 ms (FAIL)</strong></li>
+                    <li><strong>Chat:</strong> 16,221 tin gửi | 161,303 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1293 ms</strong></li>
                     <li><strong>Move:</strong> 326,707 RPC gửi | p95 RPC latency 165ms (PASS)</li>
-                    <li><strong>Phân tích:</strong> Độ trễ chat hầu như không đổi (~1600ms), trực tiếp chứng minh nghẽn chat là do DB Write Latency liên vùng Sing-Nhật chứ không phải tranh chấp lock RAM.</li>
-                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-2-actor/strategy-2-online/report.html">Xem report.html của Phase 2 Render</a></li>
+                    <li><strong>Phân tích:</strong> Độ trễ chat cải thiện nhẹ (giảm khoảng 300ms) nhờ ghi database chat bất đồng bộ. Tuy nhiên, hàm `GetByUserID` vẫn được gọi đồng bộ trên mỗi chat request để lấy tên nhân vật, gây nghẽn kết nối database.</li>
+                    <li><strong>Giải pháp tiếp theo:</strong> Áp dụng RAM Cache cho `GetByUserID` trong `CharacterUsecase` để đưa độ trễ chat về mức RTT mạng thực tế (&lt; 100ms).</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-3-tick-broadcast/strategy-2-online/report.html">Xem report.html của Phase 3 Render</a></li>
                 </ul>
             </div>
-        </div>
-
-        <h2>🛠️ Giai Đoạn Tiếp Theo</h2>
-        <div class="card">
-            <p>Sau khi xác định rõ DB Write latency là bottleneck cho chat, bước tiếp theo có thể áp dụng <strong>Ghi DB bất đồng bộ (Write Behind)</strong> kết hợp hàng đợi bất đồng bộ hoặc tiến hành nâng cấp Phase 3 (Gom di chuyển theo Ticker) để stress test tối ưu hóa cho di chuyển.</p>
         </div>
     </div>
 </body>
