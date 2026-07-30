@@ -149,6 +149,12 @@ export class GameScene extends Phaser.Scene {
         if (event.characterId === this.localCharacterId) return
         this.remotePlayers.upsert(event.characterId, event.x, event.y, event.direction, event.moving)
       },
+      onRoomState: (event) => {
+        for (const p of event.players) {
+          if (p.characterId === this.localCharacterId) continue
+          this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving)
+        }
+      },
       onCorrection: (event) => this.localPlayer.applyCorrection(event.x, event.y),
     })
 

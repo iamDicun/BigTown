@@ -213,14 +213,10 @@ func handlePlayerMove(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, c
 		return
 	}
 
-	publishRoomEvent(node, roomID, playerMoveEvent{
-		Type:        "player_move",
-		CharacterID: updated.CharacterID,
-		X:           updated.X,
-		Y:           updated.Y,
-		Direction:   string(updated.Direction),
-		Moving:      updated.Moving,
-	})
+	// ĐÃ LOẠI BỎ: Không broadcast tức thời nữa. 
+	// Server-side Tick Broadcast (100ms Ticker) trong Actor Room Store sẽ chịu trách nhiệm
+	// quét và gom nhóm các người chơi di chuyển rồi phát tin 1 lần (room_state) cho toàn phòng.
+	_ = updated // Tránh unused variable warning
 
 	cb(centrifuge.RPCReply{}, nil)
 }
