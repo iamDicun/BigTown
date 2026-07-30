@@ -1,157 +1,218 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BigTown Load Test — Matrix Report</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 24px; }
-  .container { max-width: 1000px; margin: 0 auto; }
-  h1 { color: #58a6ff; font-size: 26px; margin-bottom: 4px; }
-  h2 { color: #f0883e; font-size: 18px; margin: 28px 0 12px; }
-  h3 { color: #8b949e; font-size: 15px; margin: 16px 0 8px; }
-  .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
-  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
-  .badge-done { background:#238636; color:#fff; }
-  .badge-pend { background:#21262d; color:#8b949e; border:1px solid #30363d; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
-  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
-  th { color: #8b949e; font-weight: 500; }
-  td { font-family: 'Cascadia Code', 'Fira Code', monospace; }
-  .val { color: #7ee787; font-weight: 600; }
-  .val-big { color: #7ee787; font-size: 18px; font-weight: 700; }
-  .val-warn { color: #d2991d; font-weight: 600; }
-  .val-bad { color: #f85149; font-weight: 600; }
-  .matrix { display:grid; grid-template-columns: 160px repeat(3, 1fr); gap: 2px; margin: 16px 0; }
-  .matrix .cell { padding: 12px 14px; text-align: center; border-radius: 4px; font-size: 13px; }
-  .matrix .head { background: #21262d; color: #8b949e; font-weight: 600; text-align: left; }
-  .matrix .done { background: #0d3320; color: #7ee787; }
-  .matrix .pend { background: #161b22; color: #484f58; }
-  .cols { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
-  .compare td { font-size: 12px; }
-  .compare .gain { color: #7ee787; }
-  .compare .loss { color: #f85149; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigTown - Báo Cáo Tổng Hợp Load Test & Tối Ưu Hóa</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.8);
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --success-color: #2ea043;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0 0 0.5rem 0;
+            font-size: 2.25rem;
+        }
+
+        h2 {
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            text-align: left;
+        }
+
+        th {
+            color: #fff;
+            background-color: rgba(22, 27, 34, 0.5);
+            border-bottom: 2px solid var(--border-color);
+            padding: 1rem;
+            font-size: 0.95rem;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .status-done {
+            background-color: rgba(46, 160, 67, 0.15);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-pending {
+            background-color: rgba(210, 153, 34, 0.15);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 1.5rem;
+        }
+    </style>
 </head>
 <body>
-<div class="container">
+    <div class="container">
+        <header>
+            <h1>Báo Cáo Tổng Hợp Load Test & Tối Ưu Hóa</h1>
+            <p class="subtitle">Bảng đối chiếu so sánh kết quả qua các đợt cập nhật (Phase 1, Phase 2, Phase 3)</p>
+        </header>
 
-<h1>BigTown Load Test — Matrix Report</h1>
-<p class="subtitle">3 Phases × 3 Strategies &nbsp;|&nbsp; 100 VU × 10 rooms × 5 min</p>
+        <h2>📊 So Sánh Các Giai Đoạn (Phases Comparison)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric / Chỉ số</th>
+                    <th>Phase 1: Baseline (Chưa tối ưu)</th>
+                    <th>Phase 2: Actor per-room</th>
+                    <th>Phase 3: Tick-based Broadcast</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Trạng thái (Status)</strong></td>
+                    <td><span class="status-badge status-done">Đã chạy Strategy 1 & 2</span></td>
+                    <td><span class="status-badge status-pending">Chưa chạy</span></td>
+                    <td><span class="status-badge status-pending">Chưa chạy</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Cơ chế Store chính</strong></td>
+                    <td><code>MemoryRoomStore</code> (Global Mutex)</td>
+                    <td><code>ActorRoomStore</code> (Actor model)</td>
+                    <td><code>ActorRoomStore</code> + Gom Ticker</td>
+                </tr>
+                <tr>
+                    <td><strong>Độ trễ Chat (p95)</strong></td>
+                    <td>
+                        Local: <strong>88 ms</strong> (PASS)<br>
+                        Render: <strong style="color: var(--danger-color)">1626 ms</strong> (FAIL)
+                    </td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td><strong>Độ trễ Move RPC (p95)</strong></td>
+                    <td>
+                        Local: <strong>7 ms</strong> (PASS)<br>
+                        Render: <strong>155 ms</strong> (PASS)
+                    </td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td><strong>Hành vi tải CPU</strong></td>
+                    <td>Các Core chạy nhẹ (&lt; 6% CPU) ở local</td>
+                    <td>Dự kiến trải đều đa Core</td>
+                    <td>Dự kiến giảm tải cho Centrifuge</td>
+                </tr>
+                <tr>
+                    <td><strong>Rò rỉ Room (Leak)</strong></td>
+                    <td>0 (PASS)</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
 
-<div class="card">
-  <div class="matrix">
-    <div class="cell head"></div>
-    <div class="cell head">Strategy 1<br><small>Local All</small></div>
-    <div class="cell head">Strategy 2<br><small>k6→Render</small></div>
-    <div class="cell head">Strategy 3<br><small>Grafana Cloud</small></div>
+        <h2>🔍 Chi Tiết Giai Đoạn 1: Baseline (Phase 1)</h2>
+        <div class="grid-2">
+            <div class="card">
+                <h3>Strategy 1: Local Only</h3>
+                <p>k6 sinh tải trực tiếp tới Backend chạy local cùng máy.</p>
+                <ul>
+                    <li><strong>Chat:</strong> 16,301 tin gửi | 163,009 tin nhận | p95 latency 88ms</li>
+                    <li><strong>Move:</strong> 329,708 RPC gửi | p95 RPC latency 7ms</li>
+                    <li><strong>Resource:</strong> Goroutines ~320 | Heap ~45MB | CPU hoạt động nhẹ dưới 6%, chưa có nghẽn mutex</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-1-local/report.html">Xem report.html của Local</a></li>
+                </ul>
+            </div>
 
-    <div class="cell head">Phase 1<br><small>Baseline</small></div>
-    <div class="cell done">✅ done</div>
-    <div class="cell done">✅ done</div>
-    <div class="cell pend">⬜ pending</div>
+            <div class="card">
+                <h3>Strategy 2: Local to Render</h3>
+                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render.</p>
+                <ul>
+                    <li><strong>Chat:</strong> 16,214 tin gửi | 161,294 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1626 ms (FAIL)</strong></li>
+                    <li><strong>Move:</strong> 326,648 RPC gửi | p95 RPC latency 155ms (PASS)</li>
+                    <li><strong>Bottleneck:</strong> HTTP POST Chat Request tốn trung bình 1.13s (ghi database Postgres trên cloud chậm hoặc CPU throttling trên Render Free/Starter).</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-2-online/report.html">Xem report.html của Render</a></li>
+                </ul>
+            </div>
+        </div>
 
-    <div class="cell head">Phase 2<br><small>Actor per-room</small></div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-
-    <div class="cell head">Phase 3<br><small>Tick broadcast</small></div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-  </div>
-</div>
-
-<h2>Phase 1: Baseline <span class="badge badge-done">active</span></h2>
-
-<h3>Strategy 1 — Local All</h3>
-<div class="cols">
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
-      <tr><td>chat_sent</td><td class="val">16,300</td></tr>
-      <tr><td>chat_received</td><td class="val">163,000</td></tr>
-      <tr><td>Delivery rate</td><td class="val">100.0%</td></tr>
-      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
-      <tr><td>move_rpc_sent</td><td class="val">289,322</td></tr>
-      <tr><td>move_broadcast</td><td class="val">2,304,907</td></tr>
-      <tr><td>Delivery rate</td><td class="val-warn">79.7%</td></tr>
-      <tr><td><strong>p95 latency</strong></td><td class="val-big">17.0ms</td></tr>
-      <tr><td>Correction rate</td><td class="val-warn">20.3%</td></tr>
-      <tr><td>Throughput</td><td class="val">~965 RPC/s</td></tr>
-    </table>
-  </div>
-</div>
-
-<h3>Strategy 2 — k6 Local → Render</h3>
-<div class="cols">
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
-      <tr><td>chat_sent</td><td class="val">14,400</td></tr>
-      <tr><td>chat_received</td><td class="val">143,166</td></tr>
-      <tr><td>Delivery rate</td><td class="val-warn">99.4%</td></tr>
-      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
-      <tr><td>move_rpc_sent</td><td class="val">299,013</td></tr>
-      <tr><td>move_broadcast</td><td class="val">1,407,427</td></tr>
-      <tr><td>Delivery rate</td><td class="val-bad">47.1%</td></tr>
-      <tr><td><strong>p95 latency</strong></td><td class="val-bad">6,429ms</td></tr>
-      <tr><td>Correction rate</td><td class="val-warn">30.8%</td></tr>
-      <tr><td>Throughput</td><td class="val">~997 RPC/s</td></tr>
-    </table>
-  </div>
-</div>
-
-<h3>Strategy 1 vs 2 — Comparison</h3>
-<div class="card">
-  <table class="compare">
-    <tr><th>Metric</th><th>Local</th><th>Render</th><th>Delta</th></tr>
-    <tr><td>Chat delivery</td><td class="val">100.0%</td><td class="val-warn">99.4%</td><td class="loss">-0.6pp</td></tr>
-    <tr><td>Move delivery</td><td class="val-warn">79.7%</td><td class="val-bad">47.1%</td><td class="loss">-32.6pp</td></tr>
-    <tr><td>p95 RPC latency</td><td class="val-big">17ms</td><td class="val-bad">6,429ms</td><td class="loss">×378</td></tr>
-    <tr><td>RPC throughput</td><td>~965/s</td><td>~997/s</td><td class="gain">+3%</td></tr>
-    <tr><td>cross_room_leak</td><td class="val">0</td><td class="val">0</td><td>—</td></tr>
-  </table>
-</div>
-
-<p style="margin-top:8px;color:#8b949e;font-size:13px;">
-  Network latency kéo p95 và delivery rate xuống đáng kể ở Strategy 2. Server-side throughput không đổi.
-  Actor migration (Phase 2) sẽ cải thiện server-side, không cải thiện network.
-</p>
-
-<h2>Phase 2: Actor Per-Room <span class="badge badge-pend">pending</span></h2>
-<div class="card">
-  <p style="color:#8b949e;font-size:13px;">
-    Thay global <code>sync.Mutex</code> trên MemoryRoomStore bằng Actor per-room (1 goroutine/room, channel-based).
-    Kỳ vọng: p95 giảm (S1), throughput tăng, CPU trải đều nhiều core. Không ảnh hưởng network latency (S2/S3).
-  </p>
-</div>
-
-<h2>Phase 3: Tick Broadcast <span class="badge badge-pend">pending</span></h2>
-<div class="card">
-  <p style="color:#8b949e;font-size:13px;">
-    Gom movement broadcast 100ms/tick thay vì publish mỗi RPC. Giảm tải Centrifuge, tăng delivery rate, giảm băng thông.
-  </p>
-</div>
-
-<p style="margin-top:24px;color:#484f58;font-size:12px;text-align:center;">
-  Scripts: <code>scripts/</code> &nbsp;|&nbsp; Docs: <code>docs/</code> &nbsp;|&nbsp; Seed: <code>seed.sql</code>
-</p>
-
-</div>
+        <h2>🛠️ Giai Đoạn Tiếp Theo</h2>
+        <div class="card">
+            <p>Sau khi xác thực xong code Baseline ở Phase 1, ta sẽ áp dụng các thay đổi trong file <code>Realtime-Room-Actor-Migration.md</code> để chuyển đổi sang mô hình <strong>Actor per-room</strong> và thực hiện lại bộ test của <strong>Phase 2</strong> để so sánh trực quan hiệu quả loại bỏ Lock.</p>
+        </div>
+    </div>
 </body>
 </html>

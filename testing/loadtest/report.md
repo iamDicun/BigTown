@@ -1,101 +1,58 @@
-# BigTown — Load Test Matrix Report
+# Báo Cáo Tổng Kết Load Test & Tối Ưu Hóa Hiệu Năng Realtime
 
-> 3 Phases × 3 Strategies = 9 test runs. Mỗi ô là một lần chạy độc lập.
-
----
-
-## Test Matrix
-
-| | Strategy 1: Local All | Strategy 2: Online (local k6→Render) | Strategy 3: Grafana Cloud |
-|---|---|---|---|
-| **Phase 1: Baseline** | ✅ Done | ✅ Done | ⬜ Pending |
-| **Phase 2: Actor per-room** | ⬜ Pending | ⬜ Pending | ⬜ Pending |
-| **Phase 3: Tick broadcast** | ⬜ Pending | ⬜ Pending | ⬜ Pending |
+Tài liệu này tổng hợp và so sánh kết quả load test qua các Phase tối ưu hóa và các Chiến lược đo lường khác nhau của dự án BigTown.
 
 ---
 
-## Phase 1 — Baseline (Global Mutex `MemoryRoomStore`)
+## 1. Bản Đồ So Sánh Các Giai Đoạn (Phases Comparison)
 
-### Strategy 1: Local All (backend + DB + k6 cùng máy)
-
-| Metric | Chat | Movement |
-|---|---|---|
-| Sent | 16,300 | 289,322 |
-| Received | 163,000 | 2,304,907 |
-| Delivery rate | 100.0% | 79.7% |
-| Cross-room leak | 0 | N/A |
-| Correction rate | N/A | 20.3% |
-| **p95 latency** | N/A | **17.0ms** |
-| RPC errors | 0% | 0.00% |
-
-### Strategy 2: Online (k6 local → Render `bigtown-1.onrender.com`)
-
-| Metric | Chat | Movement |
-|---|---|---|
-| Sent | 14,400 | 299,013 |
-| Received | 143,166 | 1,407,427 |
-| Delivery rate | 99.4% | 47.1% |
-| Cross-room leak | 0 | N/A |
-| Correction rate | N/A | 30.8% |
-| **p95 latency** | N/A | **6,429ms** |
-| RPC errors | 0% | 0.00% |
-
-### So sánh Strategy 1 vs 2
-
-| Chỉ số | S1 (local) | S2 (Render) | Chênh lệch |
-|---|---|---|---|
-| Chat delivery | 100% | 99.4% | ~0.6% |
-| Move delivery | 79.7% | 47.1% | -32.6pp |
-| p95 RPC latency | 17ms | 6,429ms | ×378 |
-| RPC throughput | ~965/s | ~997/s | +3% |
-
-Network latency là yếu tố chính kéo delivery rate và p95. Server-side throughput giữa 2 môi trường gần như tương đương (~965 vs ~997 RPC/s).
+| Chỉ số / Metric | Phase 1: Baseline (Chưa tối ưu) | Phase 2: Actor per-room | Phase 3: Tick Broadcast |
+| :--- | :--- | :--- | :--- |
+| **Trạng thái (Status)** | **Đã hoàn thành Str. 1 & 2** | *Chưa thực hiện* | *Chưa thực hiện* |
+| **Cơ chế lưu trữ** | `MemoryRoomStore` (Global Mutex) | `ActorRoomStore` (Actor model) | `ActorRoomStore` + gom Ticker |
+| **Độ trễ Chat (p95)** | **88 ms** (Local) \| **1626 ms** (Render - FAIL) | *Đang chờ* | *Đang chờ* |
+| **Độ trễ Move RPC (p95)** | **7 ms** (Local) \| **155 ms** (Render - PASS) | *Đang chờ* | *Đang chờ* |
+| **Phân bổ tải CPU** | Các Core chạy rất nhẹ (< 6% CPU) | Dự kiến trải đều đa Core | Dự kiến giảm tải Centrifuge |
+| **Rò rỉ kênh (Room Leak)**| **0** (PASS) | *Đang chờ* | *Đang chờ* |
+| **Tần suất GC / Heap** | ~0.7 runs/s / ~45MB | *Đang chờ* | *Đang chờ* |
 
 ---
 
-## Phase 2 — Actor Per-Room (pending)
+## 2. Chi Tiết Kết Quả Theo Chiến Lược (Strategies)
 
-Thay `MemoryRoomStore` (global mutex) bằng `ActorRoomStore` (mỗi room 1 goroutine, giao tiếp qua channel).
+### Giai Đoạn 1: Baseline (Phase 1)
 
-Kỳ vọng: p95 latency giảm, throughput tăng, CPU trải đều nhiều core.
+#### **Strategy 1: Local Only (k6 → Backend Local)**
+*   **Mục đích:** Đảm bảo tính đúng đắn (correctness) và làm mốc đối chứng (baseline).
+*   **Kết quả đo lường:**
+    *   **Chat test:** 100 VUs gửi tổng cộng 16,301 tin nhắn, nhận 163,009 tin nhắn (đúng tỷ lệ fanout 1:10 trong phòng). Độ trễ gửi-nhận trung bình 50.22ms, p95 là 88ms. Tỷ lệ lỗi 0%. `cross_room_leak` = 0.
+    *   **Movement test:** 100 VUs di chuyển liên tục, sinh ra 329,708 RPC gửi lên và 2,588,677 broadcast tin nhắn nhận về. Độ trễ xử lý di chuyển cực thấp (avg 2.07ms, p95 7ms).
+    *   **Tài nguyên hệ thống:** Mọi lõi CPU đều hoạt động cực kỳ nhẹ nhàng (dưới 6%). Ở mức tải 100 VUs, hệ thống chưa bị ghim cứng hay xảy ra nghẽn tranh chấp Lock (Lock Contention) do lượng tác vụ của 100 VUs còn nằm trong khả năng xử lý quá tốt của Go.
+*   **Báo cáo trực quan:** [report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-1-local/report.html)
+
+#### **Strategy 2: Local to Render (k6 Local → Render Backend)**
+*   **Mục đích:** Đo hiệu năng thực tế của server qua môi trường mạng WAN và hạ tầng container Render.
+*   **Kết quả đo lường:**
+    *   **Chat test:** 100 VUs gửi 16,214 tin nhắn, nhận 161,294 tin nhắn. Độ trễ truyền nhận chat **p95 vọt lên 1626 ms** (1.62s) $\rightarrow$ **FAIL** ngưỡng yêu cầu (&lt;1000ms).
+    *   **Nguyên nhân nghẽn:** Độ trễ của HTTP POST Chat request trung bình là 1.13 giây, do database write latency ghi lịch sử chat vào Postgres trên Render hoặc CPU throttling trên Render Free/Starter.
+    *   **Movement test:** 100 VUs gửi 326,648 RPC di chuyển qua WebSocket, nhận về 2,486,419 broadcasts. Độ trễ xử lý di chuyển **p95 là 155 ms** $\rightarrow$ **PASS** ngưỡng yêu cầu (&lt;500ms).
+    *   **WS Connection Jitter:** Thời gian bắt tay kết nối WS (handshake) trung bình khoảng 343 ms (p95 là 511.64 ms).
+*   **Báo cáo trực quan:** [report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-1-baseline/strategy-2-online/report.html)
+
+#### **Strategy 3: Grafana Cloud (Grafana k6 Cloud → Render)**
+*   *Đã quyết định bỏ qua* - Vì Strategy 2 đã đủ thông số đối chứng trực tuyến và ghi nhận đầy đủ bottleneck ở tầng mạng/database.
 
 ---
 
-## Phase 3 — Tick Broadcast (pending)
-
-Gom movement broadcast 100ms/tick thay vì publish mỗi RPC. Giảm tải Centrifuge, tăng delivery rate.
+### Giai Đoạn 2: Actor per-room Migration (Phase 2)
+*   *Chưa thực hiện* - Mục tiêu loại bỏ Global Mutex bằng mô hình Actor cho từng Room độc lập.
 
 ---
-## Cấu trúc thư mục
 
-```
-testing/loadtest/
-├── scripts/                    # k6 scripts (dùng chung mọi phase)
-│   ├── chat_load_test.js
-│   └── movement_load_test.js
-├── seed.sql
-├── docs/
-│   ├── Concurrency-Strategy-Map.md
-│   └── LoadTest-Guide.md
-├── phase-1-baseline/
-│   ├── strategy-1-local/
-│   │   └── results/
-│   ├── strategy-2-online/
-│   │   └── results/
-│   └── strategy-3-grafana/
-│       └── results/
-├── phase-2-actor/
-│   ├── strategy-1-local/
-│   │   └── results/
-│   ├── strategy-2-online/
-│   │   └── results/
-│   └── strategy-3-grafana/
-│       └── results/
-└── phase-3-tick-broadcast/
-    ├── strategy-1-local/
-    │   └── results/
-    ├── strategy-2-online/
-    │   └── results/
-    └── strategy-3-grafana/
-        └── results/
-```
+### Giai Đoạn 3: Tick-based Broadcast (Phase 3)
+*   *Chưa thực hiện* - Mục tiêu gom nhóm các gói tin di chuyển trong vòng 100ms trước khi broadcast nhằm giảm tải xử lý IO trên Centrifuge.
+
+---
+
+## 3. Hướng Dẫn Cập Nhật Báo Cáo
+Khi hoàn thành các đợt load test tiếp theo, hãy cập nhật số liệu tương ứng vào các thư mục kết quả tương ứng (`phase-X-YYYY/strategy-Z-WWWW/results/*.json`) và cập nhật bảng so sánh trong file này để có bức tranh toàn cảnh về tiến trình tối ưu hóa hiệu năng.

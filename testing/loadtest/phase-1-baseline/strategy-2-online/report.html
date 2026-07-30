@@ -1,157 +1,281 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BigTown Load Test — Matrix Report</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 24px; }
-  .container { max-width: 1000px; margin: 0 auto; }
-  h1 { color: #58a6ff; font-size: 26px; margin-bottom: 4px; }
-  h2 { color: #f0883e; font-size: 18px; margin: 28px 0 12px; }
-  h3 { color: #8b949e; font-size: 15px; margin: 16px 0 8px; }
-  .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
-  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
-  .badge-done { background:#238636; color:#fff; }
-  .badge-pend { background:#21262d; color:#8b949e; border:1px solid #30363d; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
-  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
-  th { color: #8b949e; font-weight: 500; }
-  td { font-family: 'Cascadia Code', 'Fira Code', monospace; }
-  .val { color: #7ee787; font-weight: 600; }
-  .val-big { color: #7ee787; font-size: 18px; font-weight: 700; }
-  .val-warn { color: #d2991d; font-weight: 600; }
-  .val-bad { color: #f85149; font-weight: 600; }
-  .matrix { display:grid; grid-template-columns: 160px repeat(3, 1fr); gap: 2px; margin: 16px 0; }
-  .matrix .cell { padding: 12px 14px; text-align: center; border-radius: 4px; font-size: 13px; }
-  .matrix .head { background: #21262d; color: #8b949e; font-weight: 600; text-align: left; }
-  .matrix .done { background: #0d3320; color: #7ee787; }
-  .matrix .pend { background: #161b22; color: #484f58; }
-  .cols { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
-  .compare td { font-size: 12px; }
-  .compare .gain { color: #7ee787; }
-  .compare .loss { color: #f85149; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigTown - Load Test Report: Phase 1 (Baseline) - Strategy 2 (Render)</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.8);
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --success-color: #2ea043;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0 0 0.5rem 0;
+            font-size: 2.25rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .value-success { color: var(--success-color); }
+        .value-warning { color: var(--warning-color); }
+        .value-danger { color: var(--danger-color); }
+        .value-accent { color: var(--accent-color); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            text-align: left;
+        }
+
+        th {
+            color: #fff;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        .alert-box {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid var(--danger-color);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .alert-box h3 {
+            margin-top: 0;
+            color: var(--danger-color);
+        }
+    </style>
 </head>
 <body>
-<div class="container">
+    <div class="container">
+        <header>
+            <h1>Phase 1 (Baseline) - Strategy 2 (Render)</h1>
+            <p class="subtitle">Báo cáo kiểm thử hiệu năng môi trường Online (Render Backend, 100 VUs, 10 Rooms)</p>
+        </header>
 
-<h1>BigTown Load Test — Matrix Report</h1>
-<p class="subtitle">3 Phases × 3 Strategies &nbsp;|&nbsp; 100 VU × 10 rooms × 5 min</p>
+        <div class="alert-box">
+            <h3>🔴 Cảnh Báo Hiệu Năng: Độ Trễ Chat Nghiêm Trọng (Chat Latency Spill)</h3>
+            <p>
+                Độ trễ truyền nhận tin nhắn Chat (<strong>Chat Delivery Latency p95</strong>) đạt mức cực kì cao: <strong>1.62 giây (1626 ms)</strong>, vượt xa ngưỡng cho phép (&lt;1000ms). Nguyên nhân cốt lõi đến từ việc **HTTP POST Chat Request** bị nghẽn (độ trễ trung bình 1.13 giây). Điều này chỉ ra database write latency của cơ sở dữ liệu Postgres trên Render hoặc CPU throttling trên gói Free/Starter là bottleneck chính khi thực hiện ghi lịch sử Chat.
+            </p>
+        </div>
 
-<div class="card">
-  <div class="matrix">
-    <div class="cell head"></div>
-    <div class="cell head">Strategy 1<br><small>Local All</small></div>
-    <div class="cell head">Strategy 2<br><small>k6→Render</small></div>
-    <div class="cell head">Strategy 3<br><small>Grafana Cloud</small></div>
+        <div class="grid-3">
+            <!-- Chat Test Card -->
+            <div class="card">
+                <h2>💬 Chat Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Tổng số tin gửi (Sent)</span>
+                        <span class="metric-value value-accent">16,214 (49.13/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tổng số tin nhận (Received)</span>
+                        <span class="metric-value value-accent">161,294 (488.76/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tỷ lệ phân phối thành công</span>
+                        <span class="metric-value value-success">100.00%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Rò rỉ phòng (Room Leak)</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">HTTP POST Lỗi</span>
+                        <span class="metric-value value-success">0% (PASS)</span>
+                    </div>
+                </div>
+            </div>
 
-    <div class="cell head">Phase 1<br><small>Baseline</small></div>
-    <div class="cell done">✅ done</div>
-    <div class="cell done">✅ done</div>
-    <div class="cell pend">⬜ pending</div>
+            <!-- Movement Test Card -->
+            <div class="card">
+                <h2>🏃 Movement Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">RPC di chuyển đã gửi</span>
+                        <span class="metric-value value-accent">326,648 (989.83/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Số di chuyển broadcast</span>
+                        <span class="metric-value value-accent">2,486,419 (7,534.50/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Lỗi di chuyển RPC</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tỷ lệ checks thành công</span>
+                        <span class="metric-value value-success">100.00%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Sự lệch vị trí (Correction)</span>
+                        <span class="metric-value value-warning">77,744</span>
+                    </div>
+                </div>
+            </div>
 
-    <div class="cell head">Phase 2<br><small>Actor per-room</small></div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
+            <!-- Network Overhead Card -->
+            <div class="card">
+                <h2>🌐 Độ Trễ Mạng & Bắt Tay (Network & Handshake)</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Bắt tay WS kết nối (Avg)</span>
+                        <span class="metric-value value-warning">~343 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Bắt tay WS p95</span>
+                        <span class="metric-value value-warning">511.64 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Khởi tạo HTTP TLS (Avg)</span>
+                        <span class="metric-value">0.39 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Kết nối TCP HTTP (Avg)</span>
+                        <span class="metric-value">0.27 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tổng RTT Mạng cơ bản</span>
+                        <span class="metric-value">~98 ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    <div class="cell head">Phase 3<br><small>Tick broadcast</small></div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-    <div class="cell pend">⬜ pending</div>
-  </div>
-</div>
-
-<h2>Phase 1: Baseline <span class="badge badge-done">active</span></h2>
-
-<h3>Strategy 1 — Local All</h3>
-<div class="cols">
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
-      <tr><td>chat_sent</td><td class="val">16,300</td></tr>
-      <tr><td>chat_received</td><td class="val">163,000</td></tr>
-      <tr><td>Delivery rate</td><td class="val">100.0%</td></tr>
-      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
-      <tr><td>move_rpc_sent</td><td class="val">289,322</td></tr>
-      <tr><td>move_broadcast</td><td class="val">2,304,907</td></tr>
-      <tr><td>Delivery rate</td><td class="val-warn">79.7%</td></tr>
-      <tr><td><strong>p95 latency</strong></td><td class="val-big">17.0ms</td></tr>
-      <tr><td>Correction rate</td><td class="val-warn">20.3%</td></tr>
-      <tr><td>Throughput</td><td class="val">~965 RPC/s</td></tr>
-    </table>
-  </div>
-</div>
-
-<h3>Strategy 2 — k6 Local → Render</h3>
-<div class="cols">
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Chat Test</th></tr>
-      <tr><td>chat_sent</td><td class="val">14,400</td></tr>
-      <tr><td>chat_received</td><td class="val">143,166</td></tr>
-      <tr><td>Delivery rate</td><td class="val-warn">99.4%</td></tr>
-      <tr><td>cross_room_leak</td><td class="val">0</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <table>
-      <tr><th colspan="2" style="color:#58a6ff">Movement Test</th></tr>
-      <tr><td>move_rpc_sent</td><td class="val">299,013</td></tr>
-      <tr><td>move_broadcast</td><td class="val">1,407,427</td></tr>
-      <tr><td>Delivery rate</td><td class="val-bad">47.1%</td></tr>
-      <tr><td><strong>p95 latency</strong></td><td class="val-bad">6,429ms</td></tr>
-      <tr><td>Correction rate</td><td class="val-warn">30.8%</td></tr>
-      <tr><td>Throughput</td><td class="val">~997 RPC/s</td></tr>
-    </table>
-  </div>
-</div>
-
-<h3>Strategy 1 vs 2 — Comparison</h3>
-<div class="card">
-  <table class="compare">
-    <tr><th>Metric</th><th>Local</th><th>Render</th><th>Delta</th></tr>
-    <tr><td>Chat delivery</td><td class="val">100.0%</td><td class="val-warn">99.4%</td><td class="loss">-0.6pp</td></tr>
-    <tr><td>Move delivery</td><td class="val-warn">79.7%</td><td class="val-bad">47.1%</td><td class="loss">-32.6pp</td></tr>
-    <tr><td>p95 RPC latency</td><td class="val-big">17ms</td><td class="val-bad">6,429ms</td><td class="loss">×378</td></tr>
-    <tr><td>RPC throughput</td><td>~965/s</td><td>~997/s</td><td class="gain">+3%</td></tr>
-    <tr><td>cross_room_leak</td><td class="val">0</td><td class="val">0</td><td>—</td></tr>
-  </table>
-</div>
-
-<p style="margin-top:8px;color:#8b949e;font-size:13px;">
-  Network latency kéo p95 và delivery rate xuống đáng kể ở Strategy 2. Server-side throughput không đổi.
-  Actor migration (Phase 2) sẽ cải thiện server-side, không cải thiện network.
-</p>
-
-<h2>Phase 2: Actor Per-Room <span class="badge badge-pend">pending</span></h2>
-<div class="card">
-  <p style="color:#8b949e;font-size:13px;">
-    Thay global <code>sync.Mutex</code> trên MemoryRoomStore bằng Actor per-room (1 goroutine/room, channel-based).
-    Kỳ vọng: p95 giảm (S1), throughput tăng, CPU trải đều nhiều core. Không ảnh hưởng network latency (S2/S3).
-  </p>
-</div>
-
-<h2>Phase 3: Tick Broadcast <span class="badge badge-pend">pending</span></h2>
-<div class="card">
-  <p style="color:#8b949e;font-size:13px;">
-    Gom movement broadcast 100ms/tick thay vì publish mỗi RPC. Giảm tải Centrifuge, tăng delivery rate, giảm băng thông.
-  </p>
-</div>
-
-<p style="margin-top:24px;color:#484f58;font-size:12px;text-align:center;">
-  Scripts: <code>scripts/</code> &nbsp;|&nbsp; Docs: <code>docs/</code> &nbsp;|&nbsp; Seed: <code>seed.sql</code>
-</p>
-
-</div>
+        <div class="card">
+            <h2>⏱️ Chi tiết Độ trễ (Latency Details)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Loại thao tác</th>
+                        <th>Độ trễ tối thiểu (Min)</th>
+                        <th>Trung bình (Avg)</th>
+                        <th>Trung vị (Med)</th>
+                        <th>p(90)</th>
+                        <th>p(95)</th>
+                        <th>Tối đa (Max)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
+                        <td><strong>Chat Delivery (Gửi → Nhận WS) ❌ FAIL</strong></td>
+                        <td>336 ms</td>
+                        <td>1264.17 ms</td>
+                        <td>1317 ms</td>
+                        <td>1560 ms</td>
+                        <td>1626 ms</td>
+                        <td>3508 ms</td>
+                    </tr>
+                    <tr class="value-danger" style="background: rgba(248, 81, 73, 0.05);">
+                        <td><strong>HTTP Req Duration (REST API)</strong></td>
+                        <td>341.72 ms</td>
+                        <td>1131.37 ms</td>
+                        <td>1194.96 ms</td>
+                        <td>1470.92 ms</td>
+                        <td>1538.41 ms</td>
+                        <td>2612.17 ms</td>
+                    </tr>
+                    <tr class="value-success" style="background: rgba(46, 160, 67, 0.05);">
+                        <td><strong>Move RPC Latency (WS RPC) ✅ PASS</strong></td>
+                        <td>43 ms</td>
+                        <td>98.25 ms</td>
+                        <td>98 ms</td>
+                        <td>137 ms</td>
+                        <td>155 ms</td>
+                        <td>389 ms</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </body>
 </html>

@@ -191,6 +191,6 @@ export function handleSummary(data) {
 
   return {
     stdout: line,
-    'summary.json': JSON.stringify(data, null, 2),
+    'chat_summary.json': JSON.stringify(data, null, 2),
   };
 }
