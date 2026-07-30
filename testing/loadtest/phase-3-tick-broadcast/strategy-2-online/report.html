@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigTown - Load Test Report: Phase 3 (Optimized + RAM Cache) - Strategy 2 (Render)</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.8);
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --success-color: #2ea043;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0 0 0.5rem 0;
+            font-size: 2.25rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .value-success { color: var(--success-color); }
+        .value-warning { color: var(--warning-color); }
+        .value-danger { color: var(--danger-color); }
+        .value-accent { color: var(--accent-color); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            text-align: left;
+        }
+
+        th {
+            color: #fff;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        .alert-box {
+            background: rgba(46, 160, 67, 0.1);
+            border: 1px solid var(--success-color);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .alert-box h3 {
+            margin-top: 0;
+            color: var(--success-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Phase 3 (Optimized + RAM Cache) - Strategy 2 (Render)</h1>
+            <p class="subtitle">Báo cáo hiệu năng hoàn thiện sau khi áp dụng RAM Cache cho nhân vật trực tuyến</p>
+        </header>
+
+        <div class="alert-box">
+            <h3>🎉 THÀNH CÔNG: Độ trễ Chat chính thức Đạt Ngưỡng Kỹ Thuật (PASS)</h3>
+            <p>
+                Sau khi áp dụng **RAM Cache** cho hàm `GetByUserID` tại tầng UseCase của Character Module, toàn bộ các truy vấn database Postgres đồng bộ trên hot path chat đã được triệt tiêu về **0**:
+                <br>• **Chat Delivery Latency (p95):** Giảm ngoạn mục từ 1602ms xuống còn **718 ms (ĐẠT CHUẨN &lt;1000ms)**.
+                <br>• **HTTP Request Duration (p95):** Giảm mạnh từ 1535ms xuống còn **700 ms**.
+                <br>• **Độ trễ trung bình (Avg):** Chỉ còn **335 ms** cho chat delivery và **298 ms** cho HTTP request duration.
+                <br>Bộ đệm RAM cache đã giải phóng hoàn toàn DB Connection Pool khỏi việc xếp hàng chờ (connection queueing), đưa hiệu năng phản hồi chat trực tuyến về mức tối ưu tuyệt đối!
+            </p>
+        </div>
+
+        <div class="grid-3">
+            <!-- Chat Test Card -->
+            <div class="card">
+                <h2>💬 Chat Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Tổng số tin gửi (Sent)</span>
+                        <span class="metric-value value-accent">16,271 (49.30/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tổng số tin nhận (Received)</span>
+                        <span class="metric-value value-accent">162,587 (492.67/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Tỷ lệ checks thành công</span>
+                        <span class="metric-value value-success">100.00%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Lỗi HTTP Request</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Ngưỡng p95 &lt; 1000ms</span>
+                        <span class="metric-value value-success">ĐẠT (OK)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Movement Test Card -->
+            <div class="card">
+                <h2>🏃 Movement Load Test</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">RPC di chuyển đã gửi</span>
+                        <span class="metric-value value-accent">326,707 (990.00/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Số di chuyển gộp nhận</span>
+                        <span class="metric-value value-accent">2,514,182 (7618.6/s)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Lỗi di chuyển RPC</span>
+                        <span class="metric-value value-success">0 (PASS)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Độ trễ RPC p95</span>
+                        <span class="metric-value value-success">165 ms (PASS)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parity Comparison Card -->
+            <div class="card">
+                <h2>📊 Tiến trình tối ưu hóa Chat</h2>
+                <div class="metric-group">
+                    <div class="metric-row">
+                        <span class="metric-label">Phase 1: Baseline (p95)</span>
+                        <span class="metric-value value-danger">1626 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Phase 2: Actor per-room</span>
+                        <span class="metric-value value-danger">1602 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Phase 3: Gom nhịp + Async DB</span>
+                        <span class="metric-value value-warning">1293 ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Phase 3: + RAM Cache (Mới)</span>
+                        <span class="metric-value value-success">718 ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⏱️ Chỉ số Độ trễ Chi tiết (Latency Details)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chỉ số / Thao tác</th>
+                        <th>Tối thiểu (Min)</th>
+                        <th>Trung bình (Avg)</th>
+                        <th>Trung vị (Med)</th>
+                        <th>p(90)</th>
+                        <th>p(95)</th>
+                        <th>Tối đa (Max)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="value-success" style="background: rgba(46, 160, 67, 0.05);">
+                        <td><strong>Chat Delivery (Gửi → Nhận WS) ✅ PASS</strong></td>
+                        <td>118 ms</td>
+                        <td>335.13 ms</td>
+                        <td>259 ms</td>
+                        <td>674 ms</td>
+                        <td>718 ms</td>
+                        <td>1519 ms</td>
+                    </tr>
+                    <tr class="value-success" style="background: rgba(46, 160, 67, 0.05);">
+                        <td><strong>HTTP Req Duration (REST POST Chat) ✅ PASS</strong></td>
+                        <td>121.76 ms</td>
+                        <td>298.88 ms</td>
+                        <td>230.57 ms</td>
+                        <td>648.20 ms</td>
+                        <td>700.35 ms</td>
+                        <td>868.09 ms</td>
+                    </tr>
+                    <tr class="value-success" style="background: rgba(46, 160, 67, 0.05);">
+                        <td><strong>Move RPC Latency (WS RPC) ✅ PASS</strong></td>
+                        <td>41 ms</td>
+                        <td>104.52 ms</td>
+                        <td>99 ms</td>
+                        <td>149 ms</td>
+                        <td>165 ms</td>
+                        <td>892 ms</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

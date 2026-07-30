@@ -1,0 +1,5 @@
+"time","metric","scenario","group","load_zone","tags","count"
+"2026-07-30T12:10:03+00:00","data_sent","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296862', 'k6_cloud_test_name': 'chat_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",1898398
+"2026-07-30T12:10:06+00:00","data_sent","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296862', 'k6_cloud_test_name': 'chat_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",361632
+"2026-07-30T12:10:42+00:00","data_sent","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296862', 'k6_cloud_test_name': 'chat_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",22465
+"2026-07-30T12:10:45+00:00","data_sent","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1296862', 'k6_cloud_test_name': 'chat_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",433477

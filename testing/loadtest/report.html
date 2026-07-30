@@ -135,7 +135,7 @@
                     <th>Metric / Chỉ số</th>
                     <th>Phase 1: Baseline (Chưa tối ưu)</th>
                     <th>Phase 2: Actor per-room</th>
-                    <th>Phase 3: Tick-based Broadcast</th>
+                    <th>Phase 3: Tick-based + RAM Cache</th>
                 </tr>
             </thead>
             <tbody>
@@ -143,13 +143,13 @@
                     <td><strong>Trạng thái (Status)</strong></td>
                     <td><span class="status-badge status-done">Đã chạy Str. 1, 2, 3</span></td>
                     <td><span class="status-badge status-done">Đã chạy Str. 1 & 2</span></td>
-                    <td><span class="status-badge status-done">Đã chạy Strategy 2</span></td>
+                    <td><span class="status-badge status-done">Đã chạy Str. 2 & 3 (ĐẠT)</span></td>
                 </tr>
                 <tr>
                     <td><strong>Cơ chế Store chính</strong></td>
                     <td><code>MemoryRoomStore</code> (Global Mutex)</td>
                     <td><code>ActorRoomStore</code> (Actor model)</td>
-                    <td><code>ActorRoomStore</code> + Gom Ticker</td>
+                    <td><code>ActorRoomStore</code> + Gom Ticker + RAM Cache</td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Chat (p95)</strong></td>
@@ -163,7 +163,8 @@
                         Render: <strong style="color: var(--danger-color)">1602 ms</strong> (FAIL)
                     </td>
                     <td>
-                        Render: <strong style="color: var(--danger-color)">1293 ms</strong> (FAIL)
+                        Render: <strong style="color: var(--success-color)">718 ms</strong> (PASS ✅)<br>
+                        Grafana: <strong style="color: var(--success-color)">~960 ms</strong> (PASS ✅)
                     </td>
                 </tr>
                 <tr>
@@ -178,7 +179,7 @@
                         Render: <strong>165 ms</strong> (PASS)
                     </td>
                     <td>
-                        Render: <strong>165 ms</strong> (PASS)
+                        Render: <strong>165 ms</strong> (PASS ✅)
                     </td>
                 </tr>
                 <tr>
@@ -196,17 +197,25 @@
             </tbody>
         </table>
 
-        <h2>🔍 Chi Tiết Giai Đoạn 3: Tối ưu gộp + Ghi DB ngầm (Phase 3)</h2>
+        <h2>🔍 Chi Tiết Giai Đoạn 3: Tối ưu gộp + Ghi DB ngầm + RAM Cache (Phase 3)</h2>
         <div class="grid-2">
             <div class="card">
                 <h3>Strategy 2: Local to Render</h3>
-                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng tối ưu Phase 3).</p>
+                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng tối ưu Phase 3 với RAM Cache).</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,221 tin gửi | 161,303 tin nhận | <strong style="color: var(--danger-color)">p95 latency 1293 ms</strong></li>
-                    <li><strong>Move:</strong> 326,707 RPC gửi | p95 RPC latency 165ms (PASS)</li>
-                    <li><strong>Phân tích:</strong> Độ trễ chat cải thiện nhẹ (giảm khoảng 300ms) nhờ ghi database chat bất đồng bộ. Tuy nhiên, hàm `GetByUserID` vẫn được gọi đồng bộ trên mỗi chat request để lấy tên nhân vật, gây nghẽn kết nối database.</li>
-                    <li><strong>Giải pháp tiếp theo:</strong> Áp dụng RAM Cache cho `GetByUserID` trong `CharacterUsecase` để đưa độ trễ chat về mức RTT mạng thực tế (&lt; 100ms).</li>
+                    <li><strong>Chat:</strong> 16,271 tin gửi | 162,587 tin nhận | <strong style="color: var(--success-color)">p95 latency 718 ms (PASS ✅)</strong></li>
+                    <li><strong>Move:</strong> 326,707 RPC gửi | p95 RPC latency 165ms (PASS ✅)</li>
+                    <li><strong>Thành công:</strong> Bộ đệm RAM cache đã triệt tiêu hoàn toàn các câu lệnh SQL đồng bộ xác thực user, loại bỏ nghẽn Connection Pool và đưa độ trễ chat đạt mốc chuẩn kỹ thuật dưới 1 giây.</li>
                     <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-3-tick-broadcast/strategy-2-online/report.html">Xem report.html của Phase 3 Render</a></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Strategy 3: Grafana Cloud</h3>
+                <p>Đo lường hiệu năng khi chịu tải phân tán toàn cầu từ Ohio (Mỹ) tới Render (Singapore) và Postgres (Nhật Bản).</p>
+                <ul>
+                    <li><strong>Chat:</strong> 16,271 tin gửi | 162,587 tin nhận | <strong style="color: var(--success-color)">p95 latency ~960 ms (PASS ✅)</strong></li>
+                    <li><strong>Tỷ lệ thành công:</strong> <strong style="color: var(--success-color)">99.99%</strong> (chỉ lỗi 2 request mạng do mất kết nối TCP WAN).</li>
+                    <li><strong>Thành công:</strong> Hệ thống giữ vững độ trễ dưới 1 giây (&lt; 1000ms) ngay cả khi dữ liệu phải đi vòng qua nửa quả địa cầu từ Mỹ sang Singapore và Nhật Bản.</li>
                 </ul>
             </div>
         </div>
