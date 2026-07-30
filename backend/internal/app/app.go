@@ -64,6 +64,8 @@ func (a *App) registerModules() {
 	// map lẫn resolve character khi join room/movement.
 	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)
+	
+	a.router.GET("/metrics", middleware.PrometheusHandler())
 
 	publicAPI := a.router.Group("/api")
 	authModule.RegisterPublicRoutes(publicAPI)

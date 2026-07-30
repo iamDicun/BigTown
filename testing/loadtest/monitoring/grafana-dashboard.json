@@ -1,0 +1,102 @@
+{
+  "title": "BigTown Realtime",
+  "tags": ["bigtown"],
+  "refresh": "5s",
+  "panels": [
+    {
+      "title": "Goroutines",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"bigtown-backend\"}",
+          "legendFormat": "goroutines"
+        }
+      ],
+      "yaxes": [{"format": "short", "label": "count"}],
+      "description": "Tăng đơn điệu sau test = goroutine leak"
+    },
+    {
+      "title": "CPU per Core (host)",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(node_cpu_seconds_total{mode!=\"idle\",job=\"node\"}[30s])",
+          "legendFormat": "{{cpu}}"
+        }
+      ],
+      "yaxes": [{"format": "percentunit", "label": "CPU %"}],
+      "description": "1 core ghim 100% = global mutex. Trải đều = actor migration OK"
+    },
+    {
+      "title": "Heap Memory (MB)",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 8, "w": 8, "h": 7},
+      "targets": [
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"bigtown-backend\"} / 1048576",
+          "legendFormat": "heap in-use"
+        },
+        {
+          "expr": "go_memstats_heap_alloc_bytes{job=\"bigtown-backend\"} / 1048576",
+          "legendFormat": "heap alloc"
+        }
+      ],
+      "yaxes": [{"format": "short", "label": "MB"}]
+    },
+    {
+      "title": "GC Pause (ms)",
+      "type": "graph",
+      "gridPos": {"x": 8, "y": 8, "w": 8, "h": 7},
+      "targets": [
+        {
+          "expr": "rate(go_gc_duration_seconds_sum{job=\"bigtown-backend\"}[30s]) / rate(go_gc_duration_seconds_count{job=\"bigtown-backend\"}[30s]) * 1000",
+          "legendFormat": "avg GC pause"
+        }
+      ],
+      "yaxes": [{"format": "short", "label": "ms"}]
+    },
+    {
+      "title": "GC Runs / second",
+      "type": "graph",
+      "gridPos": {"x": 16, "y": 8, "w": 8, "h": 7},
+      "targets": [
+        {
+          "expr": "rate(go_gc_duration_seconds_count{job=\"bigtown-backend\"}[30s])",
+          "legendFormat": "GC runs/s"
+        }
+      ],
+      "yaxes": [{"format": "short"}]
+    },
+    {
+      "title": "HTTP Request Rate / second",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 15, "w": 12, "h": 7},
+      "targets": [
+        {
+          "expr": "rate(promhttp_metric_handler_requests_total{job=\"bigtown-backend\"}[30s])",
+          "legendFormat": "HTTP req/s"
+        }
+      ],
+      "yaxes": [{"format": "short"}],
+      "description": "Tổng HTTP requests đến backend (REST + WS)"
+    },
+    {
+      "title": "OS Memory (GB)",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 15, "w": 12, "h": 7},
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes{job=\"node\"} / 1073741824",
+          "legendFormat": "available"
+        },
+        {
+          "expr": "(node_memory_MemTotal_bytes{job=\"node\"} - node_memory_MemAvailable_bytes{job=\"node\"}) / 1073741824",
+          "legendFormat": "used"
+        }
+      ],
+      "yaxes": [{"format": "short", "label": "GB"}]
+    }
+  ]
+}
