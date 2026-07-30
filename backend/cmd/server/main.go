@@ -14,9 +14,6 @@ import (
 )
 
 func main() {
-	// godotenv.Load() không có arg dùng os.Getwd() — trên Windows/IDE path có thể khác
-	// thư mục backend/. Thử load từ thư mục chứa source file này trước, rồi fallback
-	// về working directory.
 	_, b, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(b), "..", "..")
 	envPath := filepath.Join(projectRoot, ".env")
