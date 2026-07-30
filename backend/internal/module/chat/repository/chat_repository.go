@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"backend/internal/module/chat/entity"
 	"backend/internal/module/chat/port"
@@ -31,6 +32,14 @@ func (r *ChatRepository) Insert(ctx context.Context, roomID string, characterID 
 		return nil, err
 	}
 	return &msg, nil
+}
+
+func (r *ChatRepository) InsertWithID(ctx context.Context, id string, roomID string, characterID string, message string, messageType string, createdAt time.Time) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO chat_messages (id, room_id, character_id, message, message_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, roomID, characterID, message, messageType, createdAt)
+	return err
 }
 
 func (r *ChatRepository) ListRecent(ctx context.Context, roomID string, limit int) ([]entity.ChatMessage, error) {

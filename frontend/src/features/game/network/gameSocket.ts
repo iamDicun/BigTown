@@ -11,6 +11,7 @@ import type {
   PlayerMoveEvent,
   PlayerPositionCorrectionEvent,
   RoomSnapshotEvent,
+  RoomStateEvent,
 } from './gameEvents'
 
 type GameSocketOptions = {
@@ -21,6 +22,7 @@ type GameSocketOptions = {
   onPlayerJoined?: (event: PlayerJoinedEvent) => void
   onPlayerLeft?: (event: PlayerLeftEvent) => void
   onPlayerMove?: (event: PlayerMoveEvent) => void
+  onRoomState?: (event: RoomStateEvent) => void
   onPlayerChat?: (event: PlayerChatEvent) => void
   // Personal channel (server-side subscription) — dùng cho player_position_correction, xem
   // docs/Realtime-Room-State-Decisions.md mục 6.
@@ -43,7 +45,7 @@ export function getDefaultRealtimeUrl() {
 
 // Toàn bộ việc "raw JSON không rõ kiểu -> event đã gõ kiểu" nằm ở đây (network layer), không
 // để scene/component tự đoán — xem docs/Phaser-Frontend-Guide.md mục 3 ("network: Centrifuge
-// connection và event types").
+// client & subscription wrappers, parse/map event thành typescript types").
 export function createGameSocket(url: string, options: GameSocketOptions) {
   const token = getAccessToken()
   if (!token) {
@@ -68,6 +70,7 @@ export function createGameSocket(url: string, options: GameSocketOptions) {
     if (isPlayerJoinedEvent(data)) options.onPlayerJoined?.(data)
     else if (isPlayerLeftEvent(data)) options.onPlayerLeft?.(data)
     else if (isPlayerMoveEvent(data)) options.onPlayerMove?.(data)
+    else if (isRoomStateEvent(data)) options.onRoomState?.(data)
     else if (isPlayerChatEvent(data)) options.onPlayerChat?.(data)
   })
 
@@ -113,6 +116,10 @@ function isPlayerLeftEvent(event: unknown): event is PlayerLeftEvent {
 
 function isPlayerMoveEvent(event: unknown): event is PlayerMoveEvent {
   return hasType(event, 'player_move')
+}
+
+function isRoomStateEvent(event: unknown): event is RoomStateEvent {
+  return hasType(event, 'room_state')
 }
 
 function isPlayerChatEvent(event: unknown): event is PlayerChatEvent {

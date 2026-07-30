@@ -144,6 +144,16 @@ export default function () {
         if (obj.push && obj.push.pub && obj.push.pub.data) {
           const data = obj.push.pub.data;
 
+          if (data.type === 'room_state') {
+            const count = (data.players && data.players.length) || 0;
+            moveBroadcast.add(count);
+            for (const p of data.players || []) {
+              check(p.characterId, {
+                'move broadcast có characterId': (c) => c && c.length > 0,
+              });
+            }
+          }
+
           if (data.type === 'player_move') {
             moveBroadcast.add(1);
             check(data.characterId, {

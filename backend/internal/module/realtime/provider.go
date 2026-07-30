@@ -1,6 +1,8 @@
 package realtime
 
 import (
+	"context"
+
 	"backend/internal/module/realtime/delivery"
 	"backend/internal/module/realtime/port"
 	"backend/internal/module/realtime/room"
@@ -53,6 +55,13 @@ func (p *Provider) Transport() *transport.CentrifugeTransport {
 			panic(err)
 		}
 		p.transport = realtimeTransport
+
+		// Liên kết callback phát tin theo nhịp (Server-side Tick Broadcast) cho ActorRoomStore
+		if actorStore, ok := p.RoomStore().(*room.ActorRoomStore); ok {
+			actorStore.SetBroadcastFunc(func(roomID string, event any) {
+				_ = p.transport.PublishRoom(context.Background(), roomID, event)
+			})
+		}
 	}
 	return p.transport
 }

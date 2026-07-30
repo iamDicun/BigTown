@@ -27,10 +27,11 @@ Phiên bản MVP tập trung vào các tính năng sau:
 3. **Map 2D multiplayer real-time**
    - Người chơi vào cùng một map, có thể chạy lòng vòng và nhìn thấy nhau.
    - Client local render movement ngay khi người dùng nhấn phím.
-   - Frontend dùng **throttled movement publishing**: chỉ gửi tối đa mỗi khoảng **100ms** nếu có movement event mới.
+   - Frontend dùng **throttled movement publishing**: chỉ gửi tối đa mỗi khoảng **100ms** nếu có danh sách movement event mới.
    - Các movement event nhỏ hơn threshold được gom lại, chỉ gửi **latest movement event** mới nhất.
+   - Server sử dụng cơ chế **Server-side Tick Broadcast** (chu kỳ 100ms) thông qua mô hình **Actor per-room** để gom tọa độ của toàn bộ người chơi di chuyển trong phòng vào một gói tin duy nhất phát đi, chuyển đổi độ phức tạp truyền tin từ bình phương $O(N^2)$ về tuyến tính $O(N)$ nhằm tối ưu I/O mạng.
    - Client khác dùng **interpolation** để hiển thị chuyển động mượt hơn giữa các gói tin nhận được.
-   - Vị trí cuối để lưu DB dùng **debounced persistence** sau khi nhân vật dừng, không ghi DB mỗi tick realtime.
+   - Vị trí cuối để lưu DB dùng **debounced persistence** sau khi nhân vật dừng. Thao tác PERSIST này cùng với tin nhắn Chat được thực hiện qua cơ chế **ghi Database bất đồng bộ (Asynchronous DB Write)** thông qua Go channel/worker pool để triệt tiêu ảnh hưởng của độ trễ mạng liên vùng PostgreSQL.
 
 4. **NPC enemy và điểm thưởng**
    - Enemy NPC được spawn sẵn trong map.
@@ -334,7 +335,39 @@ Giới hạn khác: cột `maps.tileset_asset_key` hiện là 1 `VARCHAR` đơn 
 
 ---
 
-## 10. Hướng Scale Sau MVP
+---
+
+## 10. Các Quyết định Tối ưu hóa Hiệu năng Realtime (Phase 2 & Phase 3)
+
+Qua các kết quả đo lường hiệu năng thực tế (Load Test) ở tải trọng 100 người dùng ảo (VUs), hệ thống đã bổ sung 3 quyết định kiến trúc cốt lõi nhằm giải quyết triệt để vấn đề tranh chấp bộ nhớ và độ trễ mạng liên vùng của database:
+
+### 10.1 Kiến trúc Actor per-room cho Realtime Store
+* **Mục đích:** Loại bỏ nút thắt cổ chai tranh chấp khóa (mutex lock) khi cập nhật trạng thái phòng.
+* **Chi tiết:** Thay vì sử dụng một `sync.RWMutex` toàn cục bọc lấy danh sách các phòng game (`MemoryRoomStore`), hệ thống chuyển sang mô hình **Actor-per-room** (`ActorRoomStore`).
+  * Mỗi phòng game trong RAM được sở hữu và vận hành bởi một Goroutine độc lập (Room Actor) chạy vòng lặp nhận sự kiện.
+  * Các Goroutine xử lý request HTTP/WebSocket bên ngoài không được trực tiếp đọc/ghi RAM của phòng mà phải gửi yêu cầu dưới dạng các closure function (callback) thông qua Go Channel có đệm vào hàng đợi của Room Actor.
+  * Room Actor xử lý tuần tự các closure này, loại bỏ hoàn toàn việc sử dụng lock thủ công, triệt tiêu nguy cơ xảy ra tranh chấp luồng (data race) hoặc khóa chết (deadlock).
+
+### 10.2 Cơ chế Gom nhóm phát tin phía Server (Server-side Tick Broadcast)
+* **Mục đích:** Tối ưu hóa I/O đường truyền WebSocket và hạ tải cho Centrifuge, giảm độ phức tạp truyền tin từ bậc hai $O(N^2)$ xuống tuyến tính $O(N)$.
+* **Chi tiết:** 
+  * Thay vì broadcast (phát tin) tọa độ mới của một người chơi tới toàn bộ người chơi khác ngay khi nhận được, Room Actor tích hợp một bộ đếm nhịp `time.Ticker` chu kỳ **100ms** (10 lần/giây).
+  * Khi nhận được gói tin di chuyển `player_move` từ client, Actor chỉ cập nhật vị trí mới vào RAM của phòng và đánh dấu trạng thái của người chơi đó là "dirty".
+  * Định kỳ mỗi 100ms khi Ticker kích hoạt, Actor sẽ gom tất cả người chơi có thay đổi tọa độ trong tick đó thành một mảng vị trí duy nhất (Room State Update) và phát đúng 1 tin nhắn broadcast duy nhất ra room channel.
+  * Đối với phòng có $N$ người chơi di chuyển đồng thời, giải pháp này giúp giảm số lượng gói tin truyền đi từ $N \times (N-1) \times 10$ xuống còn $N \times 10$ gói tin/giây.
+
+### 10.3 Mô hình Ghi Database bất đồng bộ (Asynchronous DB Write - Write Behind)
+* **Mục đích:** Triệt tiêu độ trễ mạng liên vùng khi ghi database Postgres (Server đặt tại Singapore ghi database tại Nhật Bản mất ~80-100ms RTT), đưa độ phản hồi chat về mức tức thời.
+* **Chi tiết:** 
+  * Khi người chơi gửi tin nhắn chat (REST API POST) hoặc khi lưu vị trí cuối cùng của nhân vật (Debounced Position Persistence):
+    * API Handler sẽ lập tức thực hiện phát tin nhắn realtime qua Centrifuge xuống WebSocket để các người chơi khác nhận được chat ngay lập tức (~98ms).
+    * API Handler đồng thời đóng gói câu lệnh SQL insert thành một tác vụ rồi đẩy vào một hàng đợi chung (`Go Channel` trong bộ nhớ RAM).
+    * Phản hồi thành công (HTTP 201) được trả ngay lập tức về cho người gửi chat mà không cần đợi phản hồi từ database PostgreSQL.
+    * Một hàng ngũ Goroutine chạy ngầm (Background DB Workers) sẽ liên tục rút các tác vụ từ hàng đợi RAM ra và ghi thầm lặng xuống Postgres. Cơ chế này giúp cô lập hoàn toàn thời gian phản hồi của client khỏi độ trễ kết nối database liên vùng.
+
+---
+
+## 11. Hướng Scale Sau MVP
 
 Khi cần scale nhiều backend node:
 
@@ -343,3 +376,4 @@ Khi cần scale nhiều backend node:
 - Bổ sung Redis broker cho Centrifuge để đồng bộ publish giữa các node.
 - Cân nhắc room ownership để một room realtime chỉ do một node xử lý authoritative state tại một thời điểm.
 - Tách state quan trọng khỏi RAM, chỉ giữ realtime ephemeral state trong RAM hoặc sau `RoomStore` interface.
+

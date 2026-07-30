@@ -2,12 +2,14 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
 	"backend/internal/apperror"
 	"backend/internal/module/chat/entity"
 	"backend/internal/module/chat/port"
+	"github.com/google/uuid"
 )
 
 const (
@@ -17,14 +19,46 @@ const (
 	maxHistoryLimit     = 100
 )
 
+type dbWriteTask struct {
+	ID          string
+	RoomID      string
+	CharacterID string
+	Message     string
+	MessageType string
+	CreatedAt   time.Time
+}
+
 type ChatUsecase struct {
 	repo       port.ChatRepository
 	publisher  port.RoomPublisher
 	characters port.CharacterReader
+	writeChan  chan dbWriteTask
 }
 
 func NewChatUsecase(repo port.ChatRepository, publisher port.RoomPublisher, characters port.CharacterReader) *ChatUsecase {
-	return &ChatUsecase{repo: repo, publisher: publisher, characters: characters}
+	u := &ChatUsecase{
+		repo:       repo,
+		publisher:  publisher,
+		characters: characters,
+		writeChan:  make(chan dbWriteTask, 10000),
+	}
+	u.startBackgroundWorkers(5)
+	return u
+}
+
+func (u *ChatUsecase) startBackgroundWorkers(count int) {
+	for i := 0; i < count; i++ {
+		go func(workerID int) {
+			// Sử dụng context.Background() vì context của HTTP request sẽ bị cancel khi request kết thúc
+			ctx := context.Background()
+			for task := range u.writeChan {
+				err := u.repo.InsertWithID(ctx, task.ID, task.RoomID, task.CharacterID, task.Message, task.MessageType, task.CreatedAt)
+				if err != nil {
+					log.Printf("[Chat-Async-DB-Worker-%d] ERROR inserting chat message: %v", workerID, err)
+				}
+			}
+		}(i)
+	}
 }
 
 type SendMessageInput struct {
@@ -63,23 +97,47 @@ func (u *ChatUsecase) SendMessage(ctx context.Context, input SendMessageInput) (
 		return nil, err
 	}
 
-	saved, err := u.repo.Insert(ctx, roomID, character.ID, message, defaultMessageType)
-	if err != nil {
-		return nil, apperror.Internal(err)
-	}
-	saved.CharacterName = character.Name
+	// Sinh ID và CreatedAt ngay lập tức để trả về cho Client và broadcast realtime
+	msgID := uuid.NewString()
+	now := time.Now()
 
 	event := RoomChatEvent{
 		Type:        "player_chat",
-		RoomID:      saved.RoomID,
-		CharacterID: saved.CharacterID,
+		RoomID:      roomID,
+		CharacterID: character.ID,
 		DisplayName: character.Name,
-		Message:     saved.Message,
-		SentAt:      saved.CreatedAt,
+		Message:     message,
+		SentAt:      now,
 	}
 
-	if err := u.publisher.PublishRoom(ctx, saved.RoomID, event); err != nil {
+	// Phát tin nhắn realtime ngay lập tức
+	if err := u.publisher.PublishRoom(ctx, roomID, event); err != nil {
 		return nil, apperror.Internal(err)
+	}
+
+	// Đẩy vào hàng đợi ghi DB bất đồng bộ
+	select {
+	case u.writeChan <- dbWriteTask{
+		ID:          msgID,
+		RoomID:      roomID,
+		CharacterID: character.ID,
+		Message:     message,
+		MessageType: defaultMessageType,
+		CreatedAt:   now,
+	}:
+	default:
+		// Dự phòng nếu hàng đợi đầy (hệ thống quá tải cực hạn)
+		log.Printf("[Chat-Usecase] WARNING: chat db queue full, dropping write task for message: %s", msgID)
+	}
+
+	saved := &entity.ChatMessage{
+		ID:            msgID,
+		RoomID:        roomID,
+		CharacterID:   character.ID,
+		CharacterName: character.Name,
+		Message:       message,
+		MessageType:   defaultMessageType,
+		CreatedAt:     now,
 	}
 
 	return saved, nil

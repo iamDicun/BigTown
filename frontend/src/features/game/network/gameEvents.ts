@@ -77,4 +77,17 @@ export type EnemyHitEvent = {
   npcRuntimeId: string
 }
 
-export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent
+export type PlayerStateDto = {
+  characterId: string
+  x: number
+  y: number
+  direction: Direction
+  moving: boolean
+}
+
+export type RoomStateEvent = {
+  type: 'room_state'
+  players: PlayerStateDto[]
+}
+
+export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent
