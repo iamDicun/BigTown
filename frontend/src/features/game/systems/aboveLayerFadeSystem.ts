@@ -26,6 +26,7 @@ export function updateAboveLayerFade(
   fade: AboveLayerFade,
   sprite: Phaser.GameObjects.Sprite,
   time: number,
+  underPlacement: boolean,
 ): void {
   if (time - fade.lastUpdateTime < UPDATE_THROTTLE_MS) return
   fade.lastUpdateTime = time
@@ -75,10 +76,12 @@ export function updateAboveLayerFade(
   const underTiles = fade.layer.getTilesWithinWorldXY(probeX, probeY, probeW, probeH)
   const underCanopy = underTiles.some((t) => t && t.index > 0)
 
-  if (underCanopy && sprite.alpha !== PLAYER_FADE_ALPHA) {
+  const isCovered = underCanopy || underPlacement
+
+  if (isCovered && sprite.alpha !== PLAYER_FADE_ALPHA) {
     scene.tweens.killTweensOf(sprite)
     scene.tweens.add({ targets: sprite, alpha: PLAYER_FADE_ALPHA, duration: FADE_DURATION_MS })
-  } else if (!underCanopy && sprite.alpha !== 1) {
+  } else if (!isCovered && sprite.alpha !== 1) {
     scene.tweens.killTweensOf(sprite)
     scene.tweens.add({ targets: sprite, alpha: 1, duration: FADE_DURATION_MS })
   }

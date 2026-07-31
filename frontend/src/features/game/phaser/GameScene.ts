@@ -11,6 +11,7 @@ import { preloadSceneKey } from './PreloadScene'
 import { createAnimations } from './playerAnimations'
 import * as realtimeService from '../services/realtime.service'
 import { playMusic } from '@/shared/audio/audio.service'
+import { EditorSystem } from '../systems/editorSystem'
 
 export const gameSceneKey = 'game'
 
@@ -41,6 +42,8 @@ export class GameScene extends Phaser.Scene {
   private envSyncHandler: (() => void) | null = null
   private enterKey!: Phaser.Input.Keyboard.Key
   private movementKeyCodes: number[] = []
+  private editorSystem!: EditorSystem
+  private mapCollider!: Phaser.Physics.Arcade.Collider
 
   constructor() {
     super(gameSceneKey)
@@ -74,12 +77,14 @@ export class GameScene extends Phaser.Scene {
       spritesheetConfig,
     )
     this.localPlayer.sprite.setDepth(PLAYER_DEPTH)
-    this.physics.add.collider(this.localPlayer.sprite, collisionGroup)
+    this.mapCollider = this.physics.add.collider(this.localPlayer.sprite, collisionGroup)
     this.localPlayer.sprite.setCollideWorldBounds(true)
 
     this.remotePlayers = new RemotePlayerManager(this, characterOptions)
 
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
+
+    this.editorSystem = new EditorSystem(this, bootstrap.map_code, this.localPlayer.sprite)
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height, bootstrap.tile_size)
     const keyboard = this.input.keyboard!
@@ -155,6 +160,16 @@ export class GameScene extends Phaser.Scene {
           this.remotePlayers.upsert(p.characterId, p.x, p.y, p.direction, p.moving)
         }
       },
+      onDecorationPlaced: (event) => {
+        window.dispatchEvent(new CustomEvent('game:realtimePlacementPlaced', {
+          detail: { placement: event.placement }
+        }))
+      },
+      onDecorationDeleted: (event) => {
+        window.dispatchEvent(new CustomEvent('game:realtimePlacementDeleted', {
+          detail: { placementId: event.placementId }
+        }))
+      },
       onCorrection: (event) => this.localPlayer.applyCorrection(event.x, event.y),
     })
 
@@ -168,6 +183,7 @@ export class GameScene extends Phaser.Scene {
       this.gameSocket?.close()
       this.gameSocket = null
       this.remotePlayers.destroyAll()
+      this.editorSystem.destroy()
       if (this.switchMapHandler) {
         window.removeEventListener('game:switchMap', this.switchMapHandler)
         this.switchMapHandler = null
@@ -209,9 +225,15 @@ export class GameScene extends Phaser.Scene {
 
     const cursors = this.chatFocused ? EMPTY_CURSORS : this.cursors
     this.localPlayer.update(time, cursors)
+    this.localPlayer.sprite.setDepth(PLAYER_DEPTH + this.localPlayer.sprite.y / 10000.0)
     this.remotePlayers.update()
+    if (this.mapCollider) {
+      this.mapCollider.active = !this.editorSystem.isPlayerOnBridge()
+    }
+    this.editorSystem.update()
     if (this.aboveLayerFade) {
-      updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite, time)
+      const underPlacement = this.editorSystem.isPlayerBehindDecoration()
+      updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite, time, underPlacement)
     }
     updateEnvironmentFx(this.environmentFx, time, this.localPlayer.sprite)
     this.checkWarps()

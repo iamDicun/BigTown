@@ -62,6 +62,7 @@ CREATE TABLE maps (
     layer_names VARCHAR(500),
     above_layer_name VARCHAR(80),
     collision_layer_name VARCHAR(80),
+    music_asset_key VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -160,9 +161,21 @@ CREATE TABLE chat_messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE map_placements (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    map_id       UUID NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    item_id      UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+    x            INTEGER NOT NULL,
+    y            INTEGER NOT NULL,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_characters_score ON characters(score DESC);
 CREATE INDEX idx_user_identities_user_id ON user_identities(user_id);
 CREATE INDEX idx_player_items_character_id ON player_items(character_id);
 CREATE INDEX idx_reward_events_character_id ON reward_events(character_id);
 CREATE INDEX idx_map_npc_spawns_map_id ON map_npc_spawns(map_id);
 CREATE INDEX idx_chat_messages_room_created_at ON chat_messages(room_id, created_at DESC);
+CREATE INDEX idx_map_placements_map_id ON map_placements(map_id);
+CREATE UNIQUE INDEX idx_map_placements_coords ON map_placements(map_id, x, y);

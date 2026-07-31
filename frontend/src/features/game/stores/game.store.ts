@@ -16,6 +16,8 @@ export const useGameStore = defineStore('game', {
     characterId: null as string | null,
     characterName: null as string | null,
     characterBaseAssetKey: null as string | null,
+    coins: 0,
+    mapCode: 'village_adventure' as string,
     spritesheetConfig: defaultSpritesheetConfig() as SpritesheetConfigDto,
     characterOptions: [] as CharacterOptionDto[],
   }),
@@ -35,6 +37,7 @@ export const useGameStore = defineStore('game', {
       this.characterId = character.id
       this.characterName = character.name
       this.characterBaseAssetKey = character.base_asset_key
+      this.coins = character.coins
       await this.loadMatchingConfig(character.base_asset_key)
       return character
     },
@@ -43,6 +46,7 @@ export const useGameStore = defineStore('game', {
       this.characterId = character.id
       this.characterName = character.name
       this.characterBaseAssetKey = character.base_asset_key
+      this.coins = character.coins
     },
 
     setSpritesheetConfig(config: SpritesheetConfigDto) {

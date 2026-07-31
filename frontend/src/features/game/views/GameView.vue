@@ -6,6 +6,10 @@ import { stopMusic } from '@/shared/audio/audio.service'
 import AudioSettingsPanel from '../components/AudioSettingsPanel.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import GameCanvas from '../components/GameCanvas.vue'
+import EditorPanel from '../components/EditorPanel.vue'
+import { useGameStore } from '../stores/game.store'
+
+const gameStore = useGameStore()
 
 onBeforeUnmount(() => {
   stopMusic()
@@ -18,6 +22,7 @@ onBeforeUnmount(() => {
     <div class="game-top-left">
       <AudioSettingsPanel />
     </div>
+    <EditorPanel :map-code="gameStore.mapCode" />
     <aside class="game-overlay">
       <ChatPanel />
     </aside>
@@ -36,7 +41,7 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 16px;
   right: 16px;
-  bottom: 16px;
+  bottom: 80px;
   width: min(360px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;

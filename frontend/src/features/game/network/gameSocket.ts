@@ -12,6 +12,8 @@ import type {
   PlayerPositionCorrectionEvent,
   RoomSnapshotEvent,
   RoomStateEvent,
+  DecorationPlacedEvent,
+  DecorationDeletedEvent,
 } from './gameEvents'
 
 type GameSocketOptions = {
@@ -24,6 +26,8 @@ type GameSocketOptions = {
   onPlayerMove?: (event: PlayerMoveEvent) => void
   onRoomState?: (event: RoomStateEvent) => void
   onPlayerChat?: (event: PlayerChatEvent) => void
+  onDecorationPlaced?: (event: DecorationPlacedEvent) => void
+  onDecorationDeleted?: (event: DecorationDeletedEvent) => void
   // Personal channel (server-side subscription) — dùng cho player_position_correction, xem
   // docs/Realtime-Room-State-Decisions.md mục 6.
   onCorrection?: (event: PlayerPositionCorrectionEvent) => void
@@ -72,6 +76,8 @@ export function createGameSocket(url: string, options: GameSocketOptions) {
     else if (isPlayerMoveEvent(data)) options.onPlayerMove?.(data)
     else if (isRoomStateEvent(data)) options.onRoomState?.(data)
     else if (isPlayerChatEvent(data)) options.onPlayerChat?.(data)
+    else if (isDecorationPlacedEvent(data)) options.onDecorationPlaced?.(data)
+    else if (isDecorationDeletedEvent(data)) options.onDecorationDeleted?.(data)
   })
 
   // Personal channel là server-side subscription (ConnectReply.Subscriptions ở backend) —
@@ -128,4 +134,12 @@ function isPlayerChatEvent(event: unknown): event is PlayerChatEvent {
 
 function isPositionCorrectionEvent(event: unknown): event is PlayerPositionCorrectionEvent {
   return hasType(event, 'player_position_correction')
+}
+
+function isDecorationPlacedEvent(event: unknown): event is DecorationPlacedEvent {
+  return hasType(event, 'decoration_placed')
+}
+
+function isDecorationDeletedEvent(event: unknown): event is DecorationDeletedEvent {
+  return hasType(event, 'decoration_deleted')
 }

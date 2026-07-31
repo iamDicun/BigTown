@@ -90,4 +90,22 @@ export type RoomStateEvent = {
   players: PlayerStateDto[]
 }
 
-export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent
+export type DecorationPlacedEvent = {
+  type: 'decoration_placed'
+  placement: {
+    id: string
+    map_id: string
+    character_id: string
+    item_id: string
+    x: number
+    y: number
+    created_at: string
+  }
+}
+
+export type DecorationDeletedEvent = {
+  type: 'decoration_deleted'
+  placementId: string
+}
+
+export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent | DecorationPlacedEvent | DecorationDeletedEvent

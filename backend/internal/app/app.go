@@ -6,6 +6,7 @@ import (
 	authrepo "backend/internal/module/auth/repository"
 	"backend/internal/module/character"
 	"backend/internal/module/chat"
+	"backend/internal/module/editor"
 	"backend/internal/module/leaderboard"
 	"backend/internal/module/realtime"
 	"backend/internal/module/user"
@@ -81,6 +82,7 @@ func (a *App) registerModules() {
 	authModule.RegisterProtectedRoutes(api)
 	user.NewUserModule(a.container.DB).RegisterProtectedRoutes(api)
 	leaderboard.NewLeaderboardModule(a.container.DB).RegisterProtectedRoutes(api)
+	editor.NewEditorModule(a.container.DB, realtimeModule.Transport(), characterModule.Repository()).RegisterProtectedRoutes(api)
 	realtimeModule.RegisterProtectedRoutes(api)
 	characterModule.RegisterProtectedRoutes(api)
 	chatModule.RegisterProtectedRoutes(api)
