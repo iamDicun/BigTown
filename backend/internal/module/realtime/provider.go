@@ -72,3 +72,7 @@ func (p *Provider) Handler() *delivery.RealtimeHandler {
 	}
 	return p.handler
 }
+
+func (p *Provider) AddEventListener(l port.RoomEventListener) {
+	p.RoomUsecase().AddEventListener(l)
+}

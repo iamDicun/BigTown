@@ -95,6 +95,7 @@ let onPlacementDone: ((e: Event) => void) | null = null
 let onPlacementCancel: ((e: Event) => void) | null = null
 let onRealtimePlaced: ((e: Event) => void) | null = null
 let onRealtimeDeleted: ((e: Event) => void) | null = null
+let onPlacementError: ((e: Event) => void) | null = null
 
 onMounted(() => {
   onPlacementDone = (e: Event) => {
@@ -144,7 +145,7 @@ onMounted(() => {
   }
   window.addEventListener('game:realtimePlacementDeleted', onRealtimeDeleted)
 
-  const onPlacementError = (e: Event) => {
+  onPlacementError = (e: Event) => {
     const detail = (e as CustomEvent).detail as { message: string }
     showErrorMessage(detail.message)
   }
@@ -163,7 +164,7 @@ onBeforeUnmount(() => {
   if (onPlacementCancel) window.removeEventListener('game:placementCancel', onPlacementCancel)
   if (onRealtimePlaced) window.removeEventListener('game:realtimePlacementPlaced', onRealtimePlaced)
   if (onRealtimeDeleted) window.removeEventListener('game:realtimePlacementDeleted', onRealtimeDeleted)
-  window.removeEventListener('game:placementError', onPlacementError)
+  if (onPlacementError) window.removeEventListener('game:placementError', onPlacementError)
   window.removeEventListener('game:mapChanged', fetchEditorData)
   window.removeEventListener('game:ready', fetchEditorData)
 })

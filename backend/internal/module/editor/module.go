@@ -5,6 +5,7 @@ import (
 
 	charPort "backend/internal/module/character/port"
 	"backend/internal/module/editor/port"
+	"backend/internal/module/editor/room"
 )
 
 type EditorModule struct {
@@ -17,4 +18,8 @@ func NewEditorModule(db *sql.DB, publisher port.RoomPublisher, charRepo charPort
 
 func (m *EditorModule) Shutdown() {
 	m.provider.RoomManager().Shutdown()
+}
+
+func (m *EditorModule) RoomManager() *room.RoomManager {
+	return m.provider.RoomManager()
 }

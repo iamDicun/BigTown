@@ -85,6 +85,7 @@ func (a *App) registerModules() {
 	leaderboard.NewLeaderboardModule(a.container.DB).RegisterProtectedRoutes(api)
 	a.editorModule = editor.NewEditorModule(a.container.DB, realtimeModule.Transport(), characterModule.Repository())
 	a.editorModule.RegisterProtectedRoutes(api)
+	realtimeModule.AddEventListener(a.editorModule.RoomManager())
 	realtimeModule.RegisterProtectedRoutes(api)
 	characterModule.RegisterProtectedRoutes(api)
 	chatModule.RegisterProtectedRoutes(api)

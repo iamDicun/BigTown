@@ -6,7 +6,10 @@ import (
 	"sync"
 
 	"backend/internal/module/editor/port"
+	realtimePort "backend/internal/module/realtime/port"
 )
+
+var _ realtimePort.RoomEventListener = (*RoomManager)(nil)
 
 type RoomManager struct {
 	mu     sync.RWMutex
@@ -72,4 +75,33 @@ func (rm *RoomManager) Shutdown() {
 	rm.mu.Unlock()
 
 	rm.writer.Close() // close done flusher and wait
+}
+
+func (rm *RoomManager) OnPlayerJoin(ctx context.Context, roomID string, characterID string, coins int) error {
+	a, err := rm.Actor(roomID)
+	if err != nil {
+		return err
+	}
+	if a == nil {
+		return nil
+	}
+	return a.SendCmd(Cmd{
+		Kind:   CmdJoin,
+		CharID: characterID,
+		Coins:  coins,
+	})
+}
+
+func (rm *RoomManager) OnPlayerLeave(ctx context.Context, roomID string, characterID string) error {
+	a, err := rm.Actor(roomID)
+	if err != nil {
+		return err
+	}
+	if a == nil {
+		return nil
+	}
+	return a.SendCmd(Cmd{
+		Kind:   CmdLeave,
+		CharID: characterID,
+	})
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
@@ -127,4 +128,92 @@ func TestMapActor_InmemorySafety(t *testing.T) {
 	}
 
 	close(actor.cmds)
+}
+
+func TestMapActor_WalletResidency_Lifecycle(t *testing.T) {
+	charID := "char-resident"
+	// Khởi tạo DB mock trả về 1000 coins nếu lazy load
+	charReader := &mockCharReader{coins: map[string]int{charID: 1000}}
+	repo := &mockEditorRepo{}
+	publisher := &mockRoomPublisher{}
+	dirty := make(chan persistOp, 100)
+
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+	defer close(actor.cmds)
+
+	item := &entity.DecorationItem{ID: "item-1", Price: 40}
+
+	// 1. Join room với 100 coins (ghi đè giá trị lazy load 1000 coins trong DB)
+	actor.cmds <- Cmd{
+		Kind:   CmdJoin,
+		CharID: charID,
+		Coins:  100,
+	}
+
+	// 2. Đặt 1 item giá 40 coins. Ví trong memory sẽ còn 60 coins.
+	placeReply := make(chan CmdResult, 1)
+	actor.cmds <- Cmd{
+		Kind:    CmdPlace,
+		CharID:  charID,
+		Item:    item,
+		X:       16,
+		Y:       16,
+		PlaceID: "p-1",
+		Reply:   placeReply,
+	}
+
+	res := <-placeReply
+	if res.Err != nil {
+		t.Fatalf("Failed to place item: %v", res.Err)
+	}
+	if res.NewCoins != 60 {
+		t.Errorf("Expected remaining coins to be 60, got %d", res.NewCoins)
+	}
+
+	// 3. Leave room -> trigger evict và flush
+	actor.cmds <- Cmd{
+		Kind:   CmdLeave,
+		CharID: charID,
+	}
+
+	// Chờ opFlushWallet bắn sang dirty channel
+	var op persistOp
+	select {
+	case op = <-dirty:
+		// có thể nhận được opPlace trước
+		if op.Kind == opPlace {
+			// nhận tiếp
+			op = <-dirty
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timeout waiting for write-behind flush operation")
+	}
+
+	if op.Kind != opFlushWallet {
+		t.Errorf("Expected flush wallet op, got: %v", op.Kind)
+	}
+	if op.NewCoins != 60 {
+		t.Errorf("Expected flushed coins to be 60, got %d", op.NewCoins)
+	}
+
+	// 4. Verify eviction: Đặt item tiếp theo ở toạ độ khác.
+	// Vì ví đã bị evict, actor buộc phải lazy load từ DB mock (đang trả về 1000 coins).
+	placeReply2 := make(chan CmdResult, 1)
+	actor.cmds <- Cmd{
+		Kind:    CmdPlace,
+		CharID:  charID,
+		Item:    item,
+		X:       32,
+		Y:       32,
+		PlaceID: "p-2",
+		Reply:   placeReply2,
+	}
+
+	res2 := <-placeReply2
+	if res2.Err != nil {
+		t.Fatalf("Failed to place second item: %v", res2.Err)
+	}
+	if res2.NewCoins != 960 {
+		t.Errorf("Eviction failed! Expected coins loaded from DB to be 960, got %d", res2.NewCoins)
+	}
 }
