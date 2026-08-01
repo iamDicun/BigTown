@@ -11,127 +11,23 @@ import (
 	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
-
-type editorTaskType string
-
-const (
-	taskPlace  editorTaskType = "place"
-	taskDelete editorTaskType = "delete"
-)
-
-type editorDbTask struct {
-	taskType    editorTaskType
-	id          string
-	mapID       string
-	characterID string
-	itemID      string
-	x           int
-	y           int
-	price       int
-}
 
 type EditorUsecase struct {
 	db         *sql.DB
 	repo       port.EditorRepository
 	charReader port.CharacterReader
 	publisher  port.RoomPublisher
-	writeChan  chan editorDbTask
 }
 
 func NewEditorUsecase(db *sql.DB, repo port.EditorRepository, charReader port.CharacterReader, publisher port.RoomPublisher) *EditorUsecase {
-	u := &EditorUsecase{
+	return &EditorUsecase{
 		db:         db,
 		repo:       repo,
 		charReader: charReader,
 		publisher:  publisher,
-		writeChan:  make(chan editorDbTask, 10000),
 	}
-	u.startBackgroundWorkers(3)
-	return u
-}
-
-func (u *EditorUsecase) startBackgroundWorkers(count int) {
-	for i := 0; i < count; i++ {
-		go func(workerID int) {
-			ctx := context.Background()
-			for task := range u.writeChan {
-				var err error
-				if task.taskType == taskPlace {
-					err = u.executePlaceTask(ctx, task)
-				} else if task.taskType == taskDelete {
-					err = u.executeDeleteTask(ctx, task)
-				}
-				if err != nil {
-					log.Printf("[Editor-Async-DB-Worker-%d] ERROR executing task %s: %v", workerID, task.taskType, err)
-				}
-			}
-		}(i)
-	}
-}
-
-func (u *EditorUsecase) executePlaceTask(ctx context.Context, task editorDbTask) error {
-	tx, err := u.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// 1. Deduct coins
-	err = u.repo.DeductCoinsWithTx(ctx, tx, task.characterID, task.price)
-	if err != nil {
-		return err
-	}
-
-	// 2. Add placement
-	placement := &entity.Placement{
-		ID:          task.id,
-		MapID:       task.mapID,
-		CharacterID: task.characterID,
-		ItemID:      task.itemID,
-		X:           task.x,
-		Y:           task.y,
-	}
-	err = u.repo.PlaceItemWithIDAndTx(ctx, tx, placement)
-	if err != nil {
-		return err
-	}
-
-	// 3. Log event
-	err = u.repo.InsertRewardEventWithTx(ctx, tx, task.characterID, task.price)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func (u *EditorUsecase) executeDeleteTask(ctx context.Context, task editorDbTask) error {
-	tx, err := u.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// 1. Refund coins 100%
-	err = u.repo.AddCoinsWithTx(ctx, tx, task.characterID, task.price)
-	if err != nil {
-		return err
-	}
-
-	// 2. Delete placement
-	err = u.repo.DeletePlacementWithTx(ctx, tx, task.id)
-	if err != nil {
-		return err
-	}
-
-	// 3. Log refund event
-	err = u.repo.InsertRewardEventWithTx(ctx, tx, task.characterID, -task.price)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
 }
 
 type GetEditorDataOutput struct {
@@ -186,15 +82,36 @@ type PlaceItemOutput struct {
 	NewCoins  int              `json:"new_coins"`
 }
 
+func validatePlacement(x, y, mapWidth, mapHeight, tileSize int) error {
+	if tileSize <= 0 {
+		return errors.New("tileSize must be positive")
+	}
+	if x%tileSize != 0 || y%tileSize != 0 {
+		return errors.New("toạ độ không khớp snap grid")
+	}
+	if x < 0 || x >= mapWidth || y < 0 || y >= mapHeight {
+		return errors.New("toạ độ vượt quá giới hạn bản đồ")
+	}
+	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
 func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input PlaceItemInput) (*PlaceItemOutput, error) {
 	charInfo, err := u.charReader.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, apperror.NotFound("Không tìm thấy nhân vật", err)
 	}
 
-	mapID, err := u.repo.GetMapIDByCode(ctx, input.MapCode)
+	mapInfo, err := u.repo.GetMapInfoByCode(ctx, input.MapCode)
 	if err != nil {
-		return nil, apperror.NotFound("Không tìm thấy bản đồ", err)
+		return nil, apperror.Internal(err)
+	}
+	if mapInfo == nil {
+		return nil, apperror.NotFound("Không tìm thấy bản đồ", nil)
 	}
 
 	item, err := u.repo.GetItemByID(ctx, input.ItemID)
@@ -205,45 +122,60 @@ func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input Plac
 		return nil, apperror.BadRequest("Vật phẩm không tồn tại", nil)
 	}
 
-	if charInfo.Coins < item.Price {
-		return nil, apperror.BadRequest("Không đủ coins để mua vật phẩm này", nil)
+	// Validate coordinates server-side (P5)
+	if err := validatePlacement(input.X, input.Y, mapInfo.Width, mapInfo.Height, mapInfo.TileSize); err != nil {
+		return nil, apperror.BadRequest(err.Error(), nil)
 	}
 
 	placementID := uuid.NewString()
 
-	// Push async placement task
-	select {
-	case u.writeChan <- editorDbTask{
-		taskType:    taskPlace,
-		id:          placementID,
-		mapID:       mapID,
-		characterID: charInfo.ID,
-		itemID:      input.ItemID,
-		x:           input.X,
-		y:           input.Y,
-		price:       item.Price,
-	}:
-	default:
-		log.Printf("[EditorUsecase] Queue full, dropping place task for placement: %s", placementID)
-		return nil, apperror.Internal(errors.New("editor queue full"))
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, apperror.Internal(err)
+	}
+	defer tx.Rollback()
+
+	// 1. Trừ coins atomic (P1)
+	newCoins, err := u.repo.DeductCoinsGuardedWithTx(ctx, tx, charInfo.ID, item.Price)
+	if err != nil {
+		if errors.Is(err, port.ErrInsufficientCoins) {
+			return nil, apperror.BadRequest("Không đủ coins để mua vật phẩm này", nil)
+		}
+		return nil, apperror.Internal(err)
 	}
 
-	newCoins := charInfo.Coins - item.Price
+	// 2. Insert placement và check trùng coordinates (P2)
+	placement := &entity.Placement{
+		ID:          placementID,
+		MapID:       mapInfo.ID,
+		CharacterID: charInfo.ID,
+		ItemID:      input.ItemID,
+		X:           input.X,
+		Y:           input.Y,
+	}
+	if err := u.repo.PlaceItemWithIDAndTx(ctx, tx, placement); err != nil {
+		if isUniqueViolation(err) {
+			return nil, apperror.BadRequest("Ô này đã có vật thể", nil)
+		}
+		return nil, apperror.Internal(err)
+	}
 
+	// 3. Log event (P6)
+	if err := u.repo.InsertRewardEventWithTx(ctx, tx, charInfo.ID, "decoration_place", -item.Price); err != nil {
+		return nil, apperror.Internal(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, apperror.Internal(err)
+	}
+
+	placement.CreatedAt = time.Now()
 	out := &PlaceItemOutput{
-		Placement: entity.Placement{
-			ID:          placementID,
-			MapID:       mapID,
-			CharacterID: charInfo.ID,
-			ItemID:      input.ItemID,
-			X:           input.X,
-			Y:           input.Y,
-			CreatedAt:   time.Now(),
-		},
+		Placement: *placement,
 		NewCoins:  newCoins,
 	}
 
-	// Broadcast placement to the map channel
+	// 4. Broadcast sau commit (P2)
 	event := map[string]interface{}{
 		"type":      "decoration_placed",
 		"placement": out.Placement,
@@ -287,22 +219,36 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 		log.Printf("[EditorUsecase] Failed to get map code for ID %s: %v", placement.MapID, err)
 	}
 
-	// Push async delete task
-	select {
-	case u.writeChan <- editorDbTask{
-		taskType:    taskDelete,
-		id:          placementID,
-		characterID: charInfo.ID,
-		price:       item.Price,
-	}:
-	default:
-		log.Printf("[EditorUsecase] Queue full, dropping delete task for placement: %s", placementID)
-		return 0, apperror.Internal(errors.New("editor queue full"))
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, apperror.Internal(err)
+	}
+	defer tx.Rollback()
+
+	// 1. DELETE placement trước để guard double deletion (P3)
+	if err := u.repo.DeletePlacementWithTx(ctx, tx, placementID); err != nil {
+		if err.Error() == "placement not found" {
+			return 0, apperror.NotFound("Vật phẩm không tồn tại hoặc đã bị xóa", nil)
+		}
+		return 0, apperror.Internal(err)
 	}
 
-	newCoins := charInfo.Coins + item.Price
+	// 2. Refund coins 100%
+	newCoins, err := u.repo.AddCoinsGuardedWithTx(ctx, tx, charInfo.ID, item.Price)
+	if err != nil {
+		return 0, apperror.Internal(err)
+	}
 
-	// Broadcast deletion to the map channel
+	// 3. Log refund event
+	if err := u.repo.InsertRewardEventWithTx(ctx, tx, charInfo.ID, "decoration_refund", item.Price); err != nil {
+		return 0, apperror.Internal(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, apperror.Internal(err)
+	}
+
+	// 4. Broadcast sau commit
 	if mapCode != "" {
 		event := map[string]interface{}{
 			"type":        "decoration_deleted",
@@ -315,3 +261,4 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 
 	return newCoins, nil
 }
+

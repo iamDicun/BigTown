@@ -21,3 +21,11 @@ type DecorationItem struct {
 	Price        int    `json:"price"`
 	MetadataJSON string `json:"metadata_json"`
 }
+
+type MapInfo struct {
+	ID       string `json:"id"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+	TileSize int    `json:"tile_size"`
+}
+

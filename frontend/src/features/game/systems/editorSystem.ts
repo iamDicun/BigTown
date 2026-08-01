@@ -270,7 +270,6 @@ export class EditorSystem {
 
       // Add to main placement rendering group
       this.placementsGroup.add(sprite)
-
       // Add to collision group if collides is true
       if (meta.collides) {
         this.scene.physics.add.existing(sprite, true)
@@ -286,33 +285,44 @@ export class EditorSystem {
         const spriteH = hasFrames ? meta.frameHeight : sprite.height
 
         // Calculate offset because origin is bottom-middle (0.5, 1.0)
-        const offX = -bodyW / 2 + spriteW * sprite.originX
-        const offY = -bodyH + spriteH * sprite.originY
-        body.setOffset(offX, offY)
+        if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
+          body.setOffset(meta.collision_x, meta.collision_y)
+        } else {
+          const offX = -bodyW / 2 + spriteW * sprite.originX
+          const offY = -bodyH + spriteH * sprite.originY
+          body.setOffset(offX, offY)
+        }
         body.updateFromGameObject()
         
         this.collisionGroup.add(sprite)
       }
 
-      // Special double-rail collision for bridges
-      if (item.code.startsWith('deco_bridge_h_')) {
-        // Horizontal bridge: top and bottom rail colliders
-        const zoneTop = this.scene.add.zone(p.x, p.y - 28, 48, 8)
-        this.scene.physics.add.existing(zoneTop, true)
-        this.collisionGroup.add(zoneTop)
+      // P7: colliders phụ từ metadata thay cho hardcode bridge
+      if (Array.isArray(meta.extra_colliders)) {
+        for (const c of meta.extra_colliders) {
+          const zone = this.scene.add.zone(p.x + c.dx, p.y + c.dy, c.w, c.h)
+          this.scene.physics.add.existing(zone, true)
+          this.collisionGroup.add(zone)
+        }
+      } else {
+        // Fallback bridge collision logic cũ nếu metadata chưa có extra_colliders
+        if (item.code.startsWith('deco_bridge_h_')) {
+          const zoneTop = this.scene.add.zone(p.x, p.y - 28, 48, 8)
+          this.scene.physics.add.existing(zoneTop, true)
+          this.collisionGroup.add(zoneTop)
 
-        const zoneBottom = this.scene.add.zone(p.x, p.y - 4, 48, 8)
-        this.scene.physics.add.existing(zoneBottom, true)
-        this.collisionGroup.add(zoneBottom)
-      } else if (item.code.startsWith('deco_bridge_v_')) {
-        // Vertical bridge: left and right rail colliders
-        const zoneLeft = this.scene.add.zone(p.x - 20, p.y - 16, 8, 32)
-        this.scene.physics.add.existing(zoneLeft, true)
-        this.collisionGroup.add(zoneLeft)
+          const zoneBottom = this.scene.add.zone(p.x, p.y - 4, 48, 8)
+          this.scene.physics.add.existing(zoneBottom, true)
+          this.collisionGroup.add(zoneBottom)
+        } else if (item.code.startsWith('deco_bridge_v_')) {
+          const zoneLeft = this.scene.add.zone(p.x - 20, p.y - 16, 8, 32)
+          this.scene.physics.add.existing(zoneLeft, true)
+          this.collisionGroup.add(zoneLeft)
 
-        const zoneRight = this.scene.add.zone(p.x + 20, p.y - 16, 8, 32)
-        this.scene.physics.add.existing(zoneRight, true)
-        this.collisionGroup.add(zoneRight)
+          const zoneRight = this.scene.add.zone(p.x + 20, p.y - 16, 8, 32)
+          this.scene.physics.add.existing(zoneRight, true)
+          this.collisionGroup.add(zoneRight)
+        }
       }
     }
   }
@@ -334,14 +344,16 @@ export class EditorSystem {
       })
 
       // Reload all placements to sync bodies & sprites correctly
-      // (This will also set up interactions & collisions automatically)
       window.dispatchEvent(new CustomEvent('game:placementDone', {
         detail: { newCoins: result.new_coins, placement: result.placement }
       }))
 
       this.clearPreview()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to place item:', err)
+      window.dispatchEvent(new CustomEvent('game:placementError', {
+        detail: { message: err.message || 'Lỗi không xác định khi đặt vật phẩm' }
+      }))
       window.dispatchEvent(new CustomEvent('game:placementCancel'))
       this.clearPreview()
     }
@@ -367,8 +379,11 @@ export class EditorSystem {
       window.dispatchEvent(new CustomEvent('game:placementDone', {
         detail: { newCoins: res.new_coins, deletedId: placementId }
       }))
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete placement:', err)
+      window.dispatchEvent(new CustomEvent('game:placementError', {
+        detail: { message: err.message || 'Lỗi không xác định khi xóa vật phẩm' }
+      }))
     }
   }
 

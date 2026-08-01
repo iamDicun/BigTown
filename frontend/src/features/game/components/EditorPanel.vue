@@ -15,6 +15,16 @@ const placements = ref<PlacementDto[]>([])
 const activePlacementItemId = ref<string | null>(null)
 const isDeleteMode = ref(false)
 const loading = ref(false)
+const errorMessage = ref<string | null>(null)
+let errorTimeout: number | null = null
+
+function showErrorMessage(msg: string) {
+  errorMessage.value = msg
+  if (errorTimeout) clearTimeout(errorTimeout)
+  errorTimeout = window.setTimeout(() => {
+    errorMessage.value = null
+  }, 4000)
+}
 
 async function fetchEditorData() {
   if (!props.mapCode) return
@@ -133,6 +143,12 @@ onMounted(() => {
     }
   }
   window.addEventListener('game:realtimePlacementDeleted', onRealtimeDeleted)
+
+  const onPlacementError = (e: Event) => {
+    const detail = (e as CustomEvent).detail as { message: string }
+    showErrorMessage(detail.message)
+  }
+  window.addEventListener('game:placementError', onPlacementError)
   
   // Listen to map changes and game ready to reload placements
   window.addEventListener('game:mapChanged', fetchEditorData)
@@ -147,6 +163,7 @@ onBeforeUnmount(() => {
   if (onPlacementCancel) window.removeEventListener('game:placementCancel', onPlacementCancel)
   if (onRealtimePlaced) window.removeEventListener('game:realtimePlacementPlaced', onRealtimePlaced)
   if (onRealtimeDeleted) window.removeEventListener('game:realtimePlacementDeleted', onRealtimeDeleted)
+  window.removeEventListener('game:placementError', onPlacementError)
   window.removeEventListener('game:mapChanged', fetchEditorData)
   window.removeEventListener('game:ready', fetchEditorData)
 })
@@ -281,6 +298,10 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 
         <div v-if="isDeleteMode" class="placement-hint delete-hint">
           <span class="hint-text text-danger">Click vào vật phẩm đã đặt trên map để xóa và được hoàn tiền 100%.</span>
+        </div>
+
+        <div v-if="errorMessage" class="placement-hint error-hint" aria-live="polite">
+          <span class="hint-text text-danger">⚠️ {{ errorMessage }}</span>
         </div>
       </div>
     </transition>
@@ -547,6 +568,18 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 .placement-hint.delete-hint {
   background: #ffebee;
   border-color: var(--pixel-danger);
+}
+
+.placement-hint.error-hint {
+  background: #ffebee;
+  border-color: var(--pixel-danger);
+  animation: shake 0.2s ease-in-out 2;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .hint-text {

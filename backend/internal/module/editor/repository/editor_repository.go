@@ -146,6 +146,42 @@ func (r *EditorRepository) AddCoinsWithTx(ctx context.Context, tx *sql.Tx, chara
 	return nil
 }
 
+func (r *EditorRepository) GetMapInfoByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
+	query := `SELECT id::text, width, height, tile_size FROM maps WHERE code = $1`
+	var m entity.MapInfo
+	err := r.db.QueryRowContext(ctx, query, code).Scan(&m.ID, &m.Width, &m.Height, &m.TileSize)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *EditorRepository) DeductCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) {
+	query := `UPDATE characters SET coins = coins - $1 WHERE id = $2 AND coins >= $1 RETURNING coins`
+	var newCoins int
+	err := tx.QueryRowContext(ctx, query, amount, characterID).Scan(&newCoins)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, port.ErrInsufficientCoins
+		}
+		return 0, err
+	}
+	return newCoins, nil
+}
+
+func (r *EditorRepository) AddCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) {
+	query := `UPDATE characters SET coins = coins + $1 WHERE id = $2 RETURNING coins`
+	var newCoins int
+	err := tx.QueryRowContext(ctx, query, amount, characterID).Scan(&newCoins)
+	if err != nil {
+		return 0, err
+	}
+	return newCoins, nil
+}
+
 func (r *EditorRepository) DeletePlacementWithTx(ctx context.Context, tx *sql.Tx, id string) error {
 	query := `DELETE FROM map_placements WHERE id = $1`
 	res, err := tx.ExecContext(ctx, query, id)
@@ -162,8 +198,9 @@ func (r *EditorRepository) DeletePlacementWithTx(ctx context.Context, tx *sql.Tx
 	return nil
 }
 
-func (r *EditorRepository) InsertRewardEventWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error {
-	query := `INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES ($1, 'decoration_place', $2)`
-	_, err := tx.ExecContext(ctx, query, characterID, -amount)
+func (r *EditorRepository) InsertRewardEventWithTx(ctx context.Context, tx *sql.Tx, characterID string, eventType string, coinDelta int) error {
+	query := `INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES ($1, $2, $3)`
+	_, err := tx.ExecContext(ctx, query, characterID, eventType, coinDelta)
 	return err
 }
+
