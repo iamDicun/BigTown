@@ -205,13 +205,19 @@ export class EditorSystem {
   }
 
   private renderPlacementsGroup(placements: PlacementDto[], itemMap: Map<string, DecorationItemDto>) {
-    // Clear old placements sprites
-    this.placementsGroup.clear(true, true)
-    
-    // Clear old static collision group bodies
-    this.collisionGroup.clear(true, true)
-
     const safePlacements = placements || []
+    
+    // 1. Gather currently rendered sprites by placementId
+    const existingSprites = new Map<string, Phaser.GameObjects.Image>()
+    this.placementsGroup.getChildren().forEach((child) => {
+      const sprite = child as Phaser.GameObjects.Image
+      const pid = sprite.getData('placementId') as string
+      if (pid) {
+        existingSprites.set(pid, sprite)
+      }
+    })
+
+    // 2. Diff and reconcile incoming placements
     for (const p of safePlacements) {
       const item = itemMap.get(p.item_id)
       if (!item) continue
@@ -224,6 +230,23 @@ export class EditorSystem {
       const hasFrames = meta.frameWidth !== undefined && meta.frameHeight !== undefined
       const frameIndex = meta.frame !== undefined ? meta.frame : 0
 
+      // Re-use existing sprite to prevent redraw flickering (PR4)
+      if (existingSprites.has(p.id)) {
+        const sprite = existingSprites.get(p.id)!
+        existingSprites.delete(p.id) // mark as retained
+        
+        // Sync position (usually unchanged)
+        sprite.setPosition(p.x, p.y)
+        sprite.setDepth(PLAYER_DEPTH + p.y / 10000.0)
+        
+        if (meta.collides && sprite.body) {
+          const body = sprite.body as Phaser.Physics.Arcade.StaticBody
+          body.updateFromGameObject()
+        }
+        continue
+      }
+
+      // Create new sprite
       let sprite: Phaser.GameObjects.Image
       if (hasFrames) {
         sprite = this.scene.add.image(p.x, p.y, item.asset_key, frameIndex)
@@ -231,11 +254,8 @@ export class EditorSystem {
         sprite = this.scene.add.image(p.x, p.y, item.asset_key)
       }
 
-      // Store placement ID and item code on the sprite
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
-      
-      // Depth sorting based on Y coordinate so elements render in front / behind player
       sprite.setDepth(PLAYER_DEPTH + p.y / 10000.0)
 
       if (meta.anchorX !== undefined && meta.anchorY !== undefined) {
@@ -244,14 +264,13 @@ export class EditorSystem {
         sprite.setOrigin(0.5, 1.0)
       }
 
-      // Interactive clicks for deletion
       if (this.deleteModeActive) {
         sprite.setInteractive()
       }
-      
+
       sprite.on('pointerover', () => {
         if (this.deleteModeActive) {
-          sprite.setTint(0xff5555) // red highlight for deletion
+          sprite.setTint(0xff5555)
         }
       })
 
@@ -268,14 +287,13 @@ export class EditorSystem {
         }
       })
 
-      // Add to main placement rendering group
       this.placementsGroup.add(sprite)
-      // Add to collision group if collides is true
+
+      // Add static collision body
       if (meta.collides) {
         this.scene.physics.add.existing(sprite, true)
         const body = sprite.body as Phaser.Physics.Arcade.StaticBody
         
-        // Use custom collision sizes from metadata, or fallback to w/h or frame/texture size
         const bodyW = meta.collision_w ?? meta.w ?? (hasFrames ? meta.frameWidth : sprite.width)
         const bodyH = meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height)
         
@@ -284,7 +302,6 @@ export class EditorSystem {
         const spriteW = hasFrames ? meta.frameWidth : sprite.width
         const spriteH = hasFrames ? meta.frameHeight : sprite.height
 
-        // Calculate offset because origin is bottom-middle (0.5, 1.0)
         if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
           body.setOffset(meta.collision_x, meta.collision_y)
         } else {
@@ -293,38 +310,60 @@ export class EditorSystem {
           body.setOffset(offX, offY)
         }
         body.updateFromGameObject()
-        
         this.collisionGroup.add(sprite)
       }
 
-      // P7: colliders phụ từ metadata thay cho hardcode bridge
+      // Add extra colliders and track their references
+      const extraZones: Phaser.GameObjects.Zone[] = []
       if (Array.isArray(meta.extra_colliders)) {
         for (const c of meta.extra_colliders) {
           const zone = this.scene.add.zone(p.x + c.dx, p.y + c.dy, c.w, c.h)
           this.scene.physics.add.existing(zone, true)
           this.collisionGroup.add(zone)
+          extraZones.push(zone)
         }
       } else {
-        // Fallback bridge collision logic cũ nếu metadata chưa có extra_colliders
+        // Fallback bridge logic
         if (item.code.startsWith('deco_bridge_h_')) {
-          const zoneTop = this.scene.add.zone(p.x, p.y - 28, 48, 8)
-          this.scene.physics.add.existing(zoneTop, true)
-          this.collisionGroup.add(zoneTop)
+          const z1 = this.scene.add.zone(p.x, p.y - 28, 48, 8)
+          this.scene.physics.add.existing(z1, true)
+          this.collisionGroup.add(z1)
+          extraZones.push(z1)
 
-          const zoneBottom = this.scene.add.zone(p.x, p.y - 4, 48, 8)
-          this.scene.physics.add.existing(zoneBottom, true)
-          this.collisionGroup.add(zoneBottom)
+          const z2 = this.scene.add.zone(p.x, p.y - 4, 48, 8)
+          this.scene.physics.add.existing(z2, true)
+          this.collisionGroup.add(z2)
+          extraZones.push(z2)
         } else if (item.code.startsWith('deco_bridge_v_')) {
-          const zoneLeft = this.scene.add.zone(p.x - 20, p.y - 16, 8, 32)
-          this.scene.physics.add.existing(zoneLeft, true)
-          this.collisionGroup.add(zoneLeft)
+          const z1 = this.scene.add.zone(p.x - 20, p.y - 16, 8, 32)
+          this.scene.physics.add.existing(z1, true)
+          this.collisionGroup.add(z1)
+          extraZones.push(z1)
 
-          const zoneRight = this.scene.add.zone(p.x + 20, p.y - 16, 8, 32)
-          this.scene.physics.add.existing(zoneRight, true)
-          this.collisionGroup.add(zoneRight)
+          const z2 = this.scene.add.zone(p.x + 20, p.y - 16, 8, 32)
+          this.scene.physics.add.existing(z2, true)
+          this.collisionGroup.add(z2)
+          extraZones.push(z2)
         }
       }
+      sprite.setData('extraZones', extraZones)
     }
+
+    // 3. Remove orphaned sprites and bodies
+    existingSprites.forEach((sprite) => {
+      const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
+      if (zones) {
+        zones.forEach((z) => {
+          this.collisionGroup.remove(z, true, true)
+          z.destroy()
+        })
+      }
+      this.collisionGroup.remove(sprite, true, true)
+      this.placementsGroup.remove(sprite, true, true)
+    })
+
+    // 4. Update Phaser's spatial physics hash immediately (PR4)
+    this.collisionGroup.refresh()
   }
 
   private async confirmPlacement() {
@@ -362,6 +401,18 @@ export class EditorSystem {
   private async confirmDelete(placementId: string, sprite: Phaser.GameObjects.Image) {
     try {
       const res = await editorService.deletePlacement(placementId)
+
+      // Immediately strip physics bodies to update collision grid (PR4)
+      const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
+      if (zones) {
+        zones.forEach((z) => {
+          this.collisionGroup.remove(z, true, true)
+          z.destroy()
+        })
+        sprite.setData('extraZones', null)
+      }
+      this.collisionGroup.remove(sprite, true, true)
+      this.collisionGroup.refresh()
 
       // Play a small destruction fade effect
       this.scene.tweens.add({
@@ -404,6 +455,7 @@ export class EditorSystem {
         detail: {
           x: snappedX,
           y: snappedY,
+          item: this.activeDecorationItem,
           callback: (res: boolean) => {
             occupied = res
           }

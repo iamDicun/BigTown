@@ -68,11 +68,115 @@ function selectItem(item: DecorationItemDto) {
   }))
 }
 
+interface OccupiedRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+function intersects(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number): boolean {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+function getOccupiedRects(item: DecorationItemDto, x: number, y: number): OccupiedRect[] {
+  const rects: OccupiedRect[] = []
+  let meta: any = {}
+  try {
+    meta = JSON.parse(item.metadata_json)
+  } catch {}
+
+  const hasFrames = meta.frameWidth !== undefined && meta.frameHeight !== undefined
+  const spriteW = hasFrames ? meta.frameWidth : 48
+  const spriteH = hasFrames ? meta.frameHeight : 48
+
+  const bodyW = meta.collision_w ?? meta.w ?? spriteW
+  const bodyH = meta.collision_h ?? meta.h ?? spriteH
+
+  let offX = 0
+  let offY = 0
+  if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
+    offX = meta.collision_x
+    offY = meta.collision_y
+  } else {
+    const anchorX = meta.anchorX ?? 0.5
+    const anchorY = meta.anchorY ?? 1.0
+    offX = -bodyW / 2 + spriteW * anchorX
+    offY = -bodyH + spriteH * anchorY
+  }
+
+  if (meta.collides) {
+    rects.push({
+      x: x + offX,
+      y: y + offY,
+      w: bodyW,
+      h: bodyH
+    })
+  }
+
+  if (Array.isArray(meta.extra_colliders)) {
+    for (const c of meta.extra_colliders) {
+      rects.push({
+        x: x + c.dx,
+        y: y + c.dy,
+        w: c.w,
+        h: c.h
+      })
+    }
+  } else {
+    if (item.code.startsWith('deco_bridge_h_')) {
+      rects.push({ x: x, y: y - 28, w: 48, h: 8 })
+      rects.push({ x: x, y: y - 4, w: 48, h: 8 })
+    } else if (item.code.startsWith('deco_bridge_v_')) {
+      rects.push({ x: x - 20, y: y - 16, w: 8, h: 32 })
+      rects.push({ x: x + 20, y: y - 16, w: 8, h: 32 })
+    }
+  }
+
+  return rects
+}
+
 // Check if placement coordinates are occupied
 window.addEventListener('game:checkOccupied', (e: Event) => {
-  const detail = (e as CustomEvent).detail as { x: number; y: number; callback: (occupied: boolean) => void }
-  const occupied = placements.value.some(p => p.x === detail.x && p.y === detail.y)
-  detail.callback(occupied)
+  const detail = (e as CustomEvent).detail as {
+    x: number
+    y: number
+    item: DecorationItemDto
+    callback: (occupied: boolean) => void
+  }
+
+  if (!detail.item) {
+    detail.callback(false)
+    return
+  }
+
+  const previewRects = getOccupiedRects(detail.item, detail.x, detail.y)
+  let isOccupied = false
+
+  const itemMap = new Map<string, DecorationItemDto>()
+  for (const item of items.value) {
+    itemMap.set(item.id, item)
+  }
+
+  for (const p of placements.value) {
+    const pItem = itemMap.get(p.item_id)
+    if (!pItem) continue
+
+    const existingRects = getOccupiedRects(pItem, p.x, p.y)
+
+    for (const pr of previewRects) {
+      for (const er of existingRects) {
+        if (intersects(pr.x, pr.y, pr.w, pr.h, er.x, er.y, er.w, er.h)) {
+          isOccupied = true
+          break
+        }
+      }
+      if (isOccupied) break
+    }
+    if (isOccupied) break
+  }
+
+  detail.callback(isOccupied)
 })
 
 function cancelPlacement() {

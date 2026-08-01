@@ -13,6 +13,7 @@ const (
 	CmdDelete
 	CmdJoin
 	CmdLeave
+	CmdCredit
 )
 
 type Cmd struct {

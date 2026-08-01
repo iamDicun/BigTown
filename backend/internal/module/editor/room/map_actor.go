@@ -89,6 +89,21 @@ func (m *MapActor) run() {
 				delete(m.residents, c.CharID)
 				delete(m.wallets, c.CharID)
 			}
+		case CmdCredit:
+			coins, err := m.getOrLoadWallet(c.CharID)
+			if err != nil {
+				c.Reply <- CmdResult{Err: err}
+			} else {
+				newCoins := coins + c.Coins // c.Coins represents the delta change
+				m.wallets[c.CharID] = newCoins
+				c.Reply <- CmdResult{NewCoins: newCoins}
+
+				m.dirty <- persistOp{
+					Kind:     opFlushWallet,
+					CharID:   c.CharID,
+					NewCoins: newCoins,
+				}
+			}
 		}
 	}
 	close(m.outbound) // stop broadcastLoop

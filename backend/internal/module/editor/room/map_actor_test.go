@@ -217,3 +217,44 @@ func TestMapActor_WalletResidency_Lifecycle(t *testing.T) {
 		t.Errorf("Eviction failed! Expected coins loaded from DB to be 960, got %d", res2.NewCoins)
 	}
 }
+
+func TestMapActor_CmdCredit(t *testing.T) {
+	charID := "char-credit-test"
+	charReader := &mockCharReader{coins: map[string]int{charID: 100}}
+	repo := &mockEditorRepo{}
+	publisher := &mockRoomPublisher{}
+	dirty := make(chan persistOp, 100)
+
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+	defer close(actor.cmds)
+
+	// Test credit 50 coins via CmdCredit
+	reply := make(chan CmdResult, 1)
+	actor.cmds <- Cmd{
+		Kind:   CmdCredit,
+		CharID: charID,
+		Coins:  50,
+		Reply:  reply,
+	}
+
+	res := <-reply
+	if res.Err != nil {
+		t.Fatalf("CmdCredit failed: %v", res.Err)
+	}
+	if res.NewCoins != 150 {
+		t.Errorf("Expected new coins to be 150, got %d", res.NewCoins)
+	}
+
+	// Verify dirty opFlushWallet was generated
+	select {
+	case op := <-dirty:
+		if op.Kind != opFlushWallet {
+			t.Errorf("Expected opFlushWallet, got: %v", op.Kind)
+		}
+		if op.NewCoins != 150 {
+			t.Errorf("Expected flushed coins to be 150, got %d", op.NewCoins)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timeout waiting for write-behind opFlushWallet")
+	}
+}
