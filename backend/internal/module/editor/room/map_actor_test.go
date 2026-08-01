@@ -1,0 +1,130 @@
+package room
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"sync"
+	"testing"
+
+	"backend/internal/module/editor/entity"
+	"backend/internal/module/editor/port"
+)
+
+type mockCharReader struct {
+	coins map[string]int
+}
+
+func (m *mockCharReader) GetByUserID(ctx context.Context, userID string) (*port.CharacterInfo, error) {
+	return nil, nil
+}
+
+func (m *mockCharReader) GetCoins(ctx context.Context, characterID string) (int, error) {
+	return m.coins[characterID], nil
+}
+
+type mockRoomPublisher struct {
+	events []any
+}
+
+func (m *mockRoomPublisher) PublishRoom(ctx context.Context, roomID string, data interface{}) error {
+	m.events = append(m.events, data)
+	return nil
+}
+
+type mockEditorRepo struct {
+	placements []entity.Placement
+}
+
+func (m *mockEditorRepo) GetMapIDByCode(ctx context.Context, code string) (string, error) { return "map-1", nil }
+func (m *mockEditorRepo) GetMapCodeByID(ctx context.Context, id string) (string, error)   { return "village", nil }
+func (m *mockEditorRepo) GetMapInfoByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
+	return &entity.MapInfo{ID: "map-1", Width: 1000, Height: 1000, TileSize: 16}, nil
+}
+func (m *mockEditorRepo) GetDecorationItems(ctx context.Context) ([]entity.DecorationItem, error) { return nil, nil }
+func (m *mockEditorRepo) GetPlacementsByMap(ctx context.Context, mapID string) ([]entity.Placement, error) {
+	return m.placements, nil
+}
+func (m *mockEditorRepo) GetItemByID(ctx context.Context, itemID string) (*entity.DecorationItem, error) { return nil, nil }
+func (m *mockEditorRepo) GetPlacementByID(ctx context.Context, id string) (*entity.Placement, error) { return nil, nil }
+func (m *mockEditorRepo) PlaceItemWithTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error { return nil }
+func (m *mockEditorRepo) PlaceItemWithIDAndTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error { return nil }
+func (m *mockEditorRepo) DeductCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error { return nil }
+func (m *mockEditorRepo) AddCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error { return nil }
+func (m *mockEditorRepo) DeductCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) { return 0, nil }
+func (m *mockEditorRepo) AddCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) { return 0, nil }
+func (m *mockEditorRepo) DeletePlacementWithTx(ctx context.Context, tx *sql.Tx, id string) error { return nil }
+func (m *mockEditorRepo) InsertRewardEventWithTx(ctx context.Context, tx *sql.Tx, characterID string, eventType string, coinDelta int) error { return nil }
+
+func TestMapActor_InmemorySafety(t *testing.T) {
+	charID := "char-1"
+	charReader := &mockCharReader{coins: map[string]int{charID: 90}}
+	repo := &mockEditorRepo{}
+	publisher := &mockRoomPublisher{}
+	dirty := make(chan persistOp, 100)
+
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+
+	item := &entity.DecorationItem{ID: "item-1", Price: 90}
+
+	// 1. Chạy N=50 concurrent commands đặt cùng 1 ô, hoặc các ô khác nhau
+	n := 50
+	var wg sync.WaitGroup
+	wg.Add(n)
+
+	successChan := make(chan CmdResult, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			reply := make(chan CmdResult, 1)
+			cmd := Cmd{
+				Kind:    CmdPlace,
+				CharID:  charID,
+				Item:    item,
+				X:       16,
+				Y:       16,
+				PlaceID: "p-1",
+				Reply:   reply,
+			}
+			_ = actor.SendCmd(cmd)
+			res := <-reply
+			successChan <- res
+		}()
+	}
+
+	wg.Wait()
+	close(successChan)
+
+	successCount := 0
+	occupiedCount := 0
+	for res := range successChan {
+		if res.Err == nil {
+			successCount++
+		} else if errors.Is(res.Err, ErrOccupied) {
+			occupiedCount++
+		}
+	}
+
+	if successCount != 1 {
+		t.Errorf("Expected exactly 1 success for duplicate coordinate placement, got %d", successCount)
+	}
+
+	// 2. Chạy test coin safety: Đặt 2 items ở toạ độ khác nhau (đòi hỏi 180 coins nhưng chỉ có 90 coins)
+	reply1 := make(chan CmdResult, 1)
+	actor.SendCmd(Cmd{
+		Kind:    CmdPlace,
+		CharID:  charID,
+		Item:    item,
+		X:       32,
+		Y:       32,
+		PlaceID: "p-2",
+		Reply:   reply1,
+	})
+	res1 := <-reply1
+
+	if !errors.Is(res1.Err, ErrInsufficientCoins) {
+		t.Errorf("Expected ErrInsufficientCoins for second item, got: %v", res1.Err)
+	}
+
+	close(actor.cmds)
+}

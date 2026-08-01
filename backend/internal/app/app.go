@@ -17,8 +17,9 @@ import (
 )
 
 type App struct {
-	container *Container
-	router    *gin.Engine
+	container    *Container
+	router       *gin.Engine
+	editorModule *editor.EditorModule
 }
 
 func New(container *Container) *App {
@@ -82,8 +83,15 @@ func (a *App) registerModules() {
 	authModule.RegisterProtectedRoutes(api)
 	user.NewUserModule(a.container.DB).RegisterProtectedRoutes(api)
 	leaderboard.NewLeaderboardModule(a.container.DB).RegisterProtectedRoutes(api)
-	editor.NewEditorModule(a.container.DB, realtimeModule.Transport(), characterModule.Repository()).RegisterProtectedRoutes(api)
+	a.editorModule = editor.NewEditorModule(a.container.DB, realtimeModule.Transport(), characterModule.Repository())
+	a.editorModule.RegisterProtectedRoutes(api)
 	realtimeModule.RegisterProtectedRoutes(api)
 	characterModule.RegisterProtectedRoutes(api)
 	chatModule.RegisterProtectedRoutes(api)
+}
+
+func (a *App) Shutdown() {
+	if a.editorModule != nil {
+		a.editorModule.Shutdown()
+	}
 }

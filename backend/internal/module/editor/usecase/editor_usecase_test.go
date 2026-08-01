@@ -11,6 +11,7 @@ import (
 	"backend/internal/database"
 	"backend/internal/module/editor/port"
 	"backend/internal/module/editor/repository"
+	"backend/internal/module/editor/room"
 	"backend/internal/platform/config"
 
 	"github.com/google/uuid"
@@ -20,8 +21,6 @@ import (
 // Helper setup DB
 func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	_, b, _, _ := runtime.Caller(0)
-	// usecase folder is at backend/internal/module/editor/usecase/
-	// project root is 5 levels up: usecase -> editor -> module -> internal -> backend -> (root)
 	projectRoot := filepath.Join(filepath.Dir(b), "../../../../..")
 	envPath := filepath.Join(projectRoot, ".env")
 	_ = godotenv.Load(envPath)
@@ -75,10 +74,10 @@ func TestPlaceItem_Concurrently(t *testing.T) {
 	charReader := &mockCharReader{charID: charID, db: db}
 	publisher := &mockRoomPublisher{}
 
-	uc := NewEditorUsecase(db, repo, charReader, publisher)
+	rooms := room.NewRoomManager(db, publisher, repo, charReader)
+	uc := NewEditorUsecase(db, repo, charReader, publisher, rooms)
 
 	// Test 1: N=50 concurrent place requests từ 1 character chỉ có đủ coin mua 1 món (90 coins)
-	// Chỉ được đúng 1 request thành công.
 	n := 50
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -97,7 +96,6 @@ func TestPlaceItem_Concurrently(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			req := input
-			// Mỗi request sẽ đặt ở một tọa độ x khác nhau (ví dụ: i*16)
 			req.X = 16 * (idx + 1)
 			res, err := uc.PlaceItem(ctx, userID, req)
 			if err != nil {
@@ -125,6 +123,9 @@ func TestPlaceItem_Concurrently(t *testing.T) {
 	if len(successes) != 1 {
 		t.Errorf("Expected exactly 1 successful placement due to coin guard, got %d successes and %d errors", len(successes), len(errorsList))
 	}
+
+	// Trigger flush to DB
+	uc.rooms.Shutdown()
 
 	// Coin không được âm
 	var finalCoins int
@@ -196,8 +197,9 @@ func TestPlaceItem_DuplicateTile_Concurrently(t *testing.T) {
 	charReader2 := &mockCharReader{charID: charID2, db: db}
 	publisher := &mockRoomPublisher{}
 
-	uc1 := NewEditorUsecase(db, repo, charReader1, publisher)
-	uc2 := NewEditorUsecase(db, repo, charReader2, publisher)
+	rooms1 := room.NewRoomManager(db, publisher, repo, charReader1)
+	uc1 := NewEditorUsecase(db, repo, charReader1, publisher, rooms1)
+	uc2 := NewEditorUsecase(db, repo, charReader2, publisher, rooms1) // Share the same room manager!
 
 	// Test 2: 2 request place vào cùng 1 ô (map, x, y) đồng thời. Chỉ được đúng 1 thành công.
 	var wg sync.WaitGroup
@@ -251,6 +253,9 @@ func TestPlaceItem_DuplicateTile_Concurrently(t *testing.T) {
 		t.Errorf("Expected exactly 1 successful placement on same coordinate, got %d successes and %d errors", len(successes), len(errorsList))
 	}
 
+	// Trigger flush to DB
+	uc1.rooms.Shutdown()
+
 	// Dọn dẹp map_placements
 	db.ExecContext(ctx, "DELETE FROM map_placements WHERE character_id IN ($1, $2)", charID1, charID2)
 }
@@ -301,7 +306,8 @@ func TestDeletePlacement_DoubleClick_Concurrently(t *testing.T) {
 	charReader := &mockCharReader{charID: charID, db: db}
 	publisher := &mockRoomPublisher{}
 
-	uc := NewEditorUsecase(db, repo, charReader, publisher)
+	rooms := room.NewRoomManager(db, publisher, repo, charReader)
+	uc := NewEditorUsecase(db, repo, charReader, publisher, rooms)
 
 	// Test 3: Double click delete cùng placement concurrently. Chỉ được refund 1 lần.
 	var wg sync.WaitGroup
@@ -348,6 +354,9 @@ func TestDeletePlacement_DoubleClick_Concurrently(t *testing.T) {
 		t.Errorf("Expected exactly 1 successful delete, got %d successes and %d errors", len(successes), len(errorsList))
 	}
 
+	// Trigger flush to DB
+	uc.rooms.Shutdown()
+
 	var finalCoins int
 	err = db.QueryRowContext(ctx, "SELECT coins FROM characters WHERE id = $1", charID).Scan(&finalCoins)
 	if err != nil {
@@ -374,6 +383,12 @@ func (m *mockCharReader) GetByUserID(ctx context.Context, userID string) (*port.
 		ID:    m.charID,
 		Coins: coins,
 	}, nil
+}
+
+func (m *mockCharReader) GetCoins(ctx context.Context, characterID string) (int, error) {
+	var coins int
+	err := m.db.QueryRowContext(ctx, "SELECT coins FROM characters WHERE id = $1", characterID).Scan(&coins)
+	return coins, err
 }
 
 type mockRoomPublisher struct {

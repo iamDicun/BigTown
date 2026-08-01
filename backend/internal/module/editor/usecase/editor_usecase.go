@@ -4,14 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
-	"time"
 
 	"backend/internal/apperror"
 	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
+	"backend/internal/module/editor/room"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type EditorUsecase struct {
@@ -19,14 +17,16 @@ type EditorUsecase struct {
 	repo       port.EditorRepository
 	charReader port.CharacterReader
 	publisher  port.RoomPublisher
+	rooms      *room.RoomManager
 }
 
-func NewEditorUsecase(db *sql.DB, repo port.EditorRepository, charReader port.CharacterReader, publisher port.RoomPublisher) *EditorUsecase {
+func NewEditorUsecase(db *sql.DB, repo port.EditorRepository, charReader port.CharacterReader, publisher port.RoomPublisher, rooms *room.RoomManager) *EditorUsecase {
 	return &EditorUsecase{
 		db:         db,
 		repo:       repo,
 		charReader: charReader,
 		publisher:  publisher,
+		rooms:      rooms,
 	}
 }
 
@@ -82,36 +82,32 @@ type PlaceItemOutput struct {
 	NewCoins  int              `json:"new_coins"`
 }
 
-func validatePlacement(x, y, mapWidth, mapHeight, tileSize int) error {
-	if tileSize <= 0 {
-		return errors.New("tileSize must be positive")
+func mapErr(err error) error {
+	if err == nil {
+		return nil
 	}
-	if x%tileSize != 0 || y%tileSize != 0 {
-		return errors.New("toạ độ không khớp snap grid")
+	if errors.Is(err, room.ErrOccupied) {
+		return apperror.BadRequest("Ô này đã có vật thể", nil)
 	}
-	if x < 0 || x >= mapWidth || y < 0 || y >= mapHeight {
-		return errors.New("toạ độ vượt quá giới hạn bản đồ")
+	if errors.Is(err, room.ErrInsufficientCoins) {
+		return apperror.BadRequest("Không đủ coins để mua vật phẩm này", nil)
 	}
-	return nil
-}
-
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+	if errors.Is(err, room.ErrNotOwner) {
+		return apperror.Forbidden("Bạn không có quyền xóa vật phẩm này", nil)
+	}
+	if errors.Is(err, room.ErrNotFound) {
+		return apperror.NotFound("Vật phẩm không tồn tại hoặc đã bị xóa", nil)
+	}
+	if errors.Is(err, room.ErrBusy) {
+		return apperror.Internal(errors.New("hệ thống đang bận"))
+	}
+	return apperror.Internal(err)
 }
 
 func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input PlaceItemInput) (*PlaceItemOutput, error) {
 	charInfo, err := u.charReader.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, apperror.NotFound("Không tìm thấy nhân vật", err)
-	}
-
-	mapInfo, err := u.repo.GetMapInfoByCode(ctx, input.MapCode)
-	if err != nil {
-		return nil, apperror.Internal(err)
-	}
-	if mapInfo == nil {
-		return nil, apperror.NotFound("Không tìm thấy bản đồ", nil)
 	}
 
 	item, err := u.repo.GetItemByID(ctx, input.ItemID)
@@ -122,69 +118,38 @@ func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input Plac
 		return nil, apperror.BadRequest("Vật phẩm không tồn tại", nil)
 	}
 
-	// Validate coordinates server-side (P5)
-	if err := validatePlacement(input.X, input.Y, mapInfo.Width, mapInfo.Height, mapInfo.TileSize); err != nil {
-		return nil, apperror.BadRequest(err.Error(), nil)
-	}
-
-	placementID := uuid.NewString()
-
-	tx, err := u.db.BeginTx(ctx, nil)
+	a, err := u.rooms.Actor(input.MapCode)
 	if err != nil {
 		return nil, apperror.Internal(err)
 	}
-	defer tx.Rollback()
-
-	// 1. Trừ coins atomic (P1)
-	newCoins, err := u.repo.DeductCoinsGuardedWithTx(ctx, tx, charInfo.ID, item.Price)
-	if err != nil {
-		if errors.Is(err, port.ErrInsufficientCoins) {
-			return nil, apperror.BadRequest("Không đủ coins để mua vật phẩm này", nil)
-		}
-		return nil, apperror.Internal(err)
+	if a == nil {
+		return nil, apperror.NotFound("Không tìm thấy bản đồ", nil)
 	}
 
-	// 2. Insert placement và check trùng coordinates (P2)
-	placement := &entity.Placement{
-		ID:          placementID,
-		MapID:       mapInfo.ID,
-		CharacterID: charInfo.ID,
-		ItemID:      input.ItemID,
-		X:           input.X,
-		Y:           input.Y,
-	}
-	if err := u.repo.PlaceItemWithIDAndTx(ctx, tx, placement); err != nil {
-		if isUniqueViolation(err) {
-			return nil, apperror.BadRequest("Ô này đã có vật thể", nil)
-		}
-		return nil, apperror.Internal(err)
+	reply := make(chan room.CmdResult, 1)
+	cmd := room.Cmd{
+		Kind:    room.CmdPlace,
+		CharID:  charInfo.ID,
+		Item:    item,
+		X:       input.X,
+		Y:       input.Y,
+		PlaceID: uuid.NewString(),
+		Reply:   reply,
 	}
 
-	// 3. Log event (P6)
-	if err := u.repo.InsertRewardEventWithTx(ctx, tx, charInfo.ID, "decoration_place", -item.Price); err != nil {
-		return nil, apperror.Internal(err)
+	if err := a.SendCmd(cmd); err != nil {
+		return nil, mapErr(err)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, apperror.Internal(err)
+	res := <-reply
+	if res.Err != nil {
+		return nil, mapErr(res.Err)
 	}
 
-	placement.CreatedAt = time.Now()
-	out := &PlaceItemOutput{
-		Placement: *placement,
-		NewCoins:  newCoins,
-	}
-
-	// 4. Broadcast sau commit (P2)
-	event := map[string]interface{}{
-		"type":      "decoration_placed",
-		"placement": out.Placement,
-	}
-	if err := u.publisher.PublishRoom(ctx, input.MapCode, event); err != nil {
-		log.Printf("[EditorUsecase] Failed to broadcast decoration_placed: %v", err)
-	}
-
-	return out, nil
+	return &PlaceItemOutput{
+		Placement: *res.Placement,
+		NewCoins:  res.NewCoins,
+	}, nil
 }
 
 func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, placementID string) (int, error) {
@@ -201,10 +166,6 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 		return 0, apperror.NotFound("Vật phẩm không tồn tại hoặc đã bị xóa", nil)
 	}
 
-	if placement.CharacterID != charInfo.ID {
-		return 0, apperror.Forbidden("Bạn không có quyền xóa vật phẩm này", nil)
-	}
-
 	item, err := u.repo.GetItemByID(ctx, placement.ItemID)
 	if err != nil {
 		return 0, apperror.Internal(err)
@@ -213,52 +174,37 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 		return 0, apperror.Internal(errors.New("item not found"))
 	}
 
-	// Fetch mapCode for Centrifuge broadcasting
 	mapCode, err := u.repo.GetMapCodeByID(ctx, placement.MapID)
 	if err != nil {
-		log.Printf("[EditorUsecase] Failed to get map code for ID %s: %v", placement.MapID, err)
+		return 0, apperror.Internal(err)
 	}
 
-	tx, err := u.db.BeginTx(ctx, nil)
+	a, err := u.rooms.Actor(mapCode)
 	if err != nil {
 		return 0, apperror.Internal(err)
 	}
-	defer tx.Rollback()
-
-	// 1. DELETE placement trước để guard double deletion (P3)
-	if err := u.repo.DeletePlacementWithTx(ctx, tx, placementID); err != nil {
-		if err.Error() == "placement not found" {
-			return 0, apperror.NotFound("Vật phẩm không tồn tại hoặc đã bị xóa", nil)
-		}
-		return 0, apperror.Internal(err)
+	if a == nil {
+		return 0, apperror.NotFound("Không tìm thấy bản đồ", nil)
 	}
 
-	// 2. Refund coins 100%
-	newCoins, err := u.repo.AddCoinsGuardedWithTx(ctx, tx, charInfo.ID, item.Price)
-	if err != nil {
-		return 0, apperror.Internal(err)
+	reply := make(chan room.CmdResult, 1)
+	cmd := room.Cmd{
+		Kind:     room.CmdDelete,
+		CharID:   charInfo.ID,
+		Item:     item,
+		TargetID: placementID,
+		Reply:    reply,
 	}
 
-	// 3. Log refund event
-	if err := u.repo.InsertRewardEventWithTx(ctx, tx, charInfo.ID, "decoration_refund", item.Price); err != nil {
-		return 0, apperror.Internal(err)
+	if err := a.SendCmd(cmd); err != nil {
+		return 0, mapErr(err)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return 0, apperror.Internal(err)
+	res := <-reply
+	if res.Err != nil {
+		return 0, mapErr(res.Err)
 	}
 
-	// 4. Broadcast sau commit
-	if mapCode != "" {
-		event := map[string]interface{}{
-			"type":        "decoration_deleted",
-			"placementId": placementID,
-		}
-		if err := u.publisher.PublishRoom(ctx, mapCode, event); err != nil {
-			log.Printf("[EditorUsecase] Failed to broadcast decoration_deleted: %v", err)
-		}
-	}
-
-	return newCoins, nil
+	return res.NewCoins, nil
 }
 

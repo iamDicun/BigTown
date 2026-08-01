@@ -14,3 +14,7 @@ type EditorModule struct {
 func NewEditorModule(db *sql.DB, publisher port.RoomPublisher, charRepo charPort.CharacterRepository) *EditorModule {
 	return &EditorModule{provider: NewProvider(db, charRepo, publisher)}
 }
+
+func (m *EditorModule) Shutdown() {
+	m.provider.RoomManager().Shutdown()
+}

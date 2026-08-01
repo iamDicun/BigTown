@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
+	"time"
 
 	"backend/internal/app"
 	"backend/internal/database"
@@ -28,8 +33,37 @@ func main() {
 
 	cfg := config.Load()
 	pg := database.NewPostgresDB(cfg.Database)
-	defer pg.Close() // Tránh gọi xuyên tầng
+	defer pg.Close()
 
 	server := app.New(&app.Container{Config: cfg, DB: pg.DB})
-	server.Run(":" + cfg.Server.Port)
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: server.Router(),
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	log.Printf("Server is running on port %s", cfg.Server.Port)
+
+	// Chờ tín hiệu graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Tín hiệu tắt server nhận được, đang graceful shutdown...")
+
+	// Dừng nhận HTTP request mới
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Lỗi khi shutdown HTTP server: %v", err)
+	}
+
+	// Shutdown application (flush RoomManager/Writer)
+	server.Shutdown()
+	log.Println("Graceful shutdown hoàn tất!")
 }

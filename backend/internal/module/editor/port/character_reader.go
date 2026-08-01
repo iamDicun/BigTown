@@ -11,4 +11,5 @@ type CharacterInfo struct {
 
 type CharacterReader interface {
 	GetByUserID(ctx context.Context, userID string) (*CharacterInfo, error)
+	GetCoins(ctx context.Context, characterID string) (int, error)
 }
