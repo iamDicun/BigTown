@@ -318,7 +318,7 @@ func TestDeletePlacement_DoubleClick_Concurrently(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		coins, err := uc.DeletePlacement(ctx, userID, placementID)
+		coins, err := uc.DeletePlacement(ctx, userID, "village_adventure", placementID)
 		if err != nil {
 			errChan <- err
 		} else {
@@ -328,7 +328,7 @@ func TestDeletePlacement_DoubleClick_Concurrently(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		coins, err := uc.DeletePlacement(ctx, userID, placementID)
+		coins, err := uc.DeletePlacement(ctx, userID, "village_adventure", placementID)
 		if err != nil {
 			errChan <- err
 		} else {

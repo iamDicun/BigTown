@@ -50,6 +50,10 @@ export function placeItem(payload: PlaceItemPayload) {
   return http.post<PlaceItemResultDto>('/editor/place', payload)
 }
 
-export function deletePlacement(id: string) {
-  return http.delete<DeletePlacementResultDto>(`/editor/place/${id}`)
+export function deletePlacement(id: string, mapCode: string) {
+  return http.delete<DeletePlacementResultDto>(`/editor/place/${id}?map_code=${encodeURIComponent(mapCode)}`)
+}
+
+export function claimCoinPickup(mapCode: string, coinType: string) {
+  return http.post<{ new_coins: number }>('/editor/coin-pickup', { map_code: mapCode, coin_type: coinType })
 }

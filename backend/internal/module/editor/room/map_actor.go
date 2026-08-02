@@ -21,10 +21,12 @@ type MapActor struct {
 	byID      map[string]*entity.Placement
 	wallets   map[string]int
 	residents map[string]int
+	prices    map[string]int // itemID -> price (P0 cache)
 
 	cmds     chan Cmd
 	outbound chan any
 	dirty    chan persistOp
+	done     chan struct{} // channel to block Shutdown until actor loop ends (P1)
 
 	charReader port.CharacterReader
 	repo       port.EditorRepository
@@ -41,9 +43,11 @@ func NewMapActor(mapID, mapCode string, mapW, mapH, tileSize int, charReader por
 		byID:       make(map[string]*entity.Placement),
 		wallets:    make(map[string]int),
 		residents:  make(map[string]int),
+		prices:     make(map[string]int),
 		cmds:       make(chan Cmd, 4096),
 		outbound:   make(chan any, 1024),
 		dirty:      dirty,
+		done:       make(chan struct{}),
 		charReader: charReader,
 		repo:       repo,
 	}
@@ -55,6 +59,15 @@ func NewMapActor(mapID, mapCode string, mapW, mapH, tileSize int, charReader por
 }
 
 func (m *MapActor) loadFromDB() error {
+	// Pre-load all item prices for offline validation (P0)
+	items, err := m.repo.GetDecorationItems(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		m.prices[it.ID] = it.Price
+	}
+
 	placements, err := m.repo.GetPlacementsByMap(context.Background(), m.mapID)
 	if err != nil {
 		return err
@@ -81,13 +94,15 @@ func (m *MapActor) run() {
 		case CmdLeave:
 			m.residents[c.CharID]--
 			if m.residents[c.CharID] <= 0 {
-				m.dirty <- persistOp{
-					Kind:     opFlushWallet,
-					CharID:   c.CharID,
-					NewCoins: m.wallets[c.CharID],
+				if coins, ok := m.wallets[c.CharID]; ok {
+					m.dirty <- persistOp{
+						Kind:     opFlushWallet,
+						CharID:   c.CharID,
+						NewCoins: coins,
+					}
+					delete(m.wallets, c.CharID)
 				}
 				delete(m.residents, c.CharID)
-				delete(m.wallets, c.CharID)
 			}
 		case CmdCredit:
 			coins, err := m.getOrLoadWallet(c.CharID)
@@ -107,6 +122,7 @@ func (m *MapActor) run() {
 		}
 	}
 	close(m.outbound) // stop broadcastLoop
+	close(m.done)     // signal that actor has finished draining (P1)
 }
 
 func (m *MapActor) handlePlace(c Cmd) {
@@ -189,7 +205,18 @@ func (m *MapActor) handleDelete(c Cmd) {
 		return
 	}
 
-	price := c.Item.Price
+	price, ok := m.prices[p.ItemID]
+	if !ok {
+		// Fallback for newly added items during runtime (P0)
+		item, err := m.repo.GetItemByID(context.Background(), p.ItemID)
+		if err != nil || item == nil {
+			c.Reply <- CmdResult{Err: ErrNotFound}
+			return
+		}
+		price = item.Price
+		m.prices[p.ItemID] = price
+	}
+
 	coins, err := m.getOrLoadWallet(c.CharID)
 	if err != nil {
 		c.Reply <- CmdResult{Err: err}

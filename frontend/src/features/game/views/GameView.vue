@@ -39,13 +39,14 @@ onBeforeUnmount(() => {
 
 .game-overlay {
   position: absolute;
-  top: 16px;
+  bottom: 16px;
   right: 16px;
-  bottom: 80px;
   width: min(360px, calc(100vw - 32px));
+  max-height: 250px;
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  z-index: 5;
 }
 
 .game-overlay > * {

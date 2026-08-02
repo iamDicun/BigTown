@@ -28,15 +28,17 @@ type persistOp struct {
 
 type Writer struct {
 	db    *sql.DB
+	rm    *RoomManager
 	in    chan persistOp
 	done  chan struct{}
 	every time.Duration
 	max   int
 }
 
-func NewWriter(db *sql.DB) *Writer {
+func NewWriter(db *sql.DB, rm *RoomManager) *Writer {
 	w := &Writer{
 		db:    db,
+		rm:    rm,
 		in:    make(chan persistOp, 10000),
 		done:  make(chan struct{}),
 		every: 1 * time.Second,
@@ -135,6 +137,12 @@ func (w *Writer) flush(batch []persistOp) {
 
 	if err := tx.Commit(); err != nil {
 		log.Printf("[writer] failed to commit batch transaction: %v", err)
+		return
+	}
+
+	// Evict online cache after database changes are fully committed
+	for charID := range latestCoins {
+		w.rm.EvictOnlineCoins(charID)
 	}
 }
 

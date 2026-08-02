@@ -400,7 +400,7 @@ export class EditorSystem {
 
   private async confirmDelete(placementId: string, sprite: Phaser.GameObjects.Image) {
     try {
-      const res = await editorService.deletePlacement(placementId)
+      const res = await editorService.deletePlacement(placementId, this.mapCode)
 
       // Immediately strip physics bodies to update collision grid (PR4)
       const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]

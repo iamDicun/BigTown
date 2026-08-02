@@ -81,7 +81,43 @@ func (h *EditorHandler) DeletePlacement(ctx *gin.Context) {
 		return
 	}
 
-	newCoins, err := h.usecase.DeletePlacement(ctx.Request.Context(), userID.(string), placementID)
+	mapCode := ctx.Query("map_code")
+	if mapCode == "" {
+		ctx.Error(apperror.BadRequest("Thiếu map_code", nil))
+		return
+	}
+
+	newCoins, err := h.usecase.DeletePlacement(ctx.Request.Context(), userID.(string), mapCode, placementID)
+	if err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response.SuccessResponse[gin.H]{
+		Success: true,
+		Data: gin.H{
+			"new_coins": newCoins,
+		},
+	})
+}
+
+func (h *EditorHandler) CoinPickup(ctx *gin.Context) {
+	userID, ok := ctx.Get("user_id")
+	if !ok {
+		ctx.Error(apperror.Unauthorized("Thiếu user_id", nil))
+		return
+	}
+
+	var input struct {
+		MapCode  string `json:"map_code" binding:"required"`
+		CoinType string `json:"coin_type" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.Error(apperror.BadRequest("Dữ liệu không hợp lệ", err))
+		return
+	}
+
+	newCoins, err := h.usecase.ClaimCoinPickup(ctx.Request.Context(), userID.(string), input.MapCode, input.CoinType)
 	if err != nil {
 		ctx.Error(err)
 		return

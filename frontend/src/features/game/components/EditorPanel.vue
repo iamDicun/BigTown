@@ -124,10 +124,10 @@ function getOccupiedRects(item: DecorationItemDto, x: number, y: number): Occupi
       })
     }
   } else {
-    if (item.code.startsWith('deco_bridge_h_')) {
+    if (item.code && item.code.startsWith('deco_bridge_h_')) {
       rects.push({ x: x, y: y - 28, w: 48, h: 8 })
       rects.push({ x: x, y: y - 4, w: 48, h: 8 })
-    } else if (item.code.startsWith('deco_bridge_v_')) {
+    } else if (item.code && item.code.startsWith('deco_bridge_v_')) {
       rects.push({ x: x - 20, y: y - 16, w: 8, h: 32 })
       rects.push({ x: x + 20, y: y - 16, w: 8, h: 32 })
     }
@@ -215,10 +215,12 @@ onMounted(() => {
       placements.value = placements.value.filter(p => p.id !== detail.deletedId)
     }
 
-    // Immediately trigger Phaser redraw with new list
-    window.dispatchEvent(new CustomEvent('game:loadPlacements', {
-      detail: { placements: placements.value, items: items.value }
-    }))
+    if (detail.placement || detail.deletedId) {
+      // Immediately trigger Phaser redraw with new list
+      window.dispatchEvent(new CustomEvent('game:loadPlacements', {
+        detail: { placements: placements.value, items: items.value }
+      }))
+    }
   }
   window.addEventListener('game:placementDone', onPlacementDone)
 
@@ -339,6 +341,12 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 
 <template>
   <div class="editor-panel-container">
+    <!-- Coins Display at top-right corner (P0) -->
+    <div class="coins-display-global" aria-label="Player Coins">
+      <span class="coin-icon-global">🪙</span>
+      <span class="coin-amount-global">{{ gameStore.coins }}</span>
+    </div>
+
     <!-- Toggle Button (Settings style) -->
     <button 
       class="btn-toggle-editor-pixel" 
@@ -354,10 +362,6 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
       <div v-if="isOpen" class="editor-palette-pixel" aria-label="Editor Palette">
         <div class="palette-header">
           <span class="title">BẢN ĐỒ THIẾT KẾ</span>
-          <div class="coins-display">
-            <span class="coin-icon">🪙</span>
-            <span class="coin-amount">{{ gameStore.coins }}</span>
-          </div>
         </div>
 
         <div v-if="loading" class="palette-loading">
@@ -425,7 +429,7 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 .btn-toggle-editor-pixel {
   position: fixed;
   bottom: 16px;
-  right: 16px;
+  left: 16px;
   width: 48px;
   height: 48px;
   display: flex;
@@ -465,7 +469,7 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 .editor-palette-pixel {
   position: fixed;
   bottom: 76px;
-  right: 16px;
+  left: 16px;
   width: 350px;
   background: var(--pixel-parchment);
   padding: 20px;
@@ -496,22 +500,46 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
   text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.coins-display {
+.coins-display-global {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--pixel-parchment-dark);
-  border: 2px solid var(--pixel-wood-dark);
-  border-radius: 2px;
-  padding: 2px 8px;
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.8);
+  gap: 8px;
+  background: #fdf6e2;
+  border: 3px solid var(--pixel-wood-dark);
+  padding: 4px 12px;
+  box-shadow: 
+    0 3px 0 rgba(0, 0, 0, 0.2), 
+    inset 1px 1px 0 #ffffff;
+  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Crect x='0' y='0' width='12' height='12' fill='%23633e24'/%3E%3Crect x='2' y='2' width='8' height='8' fill='%23fdf6e2'/%3E%3C/svg%3E") 3 repeat;
 }
 
-.coin-amount {
+.coin-icon-global {
+  font-size: 20px;
+  filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.15));
+  animation: coin-pulse 1.2s infinite alternate ease-in-out;
+}
+
+.coin-amount-global {
   font-family: var(--pixel-font);
-  color: var(--pixel-ink);
+  color: #f7a900;
   font-weight: bold;
-  font-size: 18px;
+  font-size: 20px;
+  text-shadow: 
+    1px 1px 0 var(--pixel-wood-dark), 
+    -1px -1px 0 var(--pixel-wood-dark),
+    1px -1px 0 var(--pixel-wood-dark),
+    -1px 1px 0 var(--pixel-wood-dark),
+    1px 1px 0 var(--pixel-wood-dark);
+  letter-spacing: 0.5px;
+}
+
+@keyframes coin-pulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.15); }
 }
 
 .palette-loading {

@@ -29,16 +29,6 @@ func (r *EditorRepository) GetMapIDByCode(ctx context.Context, code string) (str
 	return id, nil
 }
 
-func (r *EditorRepository) GetMapCodeByID(ctx context.Context, id string) (string, error) {
-	query := `SELECT code FROM maps WHERE id = $1`
-	var code string
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&code)
-	if err != nil {
-		return "", err
-	}
-	return code, nil
-}
-
 func (r *EditorRepository) GetDecorationItems(ctx context.Context) ([]entity.DecorationItem, error) {
 	query := `SELECT id::text, code, name, type, asset_key, price, COALESCE(metadata_json::text, '{}') FROM items WHERE type = 'decoration' ORDER BY price ASC`
 	rows, err := r.db.QueryContext(ctx, query)
@@ -90,62 +80,6 @@ func (r *EditorRepository) GetItemByID(ctx context.Context, itemID string) (*ent
 	return &item, nil
 }
 
-func (r *EditorRepository) GetPlacementByID(ctx context.Context, id string) (*entity.Placement, error) {
-	query := `SELECT id::text, map_id::text, character_id::text, item_id::text, x, y, created_at FROM map_placements WHERE id = $1`
-	var p entity.Placement
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&p.ID, &p.MapID, &p.CharacterID, &p.ItemID, &p.X, &p.Y, &p.CreatedAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &p, nil
-}
-
-func (r *EditorRepository) PlaceItemWithTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error {
-	query := `INSERT INTO map_placements (map_id, character_id, item_id, x, y) VALUES ($1, $2, $3, $4, $5) RETURNING id::text, created_at`
-	return tx.QueryRowContext(ctx, query, placement.MapID, placement.CharacterID, placement.ItemID, placement.X, placement.Y).Scan(&placement.ID, &placement.CreatedAt)
-}
-
-func (r *EditorRepository) PlaceItemWithIDAndTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error {
-	query := `INSERT INTO map_placements (id, map_id, character_id, item_id, x, y) VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := tx.ExecContext(ctx, query, placement.ID, placement.MapID, placement.CharacterID, placement.ItemID, placement.X, placement.Y)
-	return err
-}
-
-func (r *EditorRepository) DeductCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error {
-	query := `UPDATE characters SET coins = coins - $1 WHERE id = $2`
-	res, err := tx.ExecContext(ctx, query, amount, characterID)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return errors.New("character not found")
-	}
-	return nil
-}
-
-func (r *EditorRepository) AddCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error {
-	query := `UPDATE characters SET coins = coins + $1 WHERE id = $2`
-	res, err := tx.ExecContext(ctx, query, amount, characterID)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return errors.New("character not found")
-	}
-	return nil
-}
-
 func (r *EditorRepository) GetMapInfoByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
 	query := `SELECT id::text, width, height, tile_size FROM maps WHERE code = $1`
 	var m entity.MapInfo
@@ -158,49 +92,3 @@ func (r *EditorRepository) GetMapInfoByCode(ctx context.Context, code string) (*
 	}
 	return &m, nil
 }
-
-func (r *EditorRepository) DeductCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) {
-	query := `UPDATE characters SET coins = coins - $1 WHERE id = $2 AND coins >= $1 RETURNING coins`
-	var newCoins int
-	err := tx.QueryRowContext(ctx, query, amount, characterID).Scan(&newCoins)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, port.ErrInsufficientCoins
-		}
-		return 0, err
-	}
-	return newCoins, nil
-}
-
-func (r *EditorRepository) AddCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) {
-	query := `UPDATE characters SET coins = coins + $1 WHERE id = $2 RETURNING coins`
-	var newCoins int
-	err := tx.QueryRowContext(ctx, query, amount, characterID).Scan(&newCoins)
-	if err != nil {
-		return 0, err
-	}
-	return newCoins, nil
-}
-
-func (r *EditorRepository) DeletePlacementWithTx(ctx context.Context, tx *sql.Tx, id string) error {
-	query := `DELETE FROM map_placements WHERE id = $1`
-	res, err := tx.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return errors.New("placement not found")
-	}
-	return nil
-}
-
-func (r *EditorRepository) InsertRewardEventWithTx(ctx context.Context, tx *sql.Tx, characterID string, eventType string, coinDelta int) error {
-	query := `INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES ($1, $2, $3)`
-	_, err := tx.ExecContext(ctx, query, characterID, eventType, coinDelta)
-	return err
-}
-

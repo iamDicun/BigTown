@@ -63,10 +63,12 @@ func (u *EditorUsecase) GetEditorData(ctx context.Context, userID string, mapCod
 		placements = make([]entity.Placement, 0)
 	}
 
+	liveCoins, _ := u.rooms.GetCoins(ctx, charInfo.ID)
+
 	return &GetEditorDataOutput{
 		Items:      items,
 		Placements: placements,
-		Coins:      charInfo.Coins,
+		Coins:      liveCoins,
 	}, nil
 }
 
@@ -146,37 +148,18 @@ func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input Plac
 		return nil, mapErr(res.Err)
 	}
 
+	u.rooms.SetOnlineCoins(charInfo.ID, res.NewCoins)
+
 	return &PlaceItemOutput{
 		Placement: *res.Placement,
 		NewCoins:  res.NewCoins,
 	}, nil
 }
 
-func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, placementID string) (int, error) {
+func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID, mapCode, placementID string) (int, error) {
 	charInfo, err := u.charReader.GetByUserID(ctx, userID)
 	if err != nil {
 		return 0, apperror.NotFound("Không tìm thấy nhân vật", err)
-	}
-
-	placement, err := u.repo.GetPlacementByID(ctx, placementID)
-	if err != nil {
-		return 0, apperror.Internal(err)
-	}
-	if placement == nil {
-		return 0, apperror.NotFound("Vật phẩm không tồn tại hoặc đã bị xóa", nil)
-	}
-
-	item, err := u.repo.GetItemByID(ctx, placement.ItemID)
-	if err != nil {
-		return 0, apperror.Internal(err)
-	}
-	if item == nil {
-		return 0, apperror.Internal(errors.New("item not found"))
-	}
-
-	mapCode, err := u.repo.GetMapCodeByID(ctx, placement.MapID)
-	if err != nil {
-		return 0, apperror.Internal(err)
 	}
 
 	a, err := u.rooms.Actor(mapCode)
@@ -191,7 +174,6 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 	cmd := room.Cmd{
 		Kind:     room.CmdDelete,
 		CharID:   charInfo.ID,
-		Item:     item,
 		TargetID: placementID,
 		Reply:    reply,
 	}
@@ -205,6 +187,43 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID string, plac
 		return 0, mapErr(res.Err)
 	}
 
+	u.rooms.SetOnlineCoins(charInfo.ID, res.NewCoins)
+
 	return res.NewCoins, nil
+}
+
+func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, coinType string) (int, error) {
+	if mapCode != "winter" && mapCode != "dark_village" {
+		return 0, apperror.BadRequest("Bản đồ này không hỗ trợ nhặt coin", nil)
+	}
+
+	charInfo, err := u.charReader.GetByUserID(ctx, userID)
+	if err != nil {
+		return 0, apperror.NotFound("Không tìm thấy nhân vật", err)
+	}
+
+	var delta int
+	switch coinType {
+	case "gri":
+		delta = 5
+	case "ama":
+		delta = 10
+	case "azu":
+		delta = 25
+	case "roj":
+		delta = 50
+	case "gold":
+		delta = 100
+	default:
+		delta = 10
+	}
+
+	// Credit delta coins to the resident character wallet in RAM
+	newCoins, err := u.rooms.CreditCoins(ctx, mapCode, charInfo.ID, delta)
+	if err != nil {
+		return 0, apperror.Internal(err)
+	}
+
+	return newCoins, nil
 }
 

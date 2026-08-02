@@ -15,7 +15,7 @@ const maps = ref<MapItem[]>([
   {
     code: 'dark_village',
     name: 'Graveyard',
-    displayName: 'Nghĩa Trang',
+    displayName: 'Graveyard',
     emoji: '🪦',
     themeClass: 'theme-graveyard',
     description: 'Một khu nghĩa trang cổ kính, u tối đầy rẫy bia mộ cổ và sương mù dày đặc bao phủ. Nơi các linh hồn lang thang tìm kiếm sự yên nghỉ và những điều bí ẩn đang chờ đợi kẻ thám hiểm gan dạ.'

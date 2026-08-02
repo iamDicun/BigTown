@@ -12,6 +12,7 @@ import { createAnimations } from './playerAnimations'
 import * as realtimeService from '../services/realtime.service'
 import { playMusic } from '@/shared/audio/audio.service'
 import { EditorSystem } from '../systems/editorSystem'
+import { CoinPickupSystem } from '../systems/coinPickupSystem'
 
 export const gameSceneKey = 'game'
 
@@ -44,6 +45,8 @@ export class GameScene extends Phaser.Scene {
   private movementKeyCodes: number[] = []
   private editorSystem!: EditorSystem
   private mapCollider!: Phaser.Physics.Arcade.Collider
+  private coinPickupSystem: CoinPickupSystem | null = null
+  public map!: Phaser.Tilemaps.Tilemap
 
   constructor() {
     super(gameSceneKey)
@@ -58,7 +61,8 @@ export class GameScene extends Phaser.Scene {
     const { bootstrap, characterId, textureKey, spritesheetConfig, characterOptions } = this.sceneData
     this.localCharacterId = characterId
 
-    const { collisionGroup, aboveLayer, warpZones } = buildMap(this, bootstrap)
+    const { map, collisionGroup, aboveLayer, warpZones } = buildMap(this, bootstrap)
+    this.map = map
     this.warpZones = warpZones
     this.aboveLayerFade = aboveLayer ? createAboveLayerFade(this, aboveLayer) : null
 
@@ -85,6 +89,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
     this.editorSystem = new EditorSystem(this, bootstrap.map_code, this.localPlayer.sprite)
+
+    if (bootstrap.map_code === 'winter' || bootstrap.map_code === 'dark_village') {
+      this.coinPickupSystem = new CoinPickupSystem(this, bootstrap, this.localPlayer.sprite)
+    }
 
     this.setupCamera(bootstrap.map_width, bootstrap.map_height, bootstrap.tile_size)
     const keyboard = this.input.keyboard!
@@ -184,6 +192,10 @@ export class GameScene extends Phaser.Scene {
       this.gameSocket = null
       this.remotePlayers.destroyAll()
       this.editorSystem.destroy()
+      if (this.coinPickupSystem) {
+        this.coinPickupSystem.destroy()
+        this.coinPickupSystem = null
+      }
       if (this.switchMapHandler) {
         window.removeEventListener('game:switchMap', this.switchMapHandler)
         this.switchMapHandler = null

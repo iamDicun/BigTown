@@ -10,6 +10,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *delivery.EditorHandler) {
 	r.GET("/editor", handler.GetEditorData)
 	r.POST("/editor/place", handler.PlaceItem)
 	r.DELETE("/editor/place/:id", handler.DeletePlacement)
+	r.POST("/editor/coin-pickup", handler.CoinPickup)
 }
 
 func (m *EditorModule) RegisterPublicRoutes(r *gin.RouterGroup) {}

@@ -2,7 +2,6 @@ package room
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"sync"
 	"testing"
@@ -38,7 +37,6 @@ type mockEditorRepo struct {
 }
 
 func (m *mockEditorRepo) GetMapIDByCode(ctx context.Context, code string) (string, error) { return "map-1", nil }
-func (m *mockEditorRepo) GetMapCodeByID(ctx context.Context, id string) (string, error)   { return "village", nil }
 func (m *mockEditorRepo) GetMapInfoByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
 	return &entity.MapInfo{ID: "map-1", Width: 1000, Height: 1000, TileSize: 16}, nil
 }
@@ -47,15 +45,6 @@ func (m *mockEditorRepo) GetPlacementsByMap(ctx context.Context, mapID string) (
 	return m.placements, nil
 }
 func (m *mockEditorRepo) GetItemByID(ctx context.Context, itemID string) (*entity.DecorationItem, error) { return nil, nil }
-func (m *mockEditorRepo) GetPlacementByID(ctx context.Context, id string) (*entity.Placement, error) { return nil, nil }
-func (m *mockEditorRepo) PlaceItemWithTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error { return nil }
-func (m *mockEditorRepo) PlaceItemWithIDAndTx(ctx context.Context, tx *sql.Tx, placement *entity.Placement) error { return nil }
-func (m *mockEditorRepo) DeductCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error { return nil }
-func (m *mockEditorRepo) AddCoinsWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) error { return nil }
-func (m *mockEditorRepo) DeductCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) { return 0, nil }
-func (m *mockEditorRepo) AddCoinsGuardedWithTx(ctx context.Context, tx *sql.Tx, characterID string, amount int) (int, error) { return 0, nil }
-func (m *mockEditorRepo) DeletePlacementWithTx(ctx context.Context, tx *sql.Tx, id string) error { return nil }
-func (m *mockEditorRepo) InsertRewardEventWithTx(ctx context.Context, tx *sql.Tx, characterID string, eventType string, coinDelta int) error { return nil }
 
 func TestMapActor_InmemorySafety(t *testing.T) {
 	charID := "char-1"
