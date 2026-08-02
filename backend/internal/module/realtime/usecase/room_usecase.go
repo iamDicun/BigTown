@@ -256,19 +256,5 @@ func (u *RoomUsecase) WarpPlayer(ctx context.Context, roomID string, userID stri
 		return nil, err
 	}
 
-	character, err := u.characters.GetByUserID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, _, err := u.store.LeaveRoom(ctx, roomID, character.ID, ""); err != nil {
-		return nil, err
-	}
-
-	// Trigger listeners (MapActor wallet flusher/evicter) to cleanly save state before warp
-	for _, l := range u.listeners {
-		_ = l.OnPlayerLeave(ctx, roomID, character.ID)
-	}
-
 	return &WarpDestination{MapCode: destMap, X: destX, Y: destY}, nil
 }

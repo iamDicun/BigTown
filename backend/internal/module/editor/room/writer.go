@@ -139,11 +139,6 @@ func (w *Writer) flush(batch []persistOp) {
 		log.Printf("[writer] failed to commit batch transaction: %v", err)
 		return
 	}
-
-	// Evict online cache after database changes are fully committed
-	for charID := range latestCoins {
-		w.rm.EvictOnlineCoins(charID)
-	}
 }
 
 func (w *Writer) Close() {

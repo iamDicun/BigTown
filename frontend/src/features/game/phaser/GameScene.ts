@@ -39,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   private warping = false
   private switchMapHandler: ((e: Event) => void) | null = null
   private chatFocusHandler: ((e: Event) => void) | null = null
+  private loadPlacementsHandler: ((e: Event) => void) | null = null
   private chatFocused = false
   private envSyncHandler: (() => void) | null = null
   private enterKey!: Phaser.Input.Keyboard.Key
@@ -127,6 +128,14 @@ export class GameScene extends Phaser.Scene {
     }
     window.addEventListener('game:chatFocus', this.chatFocusHandler)
 
+    this.loadPlacementsHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { spawned_coins?: editorService.SpawnedCoinDto[] }
+      if (detail.spawned_coins && this.coinPickupSystem) {
+        this.coinPickupSystem.renderCoins(detail.spawned_coins)
+      }
+    }
+    window.addEventListener('game:loadPlacements', this.loadPlacementsHandler)
+
     this.input.on('pointerdown', () => {
       if (this.chatFocused) {
         window.dispatchEvent(new CustomEvent('game:blurChatInput'))
@@ -178,6 +187,12 @@ export class GameScene extends Phaser.Scene {
           detail: { placementId: event.placementId }
         }))
       },
+      onCoinSpawned: (event) => {
+        this.coinPickupSystem?.addCoin(event.coin)
+      },
+      onCoinPicked: (event) => {
+        this.coinPickupSystem?.removeCoin(event.coinId)
+      },
       onCorrection: (event) => this.localPlayer.applyCorrection(event.x, event.y),
     })
 
@@ -203,6 +218,10 @@ export class GameScene extends Phaser.Scene {
       if (this.chatFocusHandler) {
         window.removeEventListener('game:chatFocus', this.chatFocusHandler)
         this.chatFocusHandler = null
+      }
+      if (this.loadPlacementsHandler) {
+        window.removeEventListener('game:loadPlacements', this.loadPlacementsHandler)
+        this.loadPlacementsHandler = null
       }
     })
 

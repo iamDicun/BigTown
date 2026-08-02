@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"sync"
+	"time"
 
 	"backend/internal/module/editor/port"
 	realtimePort "backend/internal/module/realtime/port"
@@ -22,6 +23,7 @@ type RoomManager struct {
 	charReader  port.CharacterReader
 	writer      *Writer
 	onlineCoins map[string]int
+	liveConns   map[string]int // <-- số kết nối đang online của mỗi char
 }
 
 func NewRoomManager(db *sql.DB, publisher port.RoomPublisher, repo port.EditorRepository, charReader port.CharacterReader) *RoomManager {
@@ -32,6 +34,7 @@ func NewRoomManager(db *sql.DB, publisher port.RoomPublisher, repo port.EditorRe
 		repo:        repo,
 		charReader:  charReader,
 		onlineCoins: make(map[string]int),
+		liveConns:   make(map[string]int),
 	}
 	rm.writer = NewWriter(db, rm)
 	return rm
@@ -94,6 +97,7 @@ func (rm *RoomManager) Actor(mapCode string) (*MapActor, error) {
 		rm.repo,
 		rm.writer.in,
 		rm.publisher,
+		rm.GetCoins, // <-- truyền resolver ví live
 	)
 	if err := a.loadFromDB(); err != nil {
 		return nil, err
@@ -157,6 +161,7 @@ func (rm *RoomManager) OnPlayerJoin(ctx context.Context, roomID string, characte
 	if _, exists := rm.onlineCoins[characterID]; !exists {
 		rm.onlineCoins[characterID] = coins
 	}
+	rm.liveConns[characterID]++          // <-- đếm kết nối lên
 	currentCoins := rm.onlineCoins[characterID]
 	rm.mu.Unlock()
 
@@ -175,6 +180,22 @@ func (rm *RoomManager) OnPlayerJoin(ctx context.Context, roomID string, characte
 }
 
 func (rm *RoomManager) OnPlayerLeave(ctx context.Context, roomID string, characterID string) error {
+	rm.mu.Lock()
+	if rm.liveConns[characterID] > 0 {
+		rm.liveConns[characterID]--
+	}
+	gone := rm.liveConns[characterID] <= 0
+	if gone {
+		delete(rm.liveConns, characterID)
+	}
+	rm.mu.Unlock()
+
+	if gone {
+		// Debounce: warp = leave→join, liveConns chạm 0 vài trăm ms rồi lại lên.
+		// Chỉ evict nếu sau grace vẫn không có kết nối nào (offline thật).
+		go rm.scheduleEvict(characterID)
+	}
+
 	a, err := rm.Actor(roomID)
 	if err != nil {
 		return err
@@ -186,4 +207,47 @@ func (rm *RoomManager) OnPlayerLeave(ctx context.Context, roomID string, charact
 		Kind:   CmdLeave,
 		CharID: characterID,
 	})
+}
+
+func (rm *RoomManager) scheduleEvict(characterID string) {
+	time.Sleep(3 * time.Second) // grace cho warp/reconnect
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	if rm.liveConns[characterID] == 0 { // vẫn offline sau grace
+		delete(rm.onlineCoins, characterID)
+	}
+}
+
+func (rm *RoomManager) GetSpawnedCoins(mapCode string) []SpawnedCoin {
+	a, err := rm.Actor(mapCode)
+	if err != nil || a == nil {
+		return nil
+	}
+	return a.GetSpawnedCoins()
+}
+
+func (rm *RoomManager) ClaimCoin(ctx context.Context, mapCode, characterID, coinID string) (int, error) {
+	a, err := rm.Actor(mapCode)
+	if err != nil {
+		return 0, err
+	}
+	if a == nil {
+		return 0, errors.New("map not found")
+	}
+
+	reply := make(chan CmdResult, 1)
+	if err := a.SendCmd(Cmd{
+		Kind:   CmdClaimCoin,
+		CharID: characterID,
+		CoinID: coinID,
+		Reply:  reply,
+	}); err != nil {
+		return 0, err
+	}
+
+	res := <-reply
+	if res.Err == nil {
+		rm.SetOnlineCoins(characterID, res.NewCoins)
+	}
+	return res.NewCoins, res.Err
 }

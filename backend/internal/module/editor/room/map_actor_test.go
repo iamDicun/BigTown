@@ -53,7 +53,10 @@ func TestMapActor_InmemorySafety(t *testing.T) {
 	publisher := &mockRoomPublisher{}
 	dirty := make(chan persistOp, 100)
 
-	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+	resolver := func(ctx context.Context, id string) (int, error) {
+		return charReader.GetCoins(ctx, id)
+	}
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher, resolver)
 
 	item := &entity.DecorationItem{ID: "item-1", Price: 90}
 
@@ -127,7 +130,10 @@ func TestMapActor_WalletResidency_Lifecycle(t *testing.T) {
 	publisher := &mockRoomPublisher{}
 	dirty := make(chan persistOp, 100)
 
-	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+	resolver := func(ctx context.Context, id string) (int, error) {
+		return charReader.GetCoins(ctx, id)
+	}
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher, resolver)
 	defer close(actor.cmds)
 
 	item := &entity.DecorationItem{ID: "item-1", Price: 40}
@@ -214,7 +220,10 @@ func TestMapActor_CmdCredit(t *testing.T) {
 	publisher := &mockRoomPublisher{}
 	dirty := make(chan persistOp, 100)
 
-	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher)
+	resolver := func(ctx context.Context, id string) (int, error) {
+		return charReader.GetCoins(ctx, id)
+	}
+	actor := NewMapActor("map-1", "village", 1000, 1000, 16, charReader, repo, dirty, publisher, resolver)
 	defer close(actor.cmds)
 
 	// Test credit 50 coins via CmdCredit

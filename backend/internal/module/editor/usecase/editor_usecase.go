@@ -31,9 +31,10 @@ func NewEditorUsecase(db *sql.DB, repo port.EditorRepository, charReader port.Ch
 }
 
 type GetEditorDataOutput struct {
-	Items      []entity.DecorationItem `json:"items"`
-	Placements []entity.Placement      `json:"placements"`
-	Coins      int                     `json:"coins"`
+	Items        []entity.DecorationItem `json:"items"`
+	Placements   []entity.Placement      `json:"placements"`
+	Coins        int                     `json:"coins"`
+	SpawnedCoins []room.SpawnedCoin      `json:"spawned_coins"`
 }
 
 func (u *EditorUsecase) GetEditorData(ctx context.Context, userID string, mapCode string) (*GetEditorDataOutput, error) {
@@ -64,11 +65,16 @@ func (u *EditorUsecase) GetEditorData(ctx context.Context, userID string, mapCod
 	}
 
 	liveCoins, _ := u.rooms.GetCoins(ctx, charInfo.ID)
+	spawnedCoins := u.rooms.GetSpawnedCoins(mapCode)
+	if spawnedCoins == nil {
+		spawnedCoins = make([]room.SpawnedCoin, 0)
+	}
 
 	return &GetEditorDataOutput{
-		Items:      items,
-		Placements: placements,
-		Coins:      liveCoins,
+		Items:        items,
+		Placements:   placements,
+		Coins:        liveCoins,
+		SpawnedCoins: spawnedCoins,
 	}, nil
 }
 
@@ -192,7 +198,7 @@ func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID, mapCode, pl
 	return res.NewCoins, nil
 }
 
-func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, coinType string) (int, error) {
+func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, coinID string) (int, error) {
 	if mapCode != "winter" && mapCode != "dark_village" {
 		return 0, apperror.BadRequest("Bản đồ này không hỗ trợ nhặt coin", nil)
 	}
@@ -202,26 +208,9 @@ func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, co
 		return 0, apperror.NotFound("Không tìm thấy nhân vật", err)
 	}
 
-	var delta int
-	switch coinType {
-	case "gri":
-		delta = 5
-	case "ama":
-		delta = 10
-	case "azu":
-		delta = 25
-	case "roj":
-		delta = 50
-	case "gold":
-		delta = 100
-	default:
-		delta = 10
-	}
-
-	// Credit delta coins to the resident character wallet in RAM
-	newCoins, err := u.rooms.CreditCoins(ctx, mapCode, charInfo.ID, delta)
+	newCoins, err := u.rooms.ClaimCoin(ctx, mapCode, charInfo.ID, coinID)
 	if err != nil {
-		return 0, apperror.Internal(err)
+		return 0, mapErr(err)
 	}
 
 	return newCoins, nil

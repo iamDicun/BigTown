@@ -4,11 +4,18 @@ import (
 	"context"
 	"errors"
 	"log"
+	"math/rand"
+	"sync"
 	"time"
 
 	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
+
+	"github.com/google/uuid"
 )
+
+// CoinResolver trả về số coin LIVE của character (ưu tiên onlineCoins, fallback DB).
+type CoinResolver func(ctx context.Context, charID string) (int, error)
 
 type MapActor struct {
 	mapID    string
@@ -23,6 +30,9 @@ type MapActor struct {
 	residents map[string]int
 	prices    map[string]int // itemID -> price (P0 cache)
 
+	coinsOnMap map[string]SpawnedCoin // <-- spawned coins registry
+	coinsMu    sync.RWMutex           // <-- reader/writer mutex for spawned coins
+
 	cmds     chan Cmd
 	outbound chan any
 	dirty    chan persistOp
@@ -30,9 +40,15 @@ type MapActor struct {
 
 	charReader port.CharacterReader
 	repo       port.EditorRepository
+	coins      CoinResolver // <-- live coin resolver
 }
 
-func NewMapActor(mapID, mapCode string, mapW, mapH, tileSize int, charReader port.CharacterReader, repo port.EditorRepository, dirty chan persistOp, publisher port.RoomPublisher) *MapActor {
+func NewMapActor(
+	mapID, mapCode string, mapW, mapH, tileSize int,
+	charReader port.CharacterReader, repo port.EditorRepository,
+	dirty chan persistOp, publisher port.RoomPublisher,
+	coins CoinResolver, // <-- live coin resolver parameter
+) *MapActor {
 	m := &MapActor{
 		mapID:      mapID,
 		mapCode:    mapCode,
@@ -44,12 +60,14 @@ func NewMapActor(mapID, mapCode string, mapW, mapH, tileSize int, charReader por
 		wallets:    make(map[string]int),
 		residents:  make(map[string]int),
 		prices:     make(map[string]int),
+		coinsOnMap: make(map[string]SpawnedCoin),
 		cmds:       make(chan Cmd, 4096),
 		outbound:   make(chan any, 1024),
 		dirty:      dirty,
 		done:       make(chan struct{}),
 		charReader: charReader,
 		repo:       repo,
+		coins:      coins,
 	}
 
 	go m.run()
@@ -78,51 +96,106 @@ func (m *MapActor) loadFromDB() error {
 		m.occupied[key] = &pCopy
 		m.byID[p.ID] = &pCopy
 	}
+
+	// Spawn initial coins on authoritative map load
+	m.spawnInitialCoins()
+
 	return nil
 }
 
 func (m *MapActor) run() {
-	for c := range m.cmds {
-		switch c.Kind {
-		case CmdPlace:
-			m.handlePlace(c)
-		case CmdDelete:
-			m.handleDelete(c)
-		case CmdJoin:
-			m.wallets[c.CharID] = c.Coins
-			m.residents[c.CharID]++
-		case CmdLeave:
-			m.residents[c.CharID]--
-			if m.residents[c.CharID] <= 0 {
-				if coins, ok := m.wallets[c.CharID]; ok {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case c, ok := <-m.cmds:
+			if !ok {
+				close(m.outbound)
+				close(m.done)
+				return
+			}
+			switch c.Kind {
+			case CmdPlace:
+				m.handlePlace(c)
+			case CmdDelete:
+				m.handleDelete(c)
+			case CmdJoin:
+				if _, ok := m.wallets[c.CharID]; !ok {
+					m.wallets[c.CharID] = c.Coins
+				}
+				m.residents[c.CharID]++
+			case CmdLeave:
+				if m.residents[c.CharID] > 0 {
+					m.residents[c.CharID]--
+				}
+				if m.residents[c.CharID] <= 0 {
+					if coins, ok := m.wallets[c.CharID]; ok {
+						m.dirty <- persistOp{
+							Kind:     opFlushWallet,
+							CharID:   c.CharID,
+							NewCoins: coins,
+						}
+						delete(m.wallets, c.CharID)
+					}
+					delete(m.residents, c.CharID)
+				}
+			case CmdCredit:
+				coins, err := m.getOrLoadWallet(c.CharID)
+				if err != nil {
+					c.Reply <- CmdResult{Err: err}
+				} else {
+					newCoins := coins + c.Coins // c.Coins represents the delta change
+					m.wallets[c.CharID] = newCoins
+					c.Reply <- CmdResult{NewCoins: newCoins}
+
 					m.dirty <- persistOp{
 						Kind:     opFlushWallet,
 						CharID:   c.CharID,
-						NewCoins: coins,
+						NewCoins: newCoins,
 					}
-					delete(m.wallets, c.CharID)
 				}
-				delete(m.residents, c.CharID)
-			}
-		case CmdCredit:
-			coins, err := m.getOrLoadWallet(c.CharID)
-			if err != nil {
-				c.Reply <- CmdResult{Err: err}
-			} else {
-				newCoins := coins + c.Coins // c.Coins represents the delta change
+			case CmdClaimCoin:
+				m.coinsMu.Lock()
+				sc, ok := m.coinsOnMap[c.CoinID]
+				if ok {
+					delete(m.coinsOnMap, c.CoinID)
+				}
+				m.coinsMu.Unlock()
+
+				if !ok {
+					c.Reply <- CmdResult{Err: errors.New("coin không tồn tại hoặc đã bị nhặt")}
+					break
+				}
+
+				delta := coinValue(sc.Type)
+				coins, err := m.getOrLoadWallet(c.CharID)
+				if err != nil {
+					c.Reply <- CmdResult{Err: err}
+					break
+				}
+				newCoins := coins + delta
 				m.wallets[c.CharID] = newCoins
 				c.Reply <- CmdResult{NewCoins: newCoins}
 
+				// Broadcast coin_picked to all players in real-time
+				m.outbound <- map[string]any{
+					"type":   "coin_picked",
+					"coinId": c.CoinID,
+				}
+
 				m.dirty <- persistOp{
-					Kind:     opFlushWallet,
-					CharID:   c.CharID,
-					NewCoins: newCoins,
+					Kind:      opFlushWallet,
+					CharID:    c.CharID,
+					NewCoins:  newCoins,
+					CoinDelta: delta,
+					EventType: "coin_pickup",
 				}
 			}
+		case <-ticker.C:
+			m.tickCoins()
 		}
 	}
-	close(m.outbound) // stop broadcastLoop
-	close(m.done)     // signal that actor has finished draining (P1)
 }
 
 func (m *MapActor) handlePlace(c Cmd) {
@@ -251,17 +324,16 @@ func (m *MapActor) handleDelete(c Cmd) {
 }
 
 func (m *MapActor) getOrLoadWallet(charID string) (int, error) {
-	coins, ok := m.wallets[charID]
-	if ok {
-		return coins, nil
+	if coins, ok := m.wallets[charID]; ok {
+		return coins, nil // ví của actor này đã seed → là nguồn chuẩn tại chỗ
 	}
-	// lazy load from DB
-	dbCoins, err := m.charReader.GetCoins(context.Background(), charID)
+	// Chưa seed: hỏi ví LIVE (onlineCoins trước, DB sau) — không bao giờ đọc DB "trần"
+	live, err := m.coins(context.Background(), charID)
 	if err != nil {
 		return 0, err
 	}
-	m.wallets[charID] = dbCoins
-	return dbCoins, nil
+	m.wallets[charID] = live
+	return live, nil
 }
 
 func (m *MapActor) broadcastLoop(pub port.RoomPublisher) {
@@ -285,5 +357,132 @@ func (m *MapActor) SendCmd(cmd Cmd) (err error) {
 		return nil
 	default:
 		return ErrBusy
+	}
+}
+
+func (m *MapActor) GetSpawnedCoins() []SpawnedCoin {
+	m.coinsMu.RLock()
+	defer m.coinsMu.RUnlock()
+
+	coins := make([]SpawnedCoin, 0, len(m.coinsOnMap))
+	for _, sc := range m.coinsOnMap {
+		coins = append(coins, sc)
+	}
+	return coins
+}
+
+func (m *MapActor) isTileFreeForCoin(x, y int) bool {
+	// 1. Check bounds
+	if x < 0 || x >= m.mapW || y < 0 || y >= m.mapH {
+		return false
+	}
+	// 2. Check occupied placements
+	key := [2]int{x, y}
+	if _, taken := m.occupied[key]; taken {
+		return false
+	}
+	// 3. Check existing spawned coins
+	// No lock needed here as this is executed sequentially within actor or protected by coinsMu at call site
+	for _, sc := range m.coinsOnMap {
+		if sc.X == x && sc.Y == y {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *MapActor) findFreeTileForCoin() (int, int, bool) {
+	cols := m.mapW / m.tileSize
+	rows := m.mapH / m.tileSize
+	if cols <= 0 || rows <= 0 {
+		return 0, 0, false
+	}
+
+	for i := 0; i < 100; i++ {
+		c := rand.Intn(cols)
+		r := rand.Intn(rows)
+		x := c * m.tileSize
+		y := r * m.tileSize
+		if m.isTileFreeForCoin(x, y) {
+			return x, y, true
+		}
+	}
+	return 0, 0, false
+}
+
+func (m *MapActor) spawnInitialCoins() {
+	if m.mapCode != "winter" && m.mapCode != "dark_village" {
+		return
+	}
+	m.coinsMu.Lock()
+	defer m.coinsMu.Unlock()
+
+	types := []string{"gri", "ama", "azu", "roj", "gold"}
+	for _, t := range types {
+		for i := 0; i < 10; i++ { // spawn 10 initial coins of each type
+			x, y, ok := m.findFreeTileForCoin()
+			if !ok {
+				break
+			}
+			id := uuid.NewString()
+			m.coinsOnMap[id] = SpawnedCoin{
+				ID:   id,
+				Type: t,
+				X:    x,
+				Y:    y,
+			}
+		}
+	}
+}
+
+func (m *MapActor) tickCoins() {
+	if m.mapCode != "winter" && m.mapCode != "dark_village" {
+		return
+	}
+	m.coinsMu.Lock()
+	defer m.coinsMu.Unlock()
+
+	types := []string{"gri", "ama", "azu", "roj", "gold"}
+	for _, t := range types {
+		count := 0
+		for _, sc := range m.coinsOnMap {
+			if sc.Type == t {
+				count++
+			}
+		}
+		if count < 20 { // Replenish up to 20
+			x, y, ok := m.findFreeTileForCoin()
+			if ok {
+				id := uuid.NewString()
+				sc := SpawnedCoin{
+					ID:   id,
+					Type: t,
+					X:    x,
+					Y:    y,
+				}
+				m.coinsOnMap[id] = sc
+				m.outbound <- map[string]any{
+					"type": "coin_spawned",
+					"coin": sc,
+				}
+			}
+		}
+	}
+}
+
+func coinValue(t string) int {
+	switch t {
+	case "gri":
+		return 5
+	case "ama":
+		return 10
+	case "azu":
+		return 25
+	case "roj":
+		return 50
+	case "gold":
+		return 100
+	default:
+		return 10
 	}
 }

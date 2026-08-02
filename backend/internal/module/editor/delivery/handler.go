@@ -109,15 +109,15 @@ func (h *EditorHandler) CoinPickup(ctx *gin.Context) {
 	}
 
 	var input struct {
-		MapCode  string `json:"map_code" binding:"required"`
-		CoinType string `json:"coin_type" binding:"required"`
+		MapCode string `json:"map_code" binding:"required"`
+		CoinID  string `json:"coin_id" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.Error(apperror.BadRequest("Dữ liệu không hợp lệ", err))
 		return
 	}
 
-	newCoins, err := h.usecase.ClaimCoinPickup(ctx.Request.Context(), userID.(string), input.MapCode, input.CoinType)
+	newCoins, err := h.usecase.ClaimCoinPickup(ctx.Request.Context(), userID.(string), input.MapCode, input.CoinID)
 	if err != nil {
 		ctx.Error(err)
 		return

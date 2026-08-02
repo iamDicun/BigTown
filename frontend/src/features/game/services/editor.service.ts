@@ -20,10 +20,18 @@ export interface PlacementDto {
   created_at: string
 }
 
+export interface SpawnedCoinDto {
+  id: string
+  type: string
+  x: number
+  y: number
+}
+
 export interface EditorDataDto {
   items: DecorationItemDto[]
   placements: PlacementDto[]
   coins: number
+  spawned_coins: SpawnedCoinDto[]
 }
 
 export interface PlaceItemPayload {
@@ -54,6 +62,6 @@ export function deletePlacement(id: string, mapCode: string) {
   return http.delete<DeletePlacementResultDto>(`/editor/place/${id}?map_code=${encodeURIComponent(mapCode)}`)
 }
 
-export function claimCoinPickup(mapCode: string, coinType: string) {
-  return http.post<{ new_coins: number }>('/editor/coin-pickup', { map_code: mapCode, coin_type: coinType })
+export function claimCoinPickup(mapCode: string, coinId: string) {
+  return http.post<{ new_coins: number }>('/editor/coin-pickup', { map_code: mapCode, coin_id: coinId })
 }

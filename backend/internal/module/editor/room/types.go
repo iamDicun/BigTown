@@ -6,6 +6,13 @@ import (
 	"backend/internal/module/editor/entity"
 )
 
+type SpawnedCoin struct {
+	ID   string `json:"id"`
+	Type string `json:"type"` // "gri", "ama", "azu", "roj", "gold"
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+}
+
 type CmdKind int
 
 const (
@@ -14,6 +21,7 @@ const (
 	CmdJoin
 	CmdLeave
 	CmdCredit
+	CmdClaimCoin // <-- claim coin by ID
 )
 
 type Cmd struct {
@@ -25,8 +33,10 @@ type Cmd struct {
 	PlaceID string
 	// delete:
 	TargetID string
-	// join:
+	// join / credit:
 	Coins   int
+	// claim coin:
+	CoinID  string // <-- target coin ID on map
 	Reply   chan CmdResult
 }
 

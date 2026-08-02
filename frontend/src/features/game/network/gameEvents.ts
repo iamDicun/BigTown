@@ -103,9 +103,19 @@ export type DecorationPlacedEvent = {
   }
 }
 
-export type DecorationDeletedEvent = {
-  type: 'decoration_deleted'
-  placementId: string
+export type CoinSpawnedEvent = {
+  type: 'coin_spawned'
+  coin: {
+    id: string
+    type: string
+    x: number
+    y: number
+  }
 }
 
-export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent | DecorationPlacedEvent | DecorationDeletedEvent
+export type CoinPickedEvent = {
+  type: 'coin_picked'
+  coinId: string
+}
+
+export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent | DecorationPlacedEvent | DecorationDeletedEvent | CoinSpawnedEvent | CoinPickedEvent

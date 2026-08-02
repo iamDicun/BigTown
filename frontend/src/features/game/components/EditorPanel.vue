@@ -35,9 +35,13 @@ async function fetchEditorData() {
     placements.value = res.placements || []
     gameStore.coins = res.coins
     
-    // Dispatch placements to Phaser so they can be rendered
+    // Dispatch placements and spawned coins to Phaser so they can be rendered
     window.dispatchEvent(new CustomEvent('game:loadPlacements', {
-      detail: { placements: placements.value, items: items.value }
+      detail: { 
+        placements: placements.value, 
+        items: items.value,
+        spawned_coins: res.spawned_coins || []
+      }
     }))
   } catch (err) {
     console.error('Failed to load editor data:', err)
