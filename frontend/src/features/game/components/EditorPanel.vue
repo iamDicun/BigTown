@@ -264,9 +264,6 @@ onMounted(() => {
   // Listen to map changes and game ready to reload placements
   window.addEventListener('game:mapChanged', fetchEditorData)
   window.addEventListener('game:ready', fetchEditorData)
-
-  // Load editor data immediately on mount
-  fetchEditorData()
 })
 
 onBeforeUnmount(() => {

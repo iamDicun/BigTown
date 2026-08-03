@@ -53,9 +53,14 @@ export class CoinPickupSystem {
   }
 
   public renderCoins(coins: editorService.SpawnedCoinDto[]) {
+    if (!this.coinsGroup || !this.coinsGroup.scene || !this.coinsGroup.scene.sys.isActive()) {
+      return
+    }
     // Evict all existing coins
     this.coinsMap.forEach((coinSprite) => {
-      this.coinsGroup.remove(coinSprite, true, true)
+      if (coinSprite && coinSprite.scene) {
+        this.coinsGroup.remove(coinSprite, true, true)
+      }
     })
     this.coinsMap.clear()
 
