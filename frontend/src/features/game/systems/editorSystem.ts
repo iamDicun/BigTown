@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import type { DecorationItemDto, PlacementDto } from '../services/editor.service'
 import * as editorService from '../services/editor.service'
+import { getDarkness } from './effects/common'
 
 const DECORATION_DEPTH = 3
 
@@ -253,6 +254,11 @@ export class EditorSystem {
         sprite.setPosition(p.x, p.y)
         sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
         
+        const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+        if (glow) {
+          glow.setPosition(p.x, p.y - 40)
+        }
+        
         if (meta.collides && sprite.body) {
           const body = sprite.body as Phaser.Physics.Arcade.StaticBody
           body.updateFromGameObject()
@@ -292,6 +298,15 @@ export class EditorSystem {
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
       sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
+
+      if (item.code === 'deco_lamppost') {
+        const glow = this.scene.add.image(p.x, p.y - 40, 'fx_lantern_glow')
+        glow.setDepth(9001) // on top of FX_DEPTH
+        glow.setBlendMode(Phaser.BlendModes.ADD)
+        glow.setScale(0.35)
+        glow.setAlpha(0)
+        sprite.setData('glow', glow)
+      }
 
       if (meta.anchorX !== undefined && meta.anchorY !== undefined) {
         sprite.setOrigin(meta.anchorX, meta.anchorY)
@@ -392,6 +407,10 @@ export class EditorSystem {
           this.collisionGroup.remove(z, true, true)
           z.destroy()
         })
+      }
+      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+      if (glow) {
+        glow.destroy()
       }
       this.collisionGroup.remove(sprite, true, true)
       this.placementsGroup.remove(sprite, true, true)
@@ -544,6 +563,20 @@ export class EditorSystem {
       }
     })
 
+    // Sync lamppost glows with night cycle
+    const darkness = getDarkness()
+    const time = this.scene.time.now
+    const flicker = 0.92 + Math.sin(time * 0.008) * 0.05 + Math.sin(time * 0.021) * 0.03
+
+    this.placementsGroup.getChildren().forEach((child) => {
+      const sprite = child as Phaser.GameObjects.Image
+      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+      if (glow) {
+        glow.setAlpha(darkness * 0.8 * flicker)
+        glow.setVisible(darkness > 0.05)
+      }
+    })
+
     this.isBehindDecoration = localBehindDecoration
   }
 
@@ -574,6 +607,16 @@ export class EditorSystem {
     window.removeEventListener('game:selectDecoration', this.onSelectDecorationHandler)
     window.removeEventListener('game:cancelPlacement', this.onCancelPlacementHandler)
     window.removeEventListener('game:loadPlacements', this.onLoadPlacementsHandler)
+
+    // Destroy glow images before destroying group
+    this.placementsGroup.getChildren().forEach((child) => {
+      const sprite = child as Phaser.GameObjects.Image
+      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+      if (glow) {
+        glow.destroy()
+      }
+    })
+
     this.placementsGroup.destroy(true, true)
     this.collisionGroup.destroy(true, true)
     this.clearPreview()

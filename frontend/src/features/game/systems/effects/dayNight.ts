@@ -25,7 +25,7 @@ export function makeDayNightLayers(
   mask.img.setAlpha(0)
 
   ensureGlowTexture(scene)
-  const glowScale = (maskSpec.hole * 2.4) / GLOW_TEX_SIZE
+  const glowScale = ((maskSpec.hole * 2.4) / GLOW_TEX_SIZE) * 0.5
   const glow = scene.add.image(cam.scrollX, cam.scrollY, LANTERN_GLOW_KEY)
   glow.setDepth(FX_DEPTH + 1)
   glow.setBlendMode(BLEND_ADD)

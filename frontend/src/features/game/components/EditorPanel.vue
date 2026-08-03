@@ -323,6 +323,9 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
     } else if (key.includes('bridge_wood.png')) {
       sheetW = 144
       sheetH = 64
+    } else if (key.includes('outdoor_decor_free.png')) {
+      sheetW = 112
+      sheetH = 192
     }
 
     if (sheetW > 0 && sheetH > 0) {
