@@ -4,8 +4,6 @@ import * as editorService from '../services/editor.service'
 import { getDarkness } from './effects/common'
 import { PLAYER_DEPTH } from './mapSystem'
 
-const DECORATION_DEPTH = 2
-
 export class EditorSystem {
   private scene: Phaser.Scene
   private placementsGroup!: Phaser.GameObjects.Group
