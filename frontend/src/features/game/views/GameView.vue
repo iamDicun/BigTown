@@ -19,9 +19,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="game-view">
     <GameCanvas />
-    <div class="game-top-left">
-      <AudioSettingsPanel />
-    </div>
+    <AudioSettingsPanel />
     <EditorPanel :map-code="gameStore.mapCode" />
     <aside class="game-overlay">
       <ChatPanel />
@@ -50,17 +48,6 @@ onBeforeUnmount(() => {
 }
 
 .game-overlay > * {
-  pointer-events: auto;
-}
-
-.game-top-left {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 5;
   pointer-events: auto;
 }
 

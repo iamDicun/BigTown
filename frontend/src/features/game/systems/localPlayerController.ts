@@ -177,7 +177,7 @@ export class LocalPlayerController {
 
     if (this.stamina < this.maxStamina) {
       const px = Math.round(this.sprite.x) + 12
-      const py = Math.round(this.sprite.y) - 20
+      const py = Math.round(this.sprite.y) - 10
       
       // Translucent circle background
       this.staminaGraphics.lineStyle(2, 0x000000, 0.3)

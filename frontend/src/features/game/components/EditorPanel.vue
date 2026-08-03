@@ -17,6 +17,15 @@ const isDeleteMode = ref(false)
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
 let errorTimeout: number | null = null
+const isResourceLoading = ref(true)
+
+function setResourceLoadingTrue() {
+  isResourceLoading.value = true
+}
+
+function setResourceLoadingFalse() {
+  isResourceLoading.value = false
+}
 
 function showErrorMessage(msg: string) {
   errorMessage.value = msg
@@ -264,6 +273,8 @@ onMounted(() => {
   // Listen to map changes and game ready to reload placements
   window.addEventListener('game:mapChanged', fetchEditorData)
   window.addEventListener('game:ready', fetchEditorData)
+  window.addEventListener('game:mapChanged', setResourceLoadingTrue)
+  window.addEventListener('game:ready', setResourceLoadingFalse)
 })
 
 onBeforeUnmount(() => {
@@ -274,6 +285,8 @@ onBeforeUnmount(() => {
   if (onPlacementError) window.removeEventListener('game:placementError', onPlacementError)
   window.removeEventListener('game:mapChanged', fetchEditorData)
   window.removeEventListener('game:ready', fetchEditorData)
+  window.removeEventListener('game:mapChanged', setResourceLoadingTrue)
+  window.removeEventListener('game:ready', setResourceLoadingFalse)
 })
 
 watch(() => props.mapCode, () => {
@@ -343,7 +356,7 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 <template>
   <div class="editor-panel-container">
     <!-- Coins Display at top-right corner (P0) -->
-    <div class="coins-display-global" aria-label="Player Coins">
+    <div v-if="!isResourceLoading" class="coins-display-global" aria-label="Player Coins">
       <span class="coin-icon-global">🪙</span>
       <span class="coin-amount-global">{{ gameStore.coins }}</span>
     </div>
