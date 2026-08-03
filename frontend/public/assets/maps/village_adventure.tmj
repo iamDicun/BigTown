@@ -27953,7 +27953,7 @@
                  "y":2304
                 }, 
                 {
-                 "height":112,
+                 "height":111.625,
                  "id":2272,
                  "name":"house_upper_120",
                  "opacity":1,
@@ -27962,115 +27962,43 @@
                  "visible":true,
                  "width":73.25,
                  "x":1931.75,
-                 "y":2080
+                 "y":2080.375
                 }, 
                 {
-                 "height":112,
+                 "height":110.833333333333,
                  "id":2275,
                  "name":"house_upper_35",
                  "opacity":1,
                  "rotation":0,
                  "type":"wall",
                  "visible":true,
-                 "width":96,
-                 "x":560,
-                 "y":1280
+                 "width":70,
+                 "x":573.75,
+                 "y":1281.16666666667
                 }, 
                 {
-                 "height":16,
-                 "id":2276,
-                 "name":"house_base_l_35",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":32,
-                 "x":560,
-                 "y":1392
-                }, 
-                {
-                 "height":16,
-                 "id":2277,
-                 "name":"house_base_r_35",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":48,
-                 "x":608,
-                 "y":1392
-                }, 
-                {
-                 "height":112,
+                 "height":111.333333333333,
                  "id":2278,
                  "name":"house_upper_80",
                  "opacity":1,
                  "rotation":0,
                  "type":"wall",
                  "visible":true,
-                 "width":96,
-                 "x":1280,
-                 "y":480
+                 "width":75.25,
+                 "x":1289.75,
+                 "y":480.666666666667
                 }, 
                 {
-                 "height":16,
-                 "id":2279,
-                 "name":"house_base_l_80",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":32,
-                 "x":1280,
-                 "y":592
-                }, 
-                {
-                 "height":16,
-                 "id":2280,
-                 "name":"house_base_r_80",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":48,
-                 "x":1328,
-                 "y":592
-                }, 
-                {
-                 "height":112,
+                 "height":113.25,
                  "id":2281,
                  "name":"house_upper_160",
                  "opacity":1,
                  "rotation":0,
                  "type":"wall",
                  "visible":true,
-                 "width":96,
-                 "x":2560,
-                 "y":1440
-                }, 
-                {
-                 "height":16,
-                 "id":2282,
-                 "name":"house_base_l_160",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":32,
-                 "x":2560,
-                 "y":1552
-                }, 
-                {
-                 "height":16,
-                 "id":2283,
-                 "name":"house_base_r_160",
-                 "opacity":1,
-                 "rotation":0,
-                 "type":"wall",
-                 "visible":true,
-                 "width":48,
-                 "x":2608,
-                 "y":1552
+                 "width":74.5,
+                 "x":2570.25,
+                 "y":1438.75
                 }, 
                 {
                  "height":112,
@@ -30759,8 +30687,7 @@
                  "width":32,
                  "x":3312,
                  "y":1648
-                },
-            
+                }, 
                 {
                  "height":32,
                  "id":2508,
@@ -30832,7 +30759,8 @@
                  "width":32,
                  "x":2192,
                  "y":1744
-                }, 
+                },
+            
                 {
                  "height":16,
                  "id":2514,

@@ -92,7 +92,7 @@ function intersects(ax: number, ay: number, aw: number, ah: number, bx: number, 
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
 }
 
-function getOccupiedRects(item: DecorationItemDto, x: number, y: number): OccupiedRect[] {
+function getOccupiedRects(item: DecorationItemDto, x: number, y: number, tileSize = 16): OccupiedRect[] {
   const rects: OccupiedRect[] = []
   let meta: any = {}
   try {
@@ -103,19 +103,23 @@ function getOccupiedRects(item: DecorationItemDto, x: number, y: number): Occupi
   const spriteW = hasFrames ? meta.frameWidth : 48
   const spriteH = hasFrames ? meta.frameHeight : 48
 
-  const bodyW = meta.collision_w ?? meta.w ?? spriteW
-  const bodyH = meta.collision_h ?? meta.h ?? spriteH
+  // Calculate scale factor if asset is smaller than tile size
+  const assetW = hasFrames ? meta.frameWidth : spriteW
+  const scale = tileSize / assetW
+
+  const bodyW = (meta.collision_w ?? meta.w ?? spriteW) * scale
+  const bodyH = (meta.collision_h ?? meta.h ?? spriteH) * scale
 
   let offX = 0
   let offY = 0
   if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
-    offX = meta.collision_x
-    offY = meta.collision_y
+    offX = meta.collision_x * scale
+    offY = meta.collision_y * scale
   } else {
     const anchorX = meta.anchorX ?? 0.5
     const anchorY = meta.anchorY ?? 1.0
-    offX = -bodyW / 2 + spriteW * anchorX
-    offY = -bodyH + spriteH * anchorY
+    offX = -bodyW / 2 + (spriteW * scale) * anchorX
+    offY = -bodyH + (spriteH * scale) * anchorY
   }
 
   if (meta.collides) {
@@ -130,19 +134,19 @@ function getOccupiedRects(item: DecorationItemDto, x: number, y: number): Occupi
   if (Array.isArray(meta.extra_colliders)) {
     for (const c of meta.extra_colliders) {
       rects.push({
-        x: x + c.dx,
-        y: y + c.dy,
-        w: c.w,
-        h: c.h
+        x: x + c.dx * scale,
+        y: y + c.dy * scale,
+        w: c.w * scale,
+        h: c.h * scale
       })
     }
   } else {
     if (item.code && item.code.startsWith('deco_bridge_h_')) {
-      rects.push({ x: x, y: y - 28, w: 48, h: 8 })
-      rects.push({ x: x, y: y - 4, w: 48, h: 8 })
+      rects.push({ x: x, y: y - 28 * scale, w: 48 * scale, h: 8 * scale })
+      rects.push({ x: x, y: y - 4 * scale, w: 48 * scale, h: 8 * scale })
     } else if (item.code && item.code.startsWith('deco_bridge_v_')) {
-      rects.push({ x: x - 20, y: y - 16, w: 8, h: 32 })
-      rects.push({ x: x + 20, y: y - 16, w: 8, h: 32 })
+      rects.push({ x: x - 20 * scale, y: y - 16 * scale, w: 8 * scale, h: 32 * scale })
+      rects.push({ x: x + 20 * scale, y: y - 16 * scale, w: 8 * scale, h: 32 * scale })
     }
   }
 
@@ -155,6 +159,7 @@ window.addEventListener('game:checkOccupied', (e: Event) => {
     x: number
     y: number
     item: DecorationItemDto
+    tileSize: number
     callback: (occupied: boolean) => void
   }
 
@@ -163,7 +168,7 @@ window.addEventListener('game:checkOccupied', (e: Event) => {
     return
   }
 
-  const previewRects = getOccupiedRects(detail.item, detail.x, detail.y)
+  const previewRects = getOccupiedRects(detail.item, detail.x, detail.y, detail.tileSize)
   let isOccupied = false
 
   const itemMap = new Map<string, DecorationItemDto>()
@@ -175,7 +180,7 @@ window.addEventListener('game:checkOccupied', (e: Event) => {
     const pItem = itemMap.get(p.item_id)
     if (!pItem) continue
 
-    const existingRects = getOccupiedRects(pItem, p.x, p.y)
+    const existingRects = getOccupiedRects(pItem, p.x, p.y, detail.tileSize)
 
     for (const pr of previewRects) {
       for (const er of existingRects) {
@@ -289,8 +294,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('game:ready', setResourceLoadingFalse)
 })
 
-watch(() => props.mapCode, () => {
-  if (isOpen.value) {
+watch(() => props.mapCode, (newMapCode) => {
+  if (newMapCode === 'winter' || newMapCode === 'dark_village') {
+    isOpen.value = false
+    cancelPlacement()
+  } else if (isOpen.value) {
     fetchEditorData()
   }
 })
@@ -363,6 +371,7 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
 
     <!-- Toggle Button (Settings style) -->
     <button 
+      v-if="mapCode !== 'winter' && mapCode !== 'dark_village'"
       class="btn-toggle-editor-pixel" 
       @click="toggleEditor" 
       :class="{ active: isOpen }"
@@ -372,62 +381,60 @@ function getItemPreviewStyle(item: DecorationItemDto): Record<string, any> {
     </button>
 
     <!-- Editor Palette Overlay (Parchment styled like Login box) -->
-    <transition name="pixel-slide">
-      <div v-if="isOpen" class="editor-palette-pixel" aria-label="Editor Palette">
-        <div class="palette-header">
-          <span class="title">BẢN ĐỒ THIẾT KẾ</span>
-        </div>
+    <div v-if="isOpen" class="editor-palette-pixel" aria-label="Editor Palette">
+      <div class="palette-header">
+        <span class="title">BẢN ĐỒ THIẾT KẾ</span>
+      </div>
 
-        <div v-if="loading" class="palette-loading">
-          Đang đọc bản thiết kế...
-        </div>
+      <div v-if="loading" class="palette-loading">
+        Đang đọc bản thiết kế...
+      </div>
 
-        <div v-else class="palette-grid">
-          <div 
-            v-for="item in items" 
-            :key="item.id"
-            class="palette-item"
-            :class="{ 
-              selected: activePlacementItemId === item.id,
-              disabled: gameStore.coins < item.price
-            }"
-            @click="selectItem(item)"
-          >
-            <div class="item-preview-box">
-              <div :style="getItemPreviewStyle(item)" :aria-label="item.name"></div>
-            </div>
-            <div class="item-info">
-              <span class="item-name">{{ item.name }}</span>
-              <span class="item-price">🪙{{ item.price }}</span>
-            </div>
+      <div v-else class="palette-grid">
+        <div 
+          v-for="item in items" 
+          :key="item.id"
+          class="palette-item"
+          :class="{ 
+            selected: activePlacementItemId === item.id,
+            disabled: gameStore.coins < item.price
+          }"
+          @click="selectItem(item)"
+        >
+          <div class="item-preview-box">
+            <div :style="getItemPreviewStyle(item)" :aria-label="item.name"></div>
+          </div>
+          <div class="item-info">
+            <span class="item-name">{{ item.name }}</span>
+            <span class="item-price">🪙{{ item.price }}</span>
           </div>
         </div>
-
-        <!-- Delete Mode Toggle & Hint Footer -->
-        <div class="palette-footer">
-          <button 
-            class="btn-delete-mode-pixel"
-            :class="{ active: isDeleteMode }"
-            @click="toggleDeleteMode()"
-          >
-            🗑️ {{ isDeleteMode ? 'Tắt Xóa' : 'Xóa Vật Phẩm' }}
-          </button>
-        </div>
-
-        <div v-if="activePlacementItemId" class="placement-hint">
-          <span class="hint-text">Chọn vị trí trên map để đặt. Nhấn ESC hoặc nút bên cạnh để hủy.</span>
-          <button class="btn-cancel-pixel" @click="cancelPlacement">Hủy</button>
-        </div>
-
-        <div v-if="isDeleteMode" class="placement-hint delete-hint">
-          <span class="hint-text text-danger">Click vào vật phẩm đã đặt trên map để xóa và được hoàn tiền 100%.</span>
-        </div>
-
-        <div v-if="errorMessage" class="placement-hint error-hint" aria-live="polite">
-          <span class="hint-text text-danger">⚠️ {{ errorMessage }}</span>
-        </div>
       </div>
-    </transition>
+
+      <!-- Delete Mode Toggle & Hint Footer -->
+      <div class="palette-footer">
+        <button 
+          class="btn-delete-mode-pixel"
+          :class="{ active: isDeleteMode }"
+          @click="toggleDeleteMode()"
+        >
+          🗑️ {{ isDeleteMode ? 'Tắt Xóa' : 'Xóa Vật Phẩm' }}
+        </button>
+      </div>
+
+      <div v-if="activePlacementItemId" class="placement-hint">
+        <span class="hint-text">Chọn vị trí trên map để đặt. Nhấn ESC hoặc nút bên cạnh để hủy.</span>
+        <button class="btn-cancel-pixel" @click="cancelPlacement">Hủy</button>
+      </div>
+
+      <div v-if="isDeleteMode" class="placement-hint delete-hint">
+        <span class="hint-text text-danger">Click vào vật phẩm đã đặt trên map để xóa và được hoàn tiền 100%.</span>
+      </div>
+
+      <div v-if="errorMessage" class="placement-hint error-hint" aria-live="polite">
+        <span class="hint-text text-danger">⚠️ {{ errorMessage }}</span>
+      </div>
+    </div>
   </div>
 </template>
 

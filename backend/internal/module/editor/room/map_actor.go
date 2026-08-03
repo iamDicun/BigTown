@@ -206,6 +206,7 @@ func (m *MapActor) handlePlace(c Cmd) {
 		return
 	}
 	if c.X%m.tileSize != 0 || c.Y%m.tileSize != 0 {
+		log.Printf("DEBUG: placement coordinate is not matching snap grid: X=%d, Y=%d, tileSize=%d", c.X, c.Y, m.tileSize)
 		c.Reply <- CmdResult{Err: errors.New("toạ độ không khớp snap grid")}
 		return
 	}

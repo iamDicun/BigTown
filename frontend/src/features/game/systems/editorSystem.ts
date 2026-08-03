@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 import type { DecorationItemDto, PlacementDto } from '../services/editor.service'
 import * as editorService from '../services/editor.service'
-import { PLAYER_DEPTH } from './mapSystem'
+
+const DECORATION_DEPTH = 3
 
 export class EditorSystem {
   private scene: Phaser.Scene
@@ -15,6 +16,7 @@ export class EditorSystem {
   private mapCode: string
   private playerSprite: Phaser.GameObjects.Sprite
   private isBehindDecoration = false
+  private tileSize: number
 
   private onToggleModeHandler!: (e: Event) => void
   private onToggleDeleteModeHandler!: (e: Event) => void
@@ -22,10 +24,11 @@ export class EditorSystem {
   private onCancelPlacementHandler!: (e: Event) => void
   private onLoadPlacementsHandler!: (e: Event) => void
 
-  constructor(scene: Phaser.Scene, mapCode: string, playerSprite: Phaser.GameObjects.Sprite) {
+  constructor(scene: Phaser.Scene, mapCode: string, playerSprite: Phaser.GameObjects.Sprite, tileSize = 16) {
     this.scene = scene
     this.mapCode = mapCode
     this.playerSprite = playerSprite
+    this.tileSize = tileSize
     this.initialize(playerSprite)
   }
 
@@ -107,6 +110,9 @@ export class EditorSystem {
   }
 
   private startPlacement(item: DecorationItemDto) {
+    if (!this.scene || !this.scene.sys || !this.scene.sys.isActive() || !this.scene.load) {
+      return
+    }
     this.clearPreview()
     this.setDeleteMode(false)
     this.activeDecorationItem = item
@@ -135,6 +141,11 @@ export class EditorSystem {
       } else {
         this.previewSprite.setOrigin(0.5, 1.0) // default anchor at bottom-middle
       }
+
+      // Scale preview sprite if asset width is smaller than map tile size
+      const assetW = hasFrames ? meta.frameWidth : this.previewSprite.width
+      const scale = assetW < this.tileSize ? this.tileSize / assetW : 1.0
+      this.previewSprite.setScale(scale)
     }
 
     // Load preview texture dynamically if not loaded yet
@@ -163,6 +174,9 @@ export class EditorSystem {
   }
 
   private drawPlacements(placements: PlacementDto[], items: DecorationItemDto[]) {
+    if (!this.scene || !this.scene.sys || !this.scene.sys.isActive() || !this.scene.load) {
+      return
+    }
     const safePlacements = placements || []
     const safeItems = items || []
     const itemMap = new Map<string, DecorationItemDto>()
@@ -237,11 +251,27 @@ export class EditorSystem {
         
         // Sync position (usually unchanged)
         sprite.setPosition(p.x, p.y)
-        sprite.setDepth(PLAYER_DEPTH + p.y / 10000.0)
+        sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
         
         if (meta.collides && sprite.body) {
           const body = sprite.body as Phaser.Physics.Arcade.StaticBody
           body.updateFromGameObject()
+          
+          const scale = sprite.scaleX
+          const bodyW = (meta.collision_w ?? meta.w ?? (hasFrames ? meta.frameWidth : sprite.width / scale)) * scale
+          const bodyH = (meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height / scale)) * scale
+          body.setSize(bodyW, bodyH)
+          
+          const spriteW = (hasFrames ? meta.frameWidth : sprite.width / scale) * scale
+          const spriteH = (hasFrames ? meta.frameHeight : sprite.height / scale) * scale
+
+          if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
+            body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
+          } else {
+            const offX = -bodyW / 2 + spriteW * sprite.originX
+            const offY = -bodyH + spriteH * sprite.originY
+            body.setOffset(offX, offY)
+          }
         }
         continue
       }
@@ -254,9 +284,14 @@ export class EditorSystem {
         sprite = this.scene.add.image(p.x, p.y, item.asset_key)
       }
 
+      // Scale sprite if asset width is smaller than map tile size
+      const assetW = hasFrames ? meta.frameWidth : sprite.width
+      const scale = assetW < this.tileSize ? this.tileSize / assetW : 1.0
+      sprite.setScale(scale)
+
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
-      sprite.setDepth(PLAYER_DEPTH + p.y / 10000.0)
+      sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
 
       if (meta.anchorX !== undefined && meta.anchorY !== undefined) {
         sprite.setOrigin(meta.anchorX, meta.anchorY)
@@ -294,22 +329,22 @@ export class EditorSystem {
         this.scene.physics.add.existing(sprite, true)
         const body = sprite.body as Phaser.Physics.Arcade.StaticBody
         
-        const bodyW = meta.collision_w ?? meta.w ?? (hasFrames ? meta.frameWidth : sprite.width)
-        const bodyH = meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height)
+        const bodyW = (meta.collision_w ?? meta.w ?? (hasFrames ? meta.frameWidth : sprite.width)) * scale
+        const bodyH = (meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height)) * scale
         
+        body.updateFromGameObject()
         body.setSize(bodyW, bodyH)
         
-        const spriteW = hasFrames ? meta.frameWidth : sprite.width
-        const spriteH = hasFrames ? meta.frameHeight : sprite.height
+        const spriteW = (hasFrames ? meta.frameWidth : sprite.width) * scale
+        const spriteH = (hasFrames ? meta.frameHeight : sprite.height) * scale
 
         if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
-          body.setOffset(meta.collision_x, meta.collision_y)
+          body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
         } else {
           const offX = -bodyW / 2 + spriteW * sprite.originX
           const offY = -bodyH + spriteH * sprite.originY
           body.setOffset(offX, offY)
         }
-        body.updateFromGameObject()
         this.collisionGroup.add(sprite)
       }
 
@@ -443,9 +478,9 @@ export class EditorSystem {
       const pointer = this.scene.input.activePointer
       const worldPoint = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2
 
-      // Snapping to 16px grid
-      const snappedX = Math.round(worldPoint.x / 16) * 16
-      const snappedY = Math.round(worldPoint.y / 16) * 16
+      // Snapping to map's tile size grid
+      const snappedX = Math.round(worldPoint.x / this.tileSize) * this.tileSize
+      const snappedY = Math.round(worldPoint.y / this.tileSize) * this.tileSize
 
       this.previewSprite.setPosition(snappedX, snappedY)
 
@@ -456,6 +491,7 @@ export class EditorSystem {
           x: snappedX,
           y: snappedY,
           item: this.activeDecorationItem,
+          tileSize: this.tileSize,
           callback: (res: boolean) => {
             occupied = res
           }
@@ -471,18 +507,20 @@ export class EditorSystem {
       }
     }
 
-    // Fade placed items when player is behind them (above layer fade)
+    // Fade placed items when player is behind them (tall items: height > 32)
     const player = this.playerSprite
     const playerBounds = player.getBounds()
     let localBehindDecoration = false
 
     this.placementsGroup.getChildren().forEach((child) => {
       const sprite = child as Phaser.GameObjects.Image
+      const itemCode = sprite.getData('itemCode') as string
       
-      // We only fade items that are tall (height > 32) like houses and trees
-      if (sprite.height > 32) {
+      // We only fade trees per user request
+      if (itemCode && itemCode.toLowerCase().includes('tree')) {
         const spriteBounds = sprite.getBounds()
-        const behind = player.y < sprite.y
+        // Only trigger fade if player's Y is behind the bottom base (y - 16) but still within/under the sprite height
+        const behind = player.y < sprite.y - 16 && player.y > sprite.y - sprite.height
         const overlap = Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, spriteBounds)
         const isBehind = behind && overlap
 
