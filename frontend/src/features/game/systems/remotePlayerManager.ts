@@ -80,7 +80,7 @@ export class RemotePlayerManager {
 
   update(): void {
     for (const [, entry] of this.entries) {
-      entry.sprite.setDepth(PLAYER_DEPTH + entry.sprite.y / 10000.0)
+      entry.sprite.setDepth(PLAYER_DEPTH + (entry.sprite.y + 16) / 10000.0)
       updateNameTagPosition(entry.nameTag, entry.sprite)
     }
   }

@@ -2,8 +2,7 @@ import Phaser from 'phaser'
 import type { DecorationItemDto, PlacementDto } from '../services/editor.service'
 import * as editorService from '../services/editor.service'
 import { getDarkness } from './effects/common'
-
-const DECORATION_DEPTH = 3
+import { PLAYER_DEPTH } from './mapSystem'
 
 export class EditorSystem {
   private scene: Phaser.Scene
@@ -252,7 +251,8 @@ export class EditorSystem {
         
         // Sync position (usually unchanged)
         sprite.setPosition(p.x, p.y)
-        sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
+        const itemDepth = meta.collides ? PLAYER_DEPTH : 2
+        sprite.setDepth(itemDepth + p.y / 10000.0)
         
         const glow = sprite.getData('glow') as Phaser.GameObjects.Image
         if (glow) {
@@ -297,7 +297,8 @@ export class EditorSystem {
 
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
-      sprite.setDepth(DECORATION_DEPTH + p.y / 10000.0)
+      const itemDepth = meta.collides ? PLAYER_DEPTH : 2
+      sprite.setDepth(itemDepth + p.y / 10000.0)
 
       if (item.code === 'deco_lamppost') {
         const glow = this.scene.add.image(p.x, p.y - 40, 'fx_lantern_glow')
