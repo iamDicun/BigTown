@@ -564,18 +564,20 @@ export class EditorSystem {
     })
 
     // Sync lamppost glows with night cycle
-    const darkness = getDarkness()
-    const time = this.scene.time.now
-    const flicker = 0.92 + Math.sin(time * 0.008) * 0.05 + Math.sin(time * 0.021) * 0.03
+    if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {
+      const darkness = getDarkness()
+      const time = this.scene.time.now
+      const flicker = 0.92 + Math.sin(time * 0.008) * 0.05 + Math.sin(time * 0.021) * 0.03
 
-    this.placementsGroup.getChildren().forEach((child) => {
-      const sprite = child as Phaser.GameObjects.Image
-      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-      if (glow) {
-        glow.setAlpha(darkness * 0.8 * flicker)
-        glow.setVisible(darkness > 0.05)
-      }
-    })
+      this.placementsGroup.getChildren().forEach((child) => {
+        const sprite = child as Phaser.GameObjects.Image
+        const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+        if (glow) {
+          glow.setAlpha(darkness * 0.8 * flicker)
+          glow.setVisible(darkness > 0.05)
+        }
+      })
+    }
 
     this.isBehindDecoration = localBehindDecoration
   }
@@ -588,16 +590,18 @@ export class EditorSystem {
     let onBridge = false
     const playerBounds = this.playerSprite.getBounds()
 
-    this.placementsGroup.getChildren().forEach((child) => {
-      const sprite = child as Phaser.GameObjects.Image
-      const itemCode = sprite.getData('itemCode') as string
-      if (itemCode && itemCode.startsWith('deco_bridge_')) {
-        const spriteBounds = sprite.getBounds()
-        if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, spriteBounds)) {
-          onBridge = true
+    if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {
+      this.placementsGroup.getChildren().forEach((child) => {
+        const sprite = child as Phaser.GameObjects.Image
+        const itemCode = sprite.getData('itemCode') as string
+        if (itemCode && itemCode.startsWith('deco_bridge_')) {
+          const spriteBounds = sprite.getBounds()
+          if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, spriteBounds)) {
+            onBridge = true
+          }
         }
-      }
-    })
+      })
+    }
     return onBridge
   }
 
@@ -609,16 +613,24 @@ export class EditorSystem {
     window.removeEventListener('game:loadPlacements', this.onLoadPlacementsHandler)
 
     // Destroy glow images before destroying group
-    this.placementsGroup.getChildren().forEach((child) => {
-      const sprite = child as Phaser.GameObjects.Image
-      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-      if (glow) {
-        glow.destroy()
-      }
-    })
+    if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {
+      try {
+        this.placementsGroup.getChildren().forEach((child) => {
+          const sprite = child as Phaser.GameObjects.Image
+          const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+          if (glow) {
+            glow.destroy()
+          }
+        })
+      } catch {}
+    }
 
-    this.placementsGroup.destroy(true, true)
-    this.collisionGroup.destroy(true, true)
+    if (this.placementsGroup && this.placementsGroup.active) {
+      this.placementsGroup.destroy(true, true)
+    }
+    if (this.collisionGroup && this.collisionGroup.active) {
+      this.collisionGroup.destroy(true, true)
+    }
     this.clearPreview()
   }
 }
