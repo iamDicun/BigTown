@@ -56,12 +56,6 @@ func (rm *RoomManager) SetOnlineCoins(characterID string, coins int) {
 	rm.mu.Unlock()
 }
 
-func (rm *RoomManager) EvictOnlineCoins(characterID string) {
-	rm.mu.Lock()
-	delete(rm.onlineCoins, characterID)
-	rm.mu.Unlock()
-}
-
 func (rm *RoomManager) Actor(mapCode string) (*MapActor, error) {
 	rm.mu.RLock()
 	a, ok := rm.actors[mapCode]

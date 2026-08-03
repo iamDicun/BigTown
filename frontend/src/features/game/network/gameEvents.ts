@@ -118,4 +118,9 @@ export type CoinPickedEvent = {
   coinId: string
 }
 
+export type DecorationDeletedEvent = {
+  type: 'decoration_deleted'
+  placementId: string
+}
+
 export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent | DecorationPlacedEvent | DecorationDeletedEvent | CoinSpawnedEvent | CoinPickedEvent

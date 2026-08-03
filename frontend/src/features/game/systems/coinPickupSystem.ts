@@ -72,6 +72,18 @@ export class CoinPickupSystem {
     const config = COIN_CONFIGS.find((c) => c.type === coin.type)
     if (!config) return
 
+    // Client-side filtering: skip coins that spawn on blocked tiles (P1)
+    const map = this.scene.map
+    if (map) {
+      const tx = Math.floor(coin.x / map.tileWidth)
+      const ty = Math.floor(coin.y / map.tileHeight)
+      const collisionLayerName = 'Collision'
+      const tile = map.getTileAt(tx, ty, true, collisionLayerName)
+      if (tile && tile.index > 0) {
+        return
+      }
+    }
+
     // Position coordinate relative to center of tile
     const px = coin.x + this.scene.map!.tileWidth / 2
     const py = coin.y + this.scene.map!.tileHeight / 2

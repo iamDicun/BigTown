@@ -97,9 +97,6 @@ func (m *MapActor) loadFromDB() error {
 		m.byID[p.ID] = &pCopy
 	}
 
-	// Spawn initial coins on authoritative map load
-	m.spawnInitialCoins()
-
 	return nil
 }
 
@@ -121,10 +118,14 @@ func (m *MapActor) run() {
 			case CmdDelete:
 				m.handleDelete(c)
 			case CmdJoin:
+				hadResidents := len(m.residents) > 0
 				if _, ok := m.wallets[c.CharID]; !ok {
 					m.wallets[c.CharID] = c.Coins
 				}
 				m.residents[c.CharID]++
+				if !hadResidents {
+					m.spawnInitialCoins()
+				}
 			case CmdLeave:
 				if m.residents[c.CharID] > 0 {
 					m.residents[c.CharID]--
@@ -164,7 +165,7 @@ func (m *MapActor) run() {
 				m.coinsMu.Unlock()
 
 				if !ok {
-					c.Reply <- CmdResult{Err: errors.New("coin không tồn tại hoặc đã bị nhặt")}
+					c.Reply <- CmdResult{Err: ErrNotFound}
 					break
 				}
 
@@ -414,12 +415,15 @@ func (m *MapActor) spawnInitialCoins() {
 	if m.mapCode != "winter" && m.mapCode != "dark_village" {
 		return
 	}
+	if len(m.residents) == 0 {
+		return
+	}
 	m.coinsMu.Lock()
 	defer m.coinsMu.Unlock()
 
 	types := []string{"gri", "ama", "azu", "roj", "gold"}
 	for _, t := range types {
-		for i := 0; i < 10; i++ { // spawn 10 initial coins of each type
+		for i := 0; i < 20; i++ { // spawn 20 initial coins of each type
 			x, y, ok := m.findFreeTileForCoin()
 			if !ok {
 				break
@@ -439,9 +443,13 @@ func (m *MapActor) tickCoins() {
 	if m.mapCode != "winter" && m.mapCode != "dark_village" {
 		return
 	}
-	m.coinsMu.Lock()
-	defer m.coinsMu.Unlock()
+	if len(m.residents) == 0 {
+		return
+	}
 
+	var toBroadcast []SpawnedCoin
+
+	m.coinsMu.Lock()
 	types := []string{"gri", "ama", "azu", "roj", "gold"}
 	for _, t := range types {
 		count := 0
@@ -450,22 +458,38 @@ func (m *MapActor) tickCoins() {
 				count++
 			}
 		}
-		if count < 20 { // Replenish up to 20
-			x, y, ok := m.findFreeTileForCoin()
-			if ok {
-				id := uuid.NewString()
-				sc := SpawnedCoin{
-					ID:   id,
-					Type: t,
-					X:    x,
-					Y:    y,
+		if count < 30 { // Limit maximum of 30 coins per type
+			spawnCount := 1
+			if count < 20 { // If it drops below 20, spawn 2
+				spawnCount = 2
+			}
+			for k := 0; k < spawnCount; k++ {
+				if count >= 30 {
+					break
 				}
-				m.coinsOnMap[id] = sc
-				m.outbound <- map[string]any{
-					"type": "coin_spawned",
-					"coin": sc,
+				x, y, ok := m.findFreeTileForCoin()
+				if ok {
+					id := uuid.NewString()
+					sc := SpawnedCoin{
+						ID:   id,
+						Type: t,
+						X:    x,
+						Y:    y,
+					}
+					m.coinsOnMap[id] = sc
+					toBroadcast = append(toBroadcast, sc)
+					count++
 				}
 			}
+		}
+	}
+	m.coinsMu.Unlock()
+
+	// Broadcast events safely without holding coinsMu lock
+	for _, sc := range toBroadcast {
+		m.outbound <- map[string]any{
+			"type": "coin_spawned",
+			"coin": sc,
 		}
 	}
 }
