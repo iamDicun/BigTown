@@ -257,7 +257,7 @@ export class GameScene extends Phaser.Scene {
 
     const cursors = this.chatFocused ? EMPTY_CURSORS : this.cursors
     this.localPlayer.update(time, cursors)
-    this.localPlayer.sprite.setDepth(PLAYER_DEPTH + this.localPlayer.sprite.y / 10000.0)
+    this.localPlayer.sprite.setDepth(PLAYER_DEPTH + (this.localPlayer.sprite.y + 16) / 10000.0)
     this.remotePlayers.update()
     if (this.mapCollider) {
       this.mapCollider.active = !this.editorSystem.isPlayerOnBridge()

@@ -85,7 +85,7 @@ export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuild
   return { map, collisionGroup, aboveLayer, warpZones }
 }
 
-export const PLAYER_DEPTH = 20
+export const PLAYER_DEPTH = 3
 
 function buildCollisionGroup(
   scene: Phaser.Scene,
