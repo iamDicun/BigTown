@@ -23,17 +23,17 @@ function updateSfxVolume(event: Event) {
 <template>
   <div class="audio-settings">
     <button type="button" class="settings-button" :aria-expanded="open" aria-label="Cài đặt âm thanh" @click="open = !open">
-      ⚙
+      ⚙️
     </button>
 
     <section v-if="open" class="settings-panel" aria-label="Cài đặt âm thanh">
       <header>
-        <strong>Âm thanh</strong>
+        <span class="title">ÂM THANH</span>
         <button type="button" class="close-button" aria-label="Đóng cài đặt âm thanh" @click="open = false">×</button>
       </header>
 
       <label>
-        <span>Nhạc nền {{ musicVolumePercent }}%</span>
+        <span>Nhạc nền: {{ musicVolumePercent }}%</span>
         <input
           :value="musicVolume"
           min="0"
@@ -45,7 +45,7 @@ function updateSfxVolume(event: Event) {
       </label>
 
       <label>
-        <span>Hiệu ứng {{ sfxVolumePercent }}%</span>
+        <span>Hiệu ứng: {{ sfxVolumePercent }}%</span>
         <input :value="sfxVolume" min="0" max="1" step="0.01" type="range" @input="updateSfxVolume" />
       </label>
 
@@ -58,54 +58,93 @@ function updateSfxVolume(event: Event) {
 
 <style scoped>
 .audio-settings {
-  position: absolute;
-  top: 16px;
+  position: fixed;
+  top: 70px;
   left: 16px;
-  z-index: 5;
+  z-index: 1010;
   pointer-events: auto;
-  color: #f3e7c4;
-  font-family: VT323, monospace;
-}
-
-.settings-button,
-.close-button,
-.mute-button {
-  border: 2px solid #6f5630;
-  background: #21180f;
-  color: #f3e7c4;
-  box-shadow: 3px 3px 0 #000;
-  cursor: pointer;
-  font: inherit;
+  font-family: var(--pixel-font);
 }
 
 .settings-button {
-  width: 42px;
-  height: 42px;
-  font-size: 22px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--pixel-parchment);
+  border: 3px solid var(--pixel-wood-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 var(--pixel-wood-dark),
+    inset -3px -3px 0 var(--pixel-parchment-dark);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  font-size: 24px;
+  color: var(--pixel-wood-dark);
+  line-height: 1;
+}
+
+.settings-button:hover {
+  background: var(--pixel-parchment-dark);
+}
+
+.settings-button:active,
+.settings-button[aria-expanded="true"] {
+  transform: translateY(2px);
+  background: var(--pixel-accent);
+  box-shadow:
+    0 2px 0 var(--pixel-wood-dark),
+    inset -3px -3px 0 var(--pixel-accent-dark);
 }
 
 .settings-panel {
-  width: 240px;
-  margin-top: 10px;
-  padding: 14px;
-  border: 2px solid #6f5630;
-  background: rgba(24, 17, 10, 0.94);
-  box-shadow: 4px 4px 0 #000;
+  position: absolute;
+  top: 56px;
+  left: 0;
+  width: 260px;
+  background: var(--pixel-parchment);
+  padding: 16px;
+  z-index: 1009;
+  box-shadow:
+    0 0 0 4px var(--pixel-wood-dark),
+    0 0 0 8px var(--pixel-wood),
+    0 0 0 11px var(--pixel-wood-dark),
+    0 16px 28px rgba(0, 0, 0, 0.45);
 }
 
 .settings-panel header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  border-bottom: 3px solid var(--pixel-wood-dark);
+  padding-bottom: 8px;
   margin-bottom: 12px;
+}
+
+.settings-panel header .title {
+  font-family: var(--pixel-font);
+  color: var(--pixel-wood-dark);
   font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .close-button {
-  width: 26px;
-  height: 26px;
+  background: transparent;
+  border: none;
+  color: var(--pixel-wood-dark);
+  font-size: 24px;
+  cursor: pointer;
   line-height: 1;
+  padding: 0 4px;
+  font-family: var(--pixel-font);
+  font-weight: bold;
+}
+
+.close-button:hover {
+  color: var(--pixel-danger);
 }
 
 label {
@@ -113,24 +152,46 @@ label {
   gap: 6px;
   margin-top: 12px;
   font-size: 18px;
+  font-family: var(--pixel-font);
+  color: var(--pixel-ink);
 }
 
 input[type='range'] {
   width: 100%;
-  accent-color: #d9a441;
+  accent-color: var(--pixel-accent);
+  background: var(--pixel-parchment-dark);
+  height: 8px;
+  border: 2px solid var(--pixel-wood-dark);
+  outline: none;
+  cursor: pointer;
 }
 
 .mute-button {
   width: 100%;
   margin-top: 14px;
-  padding: 8px 10px;
+  background: var(--pixel-parchment-dark);
+  border: 3px solid var(--pixel-wood-dark);
+  color: var(--pixel-wood-dark);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: var(--pixel-font);
   font-size: 18px;
+  font-weight: bold;
+  box-shadow:
+    0 4px 0 var(--pixel-wood-dark),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-@media (max-width: 760px) {
-  .audio-settings {
-    top: 12px;
-    left: 12px;
-  }
+.mute-button:hover {
+  background: #ffe0b2;
+}
+
+.mute-button:active {
+  transform: translateY(2px);
+  background: var(--pixel-accent);
+  box-shadow:
+    0 2px 0 var(--pixel-wood-dark),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 </style>

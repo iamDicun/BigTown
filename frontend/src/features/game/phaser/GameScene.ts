@@ -90,7 +90,7 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
-    this.editorSystem = new EditorSystem(this, bootstrap.map_code, this.localPlayer.sprite)
+    this.editorSystem = new EditorSystem(this, bootstrap.map_code, this.localPlayer.sprite, bootstrap.tile_size)
 
     if (bootstrap.map_code === 'winter' || bootstrap.map_code === 'dark_village') {
       this.coinPickupSystem = new CoinPickupSystem(this, bootstrap, this.localPlayer.sprite)

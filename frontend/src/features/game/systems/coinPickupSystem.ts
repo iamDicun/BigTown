@@ -72,6 +72,9 @@ export class CoinPickupSystem {
   }
 
   public addCoin(coin: editorService.SpawnedCoinDto) {
+    if (!this.scene || !this.scene.sys || !this.scene.sys.isActive() || !this.scene.add || !this.scene.map) {
+      return
+    }
     if (this.coinsMap.has(coin.id)) return
 
     const config = COIN_CONFIGS.find((c) => c.type === coin.type)

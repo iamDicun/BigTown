@@ -4,7 +4,7 @@ const MASK_RADIUS = 64
 const FADE_ALPHA_CENTER = 0.35
 const FADE_DURATION_MS = 150
 const PROBE_PADDING = { x: 4, top: 16, bottom: 0 }
-const PLAYER_FADE_ALPHA = 0.72
+const PLAYER_FADE_ALPHA = 0.45
 const UPDATE_THROTTLE_MS = 50
 
 export type AboveLayerFade = {
