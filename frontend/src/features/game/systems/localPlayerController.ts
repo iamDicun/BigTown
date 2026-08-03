@@ -1,4 +1,4 @@
-import type Phaser from 'phaser'
+import Phaser from 'phaser'
 
 import { playRandomSfx } from '@/shared/audio/audio.service'
 
@@ -50,6 +50,12 @@ export class LocalPlayerController {
   private readonly sendMove: (command: PlayerMoveCommand) => void
   private readonly scene: Phaser.Scene
   private nameTag: Phaser.GameObjects.Text | null = null
+  private shiftKey: Phaser.Input.Keyboard.Key | null = null
+  private stamina = 100
+  private readonly maxStamina = 100
+  private staminaGraphics: Phaser.GameObjects.Graphics | null = null
+  private isExhausted = false
+  private staminaCooldownTimer = 0
   private lastFootstepAt = 0
 
   constructor(
@@ -63,6 +69,7 @@ export class LocalPlayerController {
     this.sendMove = sendMove
     this.scene = scene
     this.textureKey = textureKey
+    this.shiftKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT) ?? null
 
     const scale = 32 / config.frame_height
 
@@ -79,6 +86,14 @@ export class LocalPlayerController {
     )
 
     this.sprite.anims.play(idleAnimKey(textureKey, this.facing))
+
+    this.scene.events.on('postupdate', this.onPostUpdate, this)
+    this.scene.events.once('shutdown', () => {
+      this.scene.events.off('postupdate', this.onPostUpdate, this)
+      if (this.staminaGraphics) {
+        this.staminaGraphics.destroy()
+      }
+    }, this)
   }
 
   update(time: number, cursors: MovementKeys): void {
@@ -91,9 +106,40 @@ export class LocalPlayerController {
     const direction = getDirectionFromInput(input)
     const moving = direction !== null
 
+    // Get delta time in seconds
+    const delta = this.scene.game.loop.delta / 1000
+
+    // Handle shift sprint and stamina drain/replenish
+    const isShiftDown = this.shiftKey?.isDown ?? false
+
+    // Reset exhaustion if user releases Shift
+    if (!isShiftDown) {
+      this.isExhausted = false
+    }
+
+    let speedMultiplier = 1.0
+
+    if (isShiftDown && moving && this.stamina > 0 && !this.isExhausted) {
+      speedMultiplier = 1.25 // 120 * 1.25 = 150 maximum running speed
+      this.stamina = Math.max(0, this.stamina - 25 * delta) // Drains in 4 seconds
+      if (this.stamina <= 0) {
+        this.isExhausted = true
+        this.staminaCooldownTimer = 2.0 // Start 2-second delay before regeneration
+      }
+    } else {
+      if (this.staminaCooldownTimer > 0) {
+        this.staminaCooldownTimer = Math.max(0, this.staminaCooldownTimer - delta)
+      } else {
+        this.stamina = Math.min(this.maxStamina, this.stamina + 15 * delta) // Fills in ~6.6 seconds
+        if (this.stamina >= 30) {
+          this.isExhausted = false // Recovered enough to run again
+        }
+      }
+    }
+
     this.sprite.setVelocity(0)
     if (direction) {
-      this.applyMovement(direction)
+      this.applyMovement(direction, speedMultiplier)
     }
     this.sprite.anims.play(moving ? walkAnimKey(this.textureKey, this.facing) : idleAnimKey(this.textureKey, this.facing), true)
 
@@ -112,10 +158,38 @@ export class LocalPlayerController {
       tickMovementThrottle(this.movementThrottle, time, MOVEMENT_THRESHOLD_MS, this.sendMove)
     }
     this.wasMoving = moving
-    this.playFootstepIfNeeded(time, moving)
+    this.playFootstepIfNeeded(time, moving, speedMultiplier)
+  }
 
+  private onPostUpdate(): void {
+    if (!this.sprite || !this.sprite.active) return
+
+    // Update nameTag position after physics update to eliminate jitter
     if (this.nameTag) {
       updateNameTagPosition(this.nameTag, this.sprite)
+    }
+
+    // Render Stamina progress overlay ring after physics update to eliminate jitter
+    if (!this.staminaGraphics) {
+      this.staminaGraphics = this.scene.add.graphics()
+    }
+    this.staminaGraphics.clear()
+
+    if (this.stamina < this.maxStamina) {
+      const px = Math.round(this.sprite.x) + 12
+      const py = Math.round(this.sprite.y) - 20
+      
+      // Translucent circle background
+      this.staminaGraphics.lineStyle(2, 0x000000, 0.3)
+      this.staminaGraphics.strokeCircle(px, py, 5)
+
+      // Green active stamina progress arc
+      this.staminaGraphics.lineStyle(2, 0x2ecc71, 1.0)
+      this.staminaGraphics.beginPath()
+      const startAngle = Phaser.Math.DegToRad(-90)
+      const endAngle = Phaser.Math.DegToRad(-90 + (360 * (this.stamina / this.maxStamina)))
+      this.staminaGraphics.arc(px, py, 5, startAngle, endAngle, false)
+      this.staminaGraphics.strokePath()
     }
   }
 
@@ -146,26 +220,28 @@ export class LocalPlayerController {
     this.lastDirection = direction
   }
 
-  private applyMovement(direction: Direction): void {
+  private applyMovement(direction: Direction, speedMultiplier: number): void {
+    const currentSpeed = PLAYER_SPEED * speedMultiplier
     if (direction === 'left') {
-      this.sprite.setVelocityX(-PLAYER_SPEED)
+      this.sprite.setVelocityX(-currentSpeed)
       this.sprite.setFlipX(true)
     } else if (direction === 'right') {
-      this.sprite.setVelocityX(PLAYER_SPEED)
+      this.sprite.setVelocityX(currentSpeed)
       this.sprite.setFlipX(false)
     } else if (direction === 'up') {
-      this.sprite.setVelocityY(-PLAYER_SPEED)
+      this.sprite.setVelocityY(-currentSpeed)
     } else if (direction === 'down') {
-      this.sprite.setVelocityY(PLAYER_SPEED)
+      this.sprite.setVelocityY(currentSpeed)
     }
 
     this.facing = facingForDirection(direction)
     this.lastDirection = direction
   }
 
-  private playFootstepIfNeeded(time: number, moving: boolean): void {
+  private playFootstepIfNeeded(time: number, moving: boolean, speedMultiplier: number): void {
     if (!moving) return
-    if (time - this.lastFootstepAt < FOOTSTEP_INTERVAL_MS) return
+    const interval = FOOTSTEP_INTERVAL_MS / speedMultiplier
+    if (time - this.lastFootstepAt < interval) return
 
     this.lastFootstepAt = time
     playRandomSfx(FOOTSTEP_SOUNDS, FOOTSTEP_VOLUME)

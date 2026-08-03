@@ -20,3 +20,8 @@ func NewCharacterModule(db *sql.DB, users port.UserReader, defaultMapCode string
 func (m *CharacterModule) Usecase() *usecase.CharacterUsecase {
 	return m.provider.Usecase()
 }
+
+func (m *CharacterModule) Repository() port.CharacterRepository {
+	return m.provider.Repository()
+}
+

@@ -28,10 +28,20 @@ type RoomUsecase struct {
 	store      room.RoomStore
 	characters port.CharacterResolver
 	maps       port.MapReader
+	listeners  []port.RoomEventListener
 }
 
 func NewRoomUsecase(store room.RoomStore, characters port.CharacterResolver, maps port.MapReader) *RoomUsecase {
-	return &RoomUsecase{store: store, characters: characters, maps: maps}
+	return &RoomUsecase{
+		store:      store,
+		characters: characters,
+		maps:       maps,
+		listeners:  make([]port.RoomEventListener, 0),
+	}
+}
+
+func (u *RoomUsecase) AddEventListener(l port.RoomEventListener) {
+	u.listeners = append(u.listeners, l)
 }
 
 // MovementRejection tương ứng event `player_position_correction` — xem
@@ -98,6 +108,12 @@ func (u *RoomUsecase) JoinRoom(ctx context.Context, roomID string, userID string
 		return nil, nil, false, err
 	}
 
+	if isFirstConnection {
+		for _, l := range u.listeners {
+			_ = l.OnPlayerJoin(ctx, roomID, character.ID, character.Coins)
+		}
+	}
+
 	return snapshot, joined, isFirstConnection, nil
 }
 
@@ -115,6 +131,10 @@ func (u *RoomUsecase) LeaveRoom(ctx context.Context, roomID string, userID strin
 	}
 	if !removed {
 		return nil, nil
+	}
+
+	for _, l := range u.listeners {
+		_ = l.OnPlayerLeave(ctx, roomID, character.ID)
 	}
 
 	return player, nil
@@ -233,15 +253,6 @@ type WarpDestination struct {
 func (u *RoomUsecase) WarpPlayer(ctx context.Context, roomID string, userID string, destMap string, destX int, destY int) (*WarpDestination, error) {
 	_, err := u.maps.GetMapByCode(ctx, destMap)
 	if err != nil {
-		return nil, err
-	}
-
-	character, err := u.characters.GetByUserID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, _, err := u.store.LeaveRoom(ctx, roomID, character.ID, ""); err != nil {
 		return nil, err
 	}
 

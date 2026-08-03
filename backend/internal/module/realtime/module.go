@@ -18,3 +18,7 @@ func NewRealtimeModule(jwtSecret string, allowedOrigins []string, mapReader port
 func (m *RealtimeModule) Transport() *transport.CentrifugeTransport {
 	return m.provider.Transport()
 }
+
+func (m *RealtimeModule) AddEventListener(l port.RoomEventListener) {
+	m.provider.AddEventListener(l)
+}

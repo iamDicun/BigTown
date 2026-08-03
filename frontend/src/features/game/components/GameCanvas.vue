@@ -33,6 +33,8 @@ onMounted(async () => {
       throw new Error('Không lấy được character của bạn')
     }
 
+    gameStore.mapCode = bootstrap.map_code
+
     if (containerEl.value) {
       game = createGame(
         containerEl.value,
@@ -56,7 +58,11 @@ onMounted(async () => {
       }
       window.addEventListener('game:ready', readyHandler)
 
-      mapChangedHandler = () => {
+      mapChangedHandler = (e: Event) => {
+        const detail = (e as CustomEvent).detail as { mapCode: string }
+        if (detail?.mapCode) {
+          gameStore.mapCode = detail.mapCode
+        }
         progress.value = 0
         loading.value = true
       }

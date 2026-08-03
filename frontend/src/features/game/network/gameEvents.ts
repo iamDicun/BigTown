@@ -90,4 +90,37 @@ export type RoomStateEvent = {
   players: PlayerStateDto[]
 }
 
-export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent
+export type DecorationPlacedEvent = {
+  type: 'decoration_placed'
+  placement: {
+    id: string
+    map_id: string
+    character_id: string
+    item_id: string
+    x: number
+    y: number
+    created_at: string
+  }
+}
+
+export type CoinSpawnedEvent = {
+  type: 'coin_spawned'
+  coin: {
+    id: string
+    type: string
+    x: number
+    y: number
+  }
+}
+
+export type CoinPickedEvent = {
+  type: 'coin_picked'
+  coinId: string
+}
+
+export type DecorationDeletedEvent = {
+  type: 'decoration_deleted'
+  placementId: string
+}
+
+export type RoomEvent = PlayerJoinedEvent | PlayerLeftEvent | PlayerMoveEvent | PlayerChatEvent | RoomStateEvent | DecorationPlacedEvent | DecorationDeletedEvent | CoinSpawnedEvent | CoinPickedEvent

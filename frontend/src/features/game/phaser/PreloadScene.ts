@@ -34,6 +34,32 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(tilesetName, `/assets/tiles/${tilesetName}.png`)
     }
 
+    this.load.spritesheet(
+      'coin_gems',
+      '/assets/tiles/Coin_Gems/spr_coin_strip4.png',
+      { frameWidth: 16, frameHeight: 16 }
+    )
+    this.load.spritesheet(
+      'coin_gri',
+      '/assets/tiles/Coin_Gems/spr_coin_gri.png',
+      { frameWidth: 16, frameHeight: 16 }
+    )
+    this.load.spritesheet(
+      'coin_ama',
+      '/assets/tiles/Coin_Gems/spr_coin_ama.png',
+      { frameWidth: 16, frameHeight: 16 }
+    )
+    this.load.spritesheet(
+      'coin_azu',
+      '/assets/tiles/Coin_Gems/spr_coin_azu.png',
+      { frameWidth: 16, frameHeight: 16 }
+    )
+    this.load.spritesheet(
+      'coin_roj',
+      '/assets/tiles/Coin_Gems/spr_coin_roj.png',
+      { frameWidth: 16, frameHeight: 16 }
+    )
+
     for (const option of options) {
       this.load.spritesheet(
         option.base_asset_key,

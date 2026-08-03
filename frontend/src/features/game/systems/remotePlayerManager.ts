@@ -4,6 +4,7 @@ import type { Direction } from '../network/gameEvents'
 import { facingForDirection, idleAnimKey, walkAnimKey } from '../phaser/playerAnimations'
 import type { CharacterOptionDto } from '../services/character.service'
 import { createNameTag, updateNameTagPosition } from './nameTagSystem'
+import { PLAYER_DEPTH } from './mapSystem'
 
 const TWEEN_DURATION_MS = 100
 const REMOTE_BLOCK_RADIUS = 26
@@ -79,6 +80,7 @@ export class RemotePlayerManager {
 
   update(): void {
     for (const [, entry] of this.entries) {
+      entry.sprite.setDepth(PLAYER_DEPTH + entry.sprite.y / 10000.0)
       updateNameTagPosition(entry.nameTag, entry.sprite)
     }
   }
