@@ -13,6 +13,7 @@ import * as realtimeService from '../services/realtime.service'
 import { playMusic } from '@/shared/audio/audio.service'
 import { EditorSystem } from '../systems/editorSystem'
 import { CoinPickupSystem } from '../systems/coinPickupSystem'
+import type { SpawnedCoinDto } from '../services/editor.service'
 
 export const gameSceneKey = 'game'
 
@@ -129,7 +130,7 @@ export class GameScene extends Phaser.Scene {
     window.addEventListener('game:chatFocus', this.chatFocusHandler)
 
     this.loadPlacementsHandler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { spawned_coins?: editorService.SpawnedCoinDto[] }
+      const detail = (e as CustomEvent).detail as { spawned_coins?: SpawnedCoinDto[] }
       if (detail.spawned_coins && this.coinPickupSystem) {
         this.coinPickupSystem.renderCoins(detail.spawned_coins)
       }
