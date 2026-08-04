@@ -71,7 +71,7 @@ func Load() *Config {
 			JWTSecret: getEnv("JWT_SECRET", "dev-secret-change-me"),
 		},
 		Teams: TeamsConfig{
-			ClientID: getEnv("TEAMS_CLIENT_ID", ""),
+			ClientID: getEnv("TEAMS_AUDIENCE", ""),
 			TenantID: getEnv("TEAMS_TENANT_ID", "common"),
 		},
 		Game: GameConfig{
