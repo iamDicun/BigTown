@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com *.skype.com *.office.com *.microsoft.com;"
+          "value": "frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com *.cloud.microsoft *.skype.com *.office.com *.microsoft.com;"
         }
       ]
     }
