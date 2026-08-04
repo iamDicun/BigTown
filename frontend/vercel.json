@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com *.skype.com *.office.com *.microsoft.com;"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "id": "2ee48986-3a73-41a8-9509-a079d5c46b42",
+  "version": "1.0.0",
+  "developer": {
+    "name": "BigTown",
+    "websiteUrl": "https://big-town.vercel.app",
+    "privacyUrl": "https://big-town.vercel.app/privacy",
+    "termsOfUseUrl": "https://big-town.vercel.app/terms"
+  },
+  "name": { "short": "BigTown", "full": "BigTown" },
+  "description": {
+    "short": "BigTown trong Teams",
+    "full": "Chơi BigTown ngay trong Microsoft Teams"
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#1e2327",
+
+  "staticTabs": [
+    {
+      "entityId": "bigtown-home",
+      "name": "BigTown",
+      "contentUrl": "https://big-town.vercel.app",
+      "scopes": ["personal"]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://big-town.vercel.app/teams-config",
+      "scopes": ["team", "groupChat"]
+    }
+  ],
+
+  "webApplicationInfo": {
+    "id": "f16074d1-4c0b-4c29-8f00-2072a67d61b8",
+    "resource": "api://big-town.vercel.app/f16074d1-4c0b-4c29-8f00-2072a67d61b8"
+  },
+
+  "validDomains": ["big-town.vercel.app"]
+}

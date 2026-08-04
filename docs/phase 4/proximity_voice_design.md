@@ -31,12 +31,12 @@ Bạn **đã** có sẵn thứ đắt nhất: `GameRoom.Players[characterID]` gi
 
 ### Thuật toán neighbor set
 
-Với mỗi player, tập "nghe được" = những player khác trong bán kính `R`. Recompute mỗi khi có move (đã throttle sẵn ở movement pipeline).
+Với mỗi player, tập "nghe được" = những player khác trong bán kính `R`. Recompute mỗi khi có move (đã throttle sẵn ở movement pipeline). `handlePlayerMove` hiện không broadcast tức thời (có tick 100ms); recompute theo mỗi move (đã throttle 10/s) là ổn, không cần thêm timer riêng.
 
 Ba chi tiết bắt buộc để không giật/không thrash:
 
 1. **Spatial hash** thay vì so sánh O(n²): bucket theo ô lưới cạnh ≈ `R` (`cell = (x/R, y/R)`). Chỉ so player trong 9 ô lân cận → gần O(1) mỗi move. `map_actor` của bạn đã có khái niệm lưới occupancy, dùng lại tư duy đó cho một grid riêng của voice.
-2. **Hysteresis 2 bán kính**: kết nối khi khoảng cách < `R_in`, chỉ ngắt khi > `R_out` (với `R_out > R_in`, ví dụ 256px / 320px). Nếu chỉ 1 ngưỡng, đứng đúng ranh giới sẽ connect/disconnect liên tục (nghe "ọc ọc").
+2. **Hysteresis 2 bán kính**: kết nối khi khoảng cách < `R_in`, chỉ ngắt khi > `R_out` (với `R_out > R_in`, ví dụ 256px / 320px). Nếu chỉ 1 ngưỡng, đứng đúng ranh giới sẽ connect/disconnect liên tục (nghe "ọc ọc"). Để ra được diff `add`/`remove`, cần nhớ audible‑set trước đó của mỗi player — state này sống trong room actor (per‑room), cập nhật dưới lock của actor.
 3. **Cap fan‑out**: nếu quanh bạn > `MAX_PEERS` (vd 8), chỉ giữ `MAX_PEERS` người **gần nhất**. Chặn mesh nổ ở chỗ đông.
 
 Khi tập thay đổi → server bắn cho **riêng** player đó (qua `personal:<userID>`) một diff:
@@ -126,7 +126,7 @@ default:
 }
 ```
 
-`handleVoiceSignal` (skeleton — validate proximity rồi relay qua personal channel bằng đúng helper `publishPersonal` bạn đang có ~dòng 268):
+`handleVoiceSignal` (skeleton — validate proximity rồi relay qua personal channel bằng đúng helper `sendPersonalEvent` bạn đang có ~dòng 268):
 
 ```go
 func handleVoiceSignal(node *centrifuge.Node, ru *usecase.RoomUsecase, client *centrifuge.Client, event centrifuge.RPCEvent, cb centrifuge.RPCCallback) {
@@ -134,7 +134,7 @@ func handleVoiceSignal(node *centrifuge.Node, ru *usecase.RoomUsecase, client *c
 	if err := json.Unmarshal(event.Data, &cmd); err != nil {
 		cb(centrifuge.RPCReply{}, centrifuge.ErrorBadRequest); return
 	}
-	fromUserID := userIDFromClient(client) // như player_move đang làm
+	fromUserID := client.UserID() // như player_move đang làm
 	// Server tự resolve fromCharID + kiểm 'to' có nằm trong audible-set của from.
 	fromCharID, toUserID, ok, err := ru.ResolveVoiceRelay(context.Background(), fromUserID, cmd.To)
 	if err != nil { cb(centrifuge.RPCReply{}, centrifuge.ErrorInternal); return }
@@ -160,9 +160,9 @@ for target, diff := range added {   // target = mỗi player bị ảnh hưởng
 }
 ```
 
-`recomputeVoiceNeighbors` là hàm thuần RAM trên `GameRoom.Players` — không chạm DB, đặt cạnh logic movement. Nhớ: quan hệ gần là **đối xứng**, nên khi A vào vùng B thì cả A và B đều nhận diff.
+`recomputeVoiceNeighbors` cần dữ liệu vị trí từ `GameRoom`, nhưng store là `ActorRoomStore` (đóng gói trong actor, chỉ vào qua `dispatch`) — không truy cập thẳng `GameRoom.Players` được. Phải hoặc tính neighbor **ngay trong room actor** (có lock), hoặc tính trong usecase từ `store.GetSnapshot`. Tin tốt: `MovePlayer` **đã gọi `GetSnapshot` sẵn** cho check minDistance → tái dùng đúng snapshot đó, khỏi tốn thêm round‑trip. Hàm thuần RAM, không chạm DB. Nhớ: quan hệ gần là **đối xứng**, nên khi A vào vùng B thì cả A và B đều nhận diff.
 
-`ResolveVoiceRelay` cũng chỉ tra `GameRoom` trong RAM (from → charID, kiểm `to` thuộc audible‑set hiện tại của from).
+`ResolveVoiceRelay` cũng dùng snapshot tương tự (from → charID, kiểm `to` thuộc audible‑set hiện tại của from), không tra `GameRoom` trực tiếp.
 
 ### 3.4 Dọn khi rời đi
 Player `LeaveRoom` / disconnect / warp sang map khác → server bắn `voice_peers.remove` chứa họ tới mọi người từng nghe được họ, để client đóng PeerConnection. Tận dụng đúng chỗ bạn đang xử lý `playerLeftEvent`.

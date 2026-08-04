@@ -287,7 +287,7 @@ Vì frontend deploy trên Vercel, cấu hình trong `vercel.json`:
 
 ## 9. Bảo mật & lưu ý vận hành
 
-- **Kiểm soát tenant.** Nếu để `TEAMS_TENANT_ID=common` (multi-tenant), bất kỳ tài khoản Microsoft nào ở bất kỳ tổ chức nào cũng đăng nhập được. Nếu chỉ muốn nội bộ, đặt tenant ID cụ thể (verifier đã có sẵn kiểm tra `tid`). Với multi-tenant nhưng muốn giới hạn, cân nhắc thêm allowlist tenant ở tầng usecase.
+- **Kiểm soát tenant.** Nếu để `TEAMS_TENANT_ID=common` (multi-tenant), bất kỳ tài khoản Microsoft nào ở bất kỳ tổ chức nào cũng đăng nhập được. Nếu chỉ muốn nội bộ, đặt tenant ID cụ thể. **Lưu ý:** hiện verifier **chỉ enforce `aud`**, chưa kiểm chặt `claims.TID` thuộc tenant cho phép — nếu không muốn user từ tenant Microsoft bất kỳ đăng nhập được, phải thêm `claims.TID == allowedTenant` (hoặc set tenant cụ thể + enforce). Với multi-tenant nhưng muốn giới hạn, cân nhắc thêm allowlist tenant ở tầng usecase.
 - **Audience.** `MicrosoftTokenVerifier` đã ràng `jwt.WithAudience(clientID)` — giữ nguyên, đừng nới lỏng. Đây là hàng rào chống token cấp cho app khác bị dùng lại.
 - **`oid` là khóa định danh bất biến**, không phải email. Code đã dùng `oid` + `tid` làm khóa `user_identity` — đúng, vì email có thể đổi còn `oid` thì không. Không đổi sang khóa theo email.
 - **Liên kết theo email khi tạo mới.** `TeamsLogin` hiện gắn identity vào user cùng email nếu đã tồn tại. Cân nhắc rủi ro chiếm tài khoản: chỉ auto-link khi email đã được Microsoft xác minh (thường đúng với tài khoản tổ chức) — ghi chú lại nếu sau này mở cho tài khoản cá nhân.
