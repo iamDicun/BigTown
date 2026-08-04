@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@microsoft/teams-js": "^2.54.0",
     "axios": "^1.18.1",
     "centrifuge": "^5.7.0",
     "phaser": "^4.2.1",

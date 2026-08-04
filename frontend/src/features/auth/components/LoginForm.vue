@@ -22,6 +22,7 @@ function handleSubmit() {
     </label>
     <slot name="error" />
     <button type="submit" class="pixel-button">Đăng nhập</button>
+    <slot name="extra-buttons" />
   </form>
 </template>
 

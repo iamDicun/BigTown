@@ -20,6 +20,11 @@ const router = createRouter({
     ...authRoutes,
     ...gameRoutes,
     {
+      path: '/teams-config',
+      name: 'teams-config',
+      component: () => import('@/features/teams/TeamsConfigView.vue'),
+    },
+    {
       path: '/403',
       name: 'forbidden',
       component: () => import('@/app/views/ForbiddenView.vue'),
