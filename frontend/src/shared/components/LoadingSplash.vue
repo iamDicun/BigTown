@@ -2,7 +2,10 @@
 import { computed } from 'vue'
 import logo from '@/assets/images/logo.png'
 
-const props = withDefaults(defineProps<{ progress?: number | null }>(), { progress: null })
+const props = withDefaults(
+  defineProps<{ progress?: number | null; label?: string }>(),
+  { progress: null, label: 'Đang tải tài nguyên…' },
+)
 
 const CIRCLE_R = 58
 const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_R
@@ -32,7 +35,7 @@ const strokeDashOffset = computed(() =>
       <img class="splash-logo" :src="logo" alt="BigTown" />
     </div>
     <p v-if="hasProgress" class="splash-pct">{{ progress }}%</p>
-    <p class="splash-label">Đang tải tài nguyên…</p>
+    <p class="splash-label">{{ label }}</p>
   </div>
 </template>
 

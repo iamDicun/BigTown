@@ -19,7 +19,7 @@ async function handleLogout() {
   // của tài khoản mới bị hiểu nhầm thành remote), và di chuyển bằng bàn phím lại cập nhật đúng
   // character thật (do server tự xác thực qua JWT) khiến nó "đi theo" như một remote player.
   gameStore.$reset()
-  router.push({ name: 'login' })
+  router.push({ name: 'login', query: { loggedout: '1' } })
 }
 </script>
 
