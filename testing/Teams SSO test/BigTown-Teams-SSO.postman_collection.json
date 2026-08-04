@@ -1,0 +1,392 @@
+{
+  "info": {
+    "name": "BigTown - Teams SSO E2E",
+    "_postman_id": "b1g70wn-7ea3-4550-9a11-teamsssotest01",
+    "description": "Test end-to-end luồng đăng nhập Teams SSO của BigTown và các bước hạ nguồn (character, refresh, logout).\n\nCÁCH DÙNG NHANH:\n1. Import cả collection này + file environment 'BigTown-Teams.postman_environment.json'.\n2. Chọn environment, điền `base_url` (vd https://api.big-town.vercel.app) và `sso_token` (JWT thật lấy từ Teams - xem README, mục 'Lấy SSO token').\n3. Chạy theo thứ tự từ trên xuống (hoặc dùng Collection Runner).\n\nMỗi request có sẵn test script (tab Tests) tự kiểm tra kết quả và tự lưu access_token cho request sau. Kết quả PASS/FAIL hiện ở tab Test Results, các cảnh báo (vd cookie SameSite không hợp cho Teams) hiện ở Postman Console (View > Show Postman Console).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "sso_token", "value": "", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "character_name", "value": "PostmanTester", "type": "string" },
+    { "key": "base_asset_key", "value": "player", "type": "string" },
+    { "key": "has_character", "value": "false", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "0. Preflight - decode SSO token (debug aud/tid/oid)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Request giả để kiểm tra nhanh sso_token trước khi bắn lên backend.",
+              "// Không gọi mạng thật, chỉ decode phần payload JWT và in ra Console.",
+              "var CryptoJS = require('crypto-js');",
+              "function b64url(str){ str = String(str).replace(/-/g,'+').replace(/_/g,'/'); while(str.length % 4){ str += '='; } return CryptoJS.enc.Utf8.stringify(CryptoJS.enc.Base64.parse(str)); }",
+              "var t = pm.collectionVariables.get('sso_token') || pm.environment.get('sso_token') || '';",
+              "pm.test('sso_token đã được điền', function(){ pm.expect(t, 'Chưa điền sso_token trong environment/collection variable').to.be.a('string').and.not.empty; });",
+              "if (t) {",
+              "  var parts = t.split('.');",
+              "  pm.test('sso_token có định dạng JWT (3 phần)', function(){ pm.expect(parts.length, 'Không phải JWT hợp lệ').to.eql(3); });",
+              "  try {",
+              "    var p = JSON.parse(b64url(parts[1]));",
+              "    console.log('--- SSO TOKEN CLAIMS ---');",
+              "    console.log('aud (phải TRÙNG TEAMS_CLIENT_ID ở backend):', p.aud);",
+              "    console.log('tid (tenant):', p.tid);",
+              "    console.log('oid (external_subject bất biến):', p.oid);",
+              "    console.log('name:', p.name);",
+              "    console.log('email/preferred_username/upn:', p.email || p.preferred_username || p.upn || p.unique_name);",
+              "    console.log('scp (mong đợi chứa access_as_user):', p.scp);",
+              "    var now = Math.floor(Date.now()/1000);",
+              "    console.log('exp:', p.exp, '=> còn (giây):', p.exp ? (p.exp - now) : 'n/a');",
+              "    pm.test('sso_token chưa hết hạn', function(){ pm.expect(p.exp, 'Token đã hết hạn - lấy token mới').to.be.above(now); });",
+              "    pm.test('sso_token có oid (backend cần oid)', function(){ pm.expect(p.oid, 'Thiếu oid').to.be.a('string').and.not.empty; });",
+              "    pm.collectionVariables.set('sso_aud', String(p.aud||''));",
+              "    pm.collectionVariables.set('sso_tid', String(p.tid||''));",
+              "  } catch(e) { console.log('Không decode được payload:', e.message); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/metrics",
+          "host": ["{{base_url}}"],
+          "path": ["metrics"]
+        },
+        "description": "Chỉ dùng để chạy test-script decode sso_token (endpoint /metrics luôn tồn tại, phản hồi nhanh). Xem kết quả decode ở Postman Console."
+      },
+      "response": []
+    },
+    {
+      "name": "1. POST /api/auth/teams (Teams SSO login)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var CryptoJS = require('crypto-js');",
+              "function b64url(str){ str = String(str).replace(/-/g,'+').replace(/_/g,'/'); while(str.length % 4){ str += '='; } return CryptoJS.enc.Utf8.stringify(CryptoJS.enc.Base64.parse(str)); }",
+              "",
+              "pm.test('Status 200 (đăng nhập Teams thành công)', function () {",
+              "  if (pm.response.code !== 200) {",
+              "    console.log('BODY LỖI:', pm.response.text());",
+              "    console.log('GỢI Ý: 401 = token invalid/audience sai (so aud với TEAMS_CLIENT_ID). 400 = sai field body (phải là sso_token, KHÔNG phải ssoToken).');",
+              "  }",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var json = {};",
+              "try { json = pm.response.json(); } catch(e) {}",
+              "pm.test('Envelope success = true', function(){ pm.expect(json.success).to.eql(true); });",
+              "pm.test('Có access_token', function(){ pm.expect(json.data && json.data.access_token, 'Thiếu access_token').to.be.a('string').and.not.empty; });",
+              "pm.test('token_type = Bearer', function(){ pm.expect(json.data && json.data.token_type).to.eql('Bearer'); });",
+              "pm.test('expires_in là số > 0', function(){ pm.expect(json.data && json.data.expires_in).to.be.a('number').and.above(0); });",
+              "",
+              "if (json.data && json.data.access_token) {",
+              "  pm.collectionVariables.set('access_token', json.data.access_token);",
+              "  try {",
+              "    var claims = JSON.parse(b64url(json.data.access_token.split('.')[1]));",
+              "    pm.collectionVariables.set('user_id', String(claims.user_id||claims.sub||''));",
+              "    console.log('BigTown access_token -> user_id:', claims.user_id, '| role:', claims.role);",
+              "  } catch(e){}",
+              "}",
+              "",
+              "// --- Kiểm tra refresh_token cookie (QUAN TRỌNG cho Teams iframe) ---",
+              "var setCookie = pm.response.headers.get('Set-Cookie') || '';",
+              "pm.test('Backend set cookie refresh_token', function(){ pm.expect(setCookie.toLowerCase(), 'Không thấy Set-Cookie refresh_token').to.include('refresh_token'); });",
+              "if (setCookie) {",
+              "  console.log('--- Set-Cookie refresh_token ---');",
+              "  console.log(setCookie);",
+              "  var low = setCookie.toLowerCase();",
+              "  var sameSiteNone = low.indexOf('samesite=none') !== -1;",
+              "  var secure = low.indexOf('secure') !== -1;",
+              "  var httpOnly = low.indexOf('httponly') !== -1;",
+              "  pm.test('Cookie là HttpOnly', function(){ pm.expect(httpOnly, 'refresh_token nên HttpOnly').to.be.true; });",
+              "  if (!(sameSiteNone && secure)) {",
+              "    console.log('⚠️ CẢNH BÁO TEAMS: cookie hiện KHÔNG phải SameSite=None; Secure.');",
+              "    console.log('   Trong Teams (iframe cross-site) và khi FE khác domain BE, trình duyệt sẽ KHÔNG gửi cookie này => /auth/refresh và /auth/logout sẽ fail.');",
+              "    console.log('   => Đặt COOKIE_SAME_SITE=None và COOKIE_SECURE=true ở backend prod.');",
+              "  } else {",
+              "    console.log('✓ Cookie SameSite=None; Secure — hợp cho Teams iframe.');",
+              "  }",
+              "}",
+              "console.log('Thời gian phản hồi /auth/teams (ms):', pm.response.responseTime);",
+              "pm.test('Latency /auth/teams < 3000ms', function(){ pm.expect(pm.response.responseTime).to.be.below(3000); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sso_token\": \"{{sso_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/teams",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "teams"]
+        },
+        "description": "Đổi Teams SSO token lấy phiên BigTown. LƯU Ý: field bắt buộc là `sso_token` (snake_case) - doc Teams-SSO-Setup-Guide mục 5.3/5.4 ghi nhầm là `ssoToken`, dùng nhầm sẽ bị 400."
+      },
+      "response": []
+    },
+    {
+      "name": "2. GET /api/characters/options",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function(){ pm.response.to.have.status(200); });",
+              "var json = {}; try { json = pm.response.json(); } catch(e){}",
+              "pm.test('Trả danh sách nhân vật chọn được', function(){ pm.expect(json.data).to.be.an('array').and.not.empty; });",
+              "if (json.data && json.data.length) {",
+              "  var keys = json.data.map(function(o){ return o.base_asset_key; });",
+              "  console.log('base_asset_key hợp lệ:', keys.join(', '));",
+              "  // Nếu base_asset_key trong env không hợp lệ, tự lấy cái đầu tiên để bước tạo character không fail.",
+              "  var chosen = pm.collectionVariables.get('base_asset_key');",
+              "  if (keys.indexOf(chosen) === -1) { pm.collectionVariables.set('base_asset_key', keys[0]); console.log('base_asset_key env không khớp, dùng:', keys[0]); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+        "url": {
+          "raw": "{{base_url}}/api/characters/options",
+          "host": ["{{base_url}}"],
+          "path": ["api", "characters", "options"]
+        },
+        "description": "Xác nhận access_token của Teams login dùng được cho route protected."
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET /api/characters/me (trước khi tạo)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 (đã có nhân vật) hoặc 404 (user Teams mới, chưa tạo)', function(){",
+              "  pm.expect([200,404], 'Nhận mã ' + pm.response.code).to.include(pm.response.code);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  var json = {}; try { json = pm.response.json(); } catch(e){}",
+              "  pm.collectionVariables.set('has_character', 'true');",
+              "  console.log('User này đã có nhân vật:', json.data && json.data.name, '| bước 4 sẽ kỳ vọng 400 (đã có nhân vật).');",
+              "} else {",
+              "  pm.collectionVariables.set('has_character', 'false');",
+              "  console.log('User Teams mới, chưa có nhân vật => bước 4 sẽ tạo mới.');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+        "url": {
+          "raw": "{{base_url}}/api/characters/me",
+          "host": ["{{base_url}}"],
+          "path": ["api", "characters", "me"]
+        },
+        "description": "User mới tạo qua Teams SSO chưa có nhân vật -> kỳ vọng 404. User cũ -> 200."
+      },
+      "response": []
+    },
+    {
+      "name": "4. POST /api/characters (tạo nhân vật)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var had = pm.collectionVariables.get('has_character') === 'true';",
+              "var sentName = pm.collectionVariables.get('character_name');",
+              "if (had) {",
+              "  pm.test('User đã có nhân vật -> 400 (đúng logic 1 user 1 character)', function(){ pm.response.to.have.status(400); });",
+              "  console.log('Bỏ qua tạo mới vì user đã có nhân vật (đúng thiết kế UNIQUE(user_id)).');",
+              "} else {",
+              "  pm.test('Status 201 (tạo nhân vật thành công)', function(){",
+              "    if (pm.response.code !== 201) console.log('BODY:', pm.response.text());",
+              "    pm.response.to.have.status(201);",
+              "  });",
+              "  var json = {}; try { json = pm.response.json(); } catch(e){}",
+              "  pm.test('Tên lưu ĐÚNG bằng tên đã gửi', function(){ pm.expect(json.data && json.data.name).to.eql(sentName); });",
+              "  pm.test('base_asset_key lưu đúng', function(){ pm.expect(json.data && json.data.base_asset_key).to.eql(pm.collectionVariables.get('base_asset_key')); });",
+              "  pm.test('Có id nhân vật', function(){ pm.expect(json.data && json.data.id).to.be.a('string').and.not.empty; });",
+              "  if (json.data) console.log('Đã tạo character id:', json.data.id, '| coins:', json.data.coins, '| score:', json.data.score);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{character_name}}\",\n  \"base_asset_key\": \"{{base_asset_key}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/characters",
+          "host": ["{{base_url}}"],
+          "path": ["api", "characters"]
+        },
+        "description": "Tạo nhân vật cho user Teams. Kiểm chứng tên được lưu đúng xuống DB."
+      },
+      "response": []
+    },
+    {
+      "name": "5. GET /api/characters/me (sau khi tạo - xác nhận persist)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function(){ pm.response.to.have.status(200); });",
+              "var json = {}; try { json = pm.response.json(); } catch(e){}",
+              "var expected = pm.collectionVariables.get('character_name');",
+              "if (pm.collectionVariables.get('has_character') === 'false') {",
+              "  pm.test('Tên nhân vật persist đúng sau reload', function(){ pm.expect(json.data && json.data.name).to.eql(expected); });",
+              "}",
+              "pm.test('map_id đã được sync (không null)', function(){ pm.expect(json.data && json.data.map_id, 'map_id null - kiểm tra đã seed map mặc định chưa').to.not.eql(null); });",
+              "if (json.data) console.log('Character sau reload:', JSON.stringify(json.data));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+        "url": {
+          "raw": "{{base_url}}/api/characters/me",
+          "host": ["{{base_url}}"],
+          "path": ["api", "characters", "me"]
+        },
+        "description": "Đọc lại nhân vật để chắc chắn dữ liệu đã ghi xuống DB (không phải chỉ trong RAM cache của lần tạo)."
+      },
+      "response": []
+    },
+    {
+      "name": "6. POST /api/auth/refresh (test cookie - điểm nghẽn Teams)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log('--- REFRESH: kiểm tra refresh_token cookie có được gửi lại không ---');",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Refresh OK (cookie gửi được)', function(){ pm.response.to.have.status(200); });",
+              "  var json = {}; try { json = pm.response.json(); } catch(e){}",
+              "  if (json.data && json.data.access_token) { pm.collectionVariables.set('access_token', json.data.access_token); }",
+              "  console.log('✓ Refresh chạy được. Lưu ý: Postman cùng site nên gửi cookie OK. Trong Teams (iframe cross-site) có thể vẫn fail nếu cookie không SameSite=None; Secure.');",
+              "} else {",
+              "  pm.test('Refresh trả 401 do thiếu cookie (kịch bản Teams cross-site)', function(){ pm.expect(pm.response.code).to.eql(401); });",
+              "  console.log('⚠️ Refresh 401 - refresh_token cookie không được gửi. Nguyên nhân thường gặp:');",
+              "  console.log('   - COOKIE_SAME_SITE!=None hoặc COOKIE_SECURE=false (bắt buộc cho iframe Teams / FE khác domain BE).');",
+              "  console.log('   - Trong Teams desktop/webview có thể chặn third-party cookie hoàn toàn => nên dựa vào SSO re-login mỗi lần mở tab (FE đã tự làm ở LoginView.onMounted).');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/api/auth/refresh",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "refresh"]
+        },
+        "description": "Không gửi body - backend đọc refresh_token từ cookie (path=/api/auth). Đây là chỗ dễ vỡ nhất khi chạy trong Teams."
+      },
+      "response": []
+    },
+    {
+      "name": "7. POST /api/auth/logout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 hoặc 401 (nếu thiếu cookie refresh)', function(){ pm.expect([200,401]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) { console.log('✓ Logout OK, phiên đã thu hồi.'); }",
+              "else { console.log('Logout 401 - cùng lý do cookie như bước 6. FE xử lý best-effort nên vẫn xoá session local.'); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/logout",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "logout"]
+        },
+        "description": "Logout cần cả Bearer access_token và cookie refresh_token."
+      },
+      "response": []
+    },
+    {
+      "name": "8. (Đối chiếu latency) POST /api/auth/login - email/password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Request TÙY CHỌN: chỉ để so sánh độ trễ backend giữa login thường và Teams login.",
+              "// Điền login_email / login_password trong environment nếu muốn chạy. Nếu để trống thì bỏ qua.",
+              "var email = pm.environment.get('login_email') || pm.collectionVariables.get('login_email');",
+              "if (!email) { pm.test.skip && pm.test.skip('Bỏ qua - chưa cấu hình login_email'); console.log('Bỏ qua bước đối chiếu: chưa điền login_email/login_password.'); return; }",
+              "console.log('Latency /auth/login (email/pw) ms:', pm.response.responseTime);",
+              "console.log('=> So với Latency /auth/teams ở bước 1. Chênh lệch chủ yếu là verify JWT + (lần đầu) fetch JWKS Microsoft. getAuthToken()/app.initialize() của Teams KHÔNG đo được ở Postman (nằm phía client Teams).');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{login_email}}\",\n  \"password\": \"{{login_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": ["{{base_url}}"],
+          "path": ["api", "auth", "login"]
+        },
+        "description": "Tùy chọn. Chạy nhiều lần để so sánh responseTime giữa login thường và /auth/teams. Lần gọi /auth/teams ĐẦU TIÊN sau khi backend khởi động sẽ chậm hơn vì phải fetch JWKS (cache 1 giờ), các lần sau nhanh như login thường."
+      },
+      "response": []
+    }
+  ]
+}
