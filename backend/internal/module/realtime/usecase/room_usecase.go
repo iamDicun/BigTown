@@ -166,8 +166,8 @@ func (u *RoomUsecase) MovePlayer(ctx context.Context, roomID string, userID stri
 	}
 
 	elapsed := time.Since(current.LastSeenAt).Seconds()
-	if elapsed < 0.01 {
-		elapsed = 0.01
+	if elapsed < 0.08 {
+		elapsed = 0.08
 	}
 	if distance(current.X, current.Y, movement.X, movement.Y) > maxSpeedPxPerSec*elapsed {
 		return nil, &MovementRejection{CharacterID: character, Reason: "too_fast", X: current.X, Y: current.Y}, nil
