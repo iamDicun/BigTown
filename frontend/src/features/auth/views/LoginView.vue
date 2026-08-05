@@ -27,6 +27,7 @@ async function handleSubmit(payload: { email: string; password: string }) {
   errorMessage.value = ''
   try {
     await authStore.login(payload.email, payload.password)
+    teamsConnecting.value = true
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.push(redirect)
   } catch {
@@ -56,6 +57,15 @@ onMounted(async () => {
     handleTeamsLogin()
   } else {
     teamsConnecting.value = false
+  }
+
+  const warmGameChunk = () => {
+    void import('@/features/game/views/GameView.vue')
+  }
+  if ('requestIdleCallback' in window) {
+    ;(window as any).requestIdleCallback(warmGameChunk, { timeout: 3000 })
+  } else {
+    setTimeout(warmGameChunk, 800)
   }
 })
 </script>
