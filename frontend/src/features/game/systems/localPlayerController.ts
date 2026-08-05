@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 
-import { playRandomSfx } from '@/shared/audio/audio.service'
+import { audioState } from '@/shared/audio/audio.service'
 
 import type { Direction, PlayerMoveCommand } from '../network/gameEvents'
 import {
@@ -26,7 +26,7 @@ const MOVEMENT_THRESHOLD_MS = 100
 const PLAYER_BODY_SIZE = { width: 16, height: 12 }
 const FOOTSTEP_INTERVAL_MS = 460
 const FOOTSTEP_VOLUME = 0.38
-const FOOTSTEP_SOUNDS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']
+const FOOTSTEP_KEYS = ['footstep_1', 'footstep_2', 'footstep_3', 'footstep_4', 'footstep_5', 'footstep_6', 'footstep_7']
 
 // Gói toàn bộ local player: sprite, input -> velocity/animation, throttle + gửi RPC player_move,
 // và snap về vị trí authoritative (join snapshot / correction). Tách khỏi GameScene để scene
@@ -156,33 +156,34 @@ export class LocalPlayerController {
   private onPostUpdate(): void {
     if (!this.sprite || !this.sprite.active) return
 
-    // Update nameTag position after physics update to eliminate jitter
     if (this.nameTag) {
       updateNameTagPosition(this.nameTag, this.sprite)
     }
 
-    // Render Stamina progress overlay ring after physics update to eliminate jitter
+    const needDraw = this.stamina < this.maxStamina
+    if (!needDraw) {
+      if (this.staminaGraphics && this.staminaGraphics.commandBuffer.length) {
+        this.staminaGraphics.clear()
+      }
+      return
+    }
     if (!this.staminaGraphics) {
       this.staminaGraphics = this.scene.add.graphics()
     }
     this.staminaGraphics.clear()
 
-    if (this.stamina < this.maxStamina) {
-      const px = Math.round(this.sprite.x) + 12
-      const py = Math.round(this.sprite.y) - 10
-      
-      // Translucent circle background
-      this.staminaGraphics.lineStyle(2, 0x000000, 0.3)
-      this.staminaGraphics.strokeCircle(px, py, 5)
+    const px = Math.round(this.sprite.x) + 12
+    const py = Math.round(this.sprite.y) - 10
 
-      // Green active stamina progress arc
-      this.staminaGraphics.lineStyle(2, 0x2ecc71, 1.0)
-      this.staminaGraphics.beginPath()
-      const startAngle = Phaser.Math.DegToRad(-90)
-      const endAngle = Phaser.Math.DegToRad(-90 + (360 * (this.stamina / this.maxStamina)))
-      this.staminaGraphics.arc(px, py, 5, startAngle, endAngle, false)
-      this.staminaGraphics.strokePath()
-    }
+    this.staminaGraphics.lineStyle(2, 0x000000, 0.3)
+    this.staminaGraphics.strokeCircle(px, py, 5)
+
+    this.staminaGraphics.lineStyle(2, 0x2ecc71, 1.0)
+    this.staminaGraphics.beginPath()
+    const startAngle = Phaser.Math.DegToRad(-90)
+    const endAngle = Phaser.Math.DegToRad(-90 + (360 * (this.stamina / this.maxStamina)))
+    this.staminaGraphics.arc(px, py, 5, startAngle, endAngle, false)
+    this.staminaGraphics.strokePath()
   }
 
   // Tên character lấy từ room_snapshot lúc join (server trả về, không đọc từ token — xem
@@ -200,7 +201,21 @@ export class LocalPlayerController {
   // docs/Realtime-Room-State-Decisions.md mục 6. Snap thẳng, không tween, để tránh cảm giác
   // trôi lệch tiếp khỏi vị trí server chấp nhận.
   applyCorrection(x: number, y: number): void {
-    this.sprite.setPosition(x, y)
+    const dx = x - this.sprite.x
+    const dy = y - this.sprite.y
+    const dist = Math.hypot(dx, dy)
+
+    if (dist < 6) {
+      this.movementThrottle.latestMovement = null
+      return
+    }
+    if (dist > 64) {
+      this.sprite.setPosition(x, y)
+    } else {
+      this.scene.tweens.add({
+        targets: this.sprite, x, y, duration: 80, ease: 'Quad.easeOut',
+      })
+    }
     this.movementThrottle.latestMovement = null
   }
 
@@ -236,7 +251,8 @@ export class LocalPlayerController {
     if (time - this.lastFootstepAt < interval) return
 
     this.lastFootstepAt = time
-    playRandomSfx(FOOTSTEP_SOUNDS, FOOTSTEP_VOLUME)
+    const key = FOOTSTEP_KEYS[Math.floor(Math.random() * FOOTSTEP_KEYS.length)]
+    this.scene.sound.play(key, { volume: FOOTSTEP_VOLUME * audioState.sfxVolume.value })
   }
 }
 

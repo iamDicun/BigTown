@@ -16,6 +16,7 @@ export class EditorSystem {
   private mapCode: string
   private playerSprite: Phaser.GameObjects.Sprite
   private isBehindDecoration = false
+  private isOnBridgeCached = false
   private tileSize: number
 
   private onToggleModeHandler!: (e: Event) => void
@@ -527,21 +528,29 @@ export class EditorSystem {
       }
     }
 
-    // Fade placed items when player is behind them (tall items: height > 32)
     const player = this.playerSprite
     const playerBounds = player.getBounds()
     let localBehindDecoration = false
+    let localOnBridge = false
 
-    this.placementsGroup.getChildren().forEach((child) => {
+    const darkness = getDarkness()
+    const scTime = this.scene.time.now
+    const flicker = 0.92 + Math.sin(scTime * 0.008) * 0.05 + Math.sin(scTime * 0.021) * 0.03
+
+    const children = this.placementsGroup?.active ? this.placementsGroup.getChildren() : []
+    for (const child of children) {
       const sprite = child as Phaser.GameObjects.Image
-      const itemCode = sprite.getData('itemCode') as string
-      
-      // We only fade trees per user request
-      if (itemCode && itemCode.toLowerCase().includes('tree')) {
-        const spriteBounds = sprite.getBounds()
-        // Only trigger fade if player's Y is behind the bottom base (y - 16) but still within/under the sprite height
+      const itemCode = (sprite.getData('itemCode') as string) ?? ''
+
+      if (itemCode.startsWith('deco_bridge_')) {
+        if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, sprite.getBounds())) {
+          localOnBridge = true
+        }
+      }
+
+      if (itemCode.toLowerCase().includes('tree')) {
         const behind = player.y < sprite.y - 16 && player.y > sprite.y - sprite.height
-        const overlap = Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, spriteBounds)
+        const overlap = Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, sprite.getBounds())
         const isBehind = behind && overlap
 
         if (isBehind) {
@@ -549,8 +558,6 @@ export class EditorSystem {
         }
 
         const targetAlpha = isBehind ? 0.35 : 1.0
-        
-        // Use smooth tween for fading
         if (sprite.getData('targetAlpha') !== targetAlpha) {
           sprite.setData('targetAlpha', targetAlpha)
           this.scene.tweens.killTweensOf(sprite)
@@ -558,29 +565,20 @@ export class EditorSystem {
             targets: sprite,
             alpha: targetAlpha,
             duration: 150,
-            ease: 'Power1'
+            ease: 'Power1',
           })
         }
       }
-    })
 
-    // Sync lamppost glows with night cycle
-    if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {
-      const darkness = getDarkness()
-      const time = this.scene.time.now
-      const flicker = 0.92 + Math.sin(time * 0.008) * 0.05 + Math.sin(time * 0.021) * 0.03
-
-      this.placementsGroup.getChildren().forEach((child) => {
-        const sprite = child as Phaser.GameObjects.Image
-        const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-        if (glow) {
-          glow.setAlpha(darkness * 0.8 * flicker)
-          glow.setVisible(darkness > 0.05)
-        }
-      })
+      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+      if (glow) {
+        glow.setAlpha(darkness * 0.8 * flicker)
+        glow.setVisible(darkness > 0.05)
+      }
     }
 
     this.isBehindDecoration = localBehindDecoration
+    this.isOnBridgeCached = localOnBridge
   }
 
   public isPlayerBehindDecoration(): boolean {
@@ -588,22 +586,7 @@ export class EditorSystem {
   }
 
   public isPlayerOnBridge(): boolean {
-    let onBridge = false
-    const playerBounds = this.playerSprite.getBounds()
-
-    if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {
-      this.placementsGroup.getChildren().forEach((child) => {
-        const sprite = child as Phaser.GameObjects.Image
-        const itemCode = sprite.getData('itemCode') as string
-        if (itemCode && itemCode.startsWith('deco_bridge_')) {
-          const spriteBounds = sprite.getBounds()
-          if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, spriteBounds)) {
-            onBridge = true
-          }
-        }
-      })
-    }
-    return onBridge
+    return this.isOnBridgeCached
   }
 
   public destroy() {

@@ -7,7 +7,7 @@ import { createNameTag, updateNameTagPosition } from './nameTagSystem'
 import { PLAYER_DEPTH } from './mapSystem'
 
 const TWEEN_DURATION_MS = 100
-const REMOTE_BLOCK_RADIUS = 26
+const REMOTE_BLOCK_RADIUS = 22
 
 type RemoteEntry = {
   sprite: Phaser.GameObjects.Sprite

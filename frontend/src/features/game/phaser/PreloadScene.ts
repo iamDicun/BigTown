@@ -67,6 +67,11 @@ export class PreloadScene extends Phaser.Scene {
         { frameWidth: option.spritesheet.frame_width, frameHeight: option.spritesheet.frame_height },
       )
     }
+
+    for (let i = 1; i <= 7; i++) {
+      this.load.audio(`footstep_${i}`, [`/assets/sounds/opt/f${i}.ogg`, `/assets/sounds/opt/f${i}.mp3`])
+    }
+    this.load.audio('sfx_click', ['/assets/sounds/opt/click.ogg', '/assets/sounds/opt/click.mp3'])
   }
 
   create() {
