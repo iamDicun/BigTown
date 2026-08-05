@@ -26,15 +26,7 @@ const MOVEMENT_THRESHOLD_MS = 100
 const PLAYER_BODY_SIZE = { width: 16, height: 12 }
 const FOOTSTEP_INTERVAL_MS = 460
 const FOOTSTEP_VOLUME = 0.38
-const FOOTSTEP_SOUNDS = [
-  '/assets/sounds/f1.mp3',
-  '/assets/sounds/f2.mp3',
-  '/assets/sounds/f3.mp3',
-  '/assets/sounds/f4.mp3',
-  '/assets/sounds/f5.mp3',
-  '/assets/sounds/f6.mp3',
-  '/assets/sounds/f7.mp3',
-]
+const FOOTSTEP_SOUNDS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']
 
 // Gói toàn bộ local player: sprite, input -> velocity/animation, throttle + gửi RPC player_move,
 // và snap về vị trí authoritative (join snapshot / correction). Tách khỏi GameScene để scene

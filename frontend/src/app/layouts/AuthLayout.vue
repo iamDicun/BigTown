@@ -4,7 +4,12 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { playMusic, stopMusic } from '@/shared/audio/audio.service'
 
 onMounted(() => {
-  playMusic('/assets/sounds/intro.mp3', { fadeMs: 1600, volume: 0.25 })
+  const start = () => playMusic('/assets/sounds/intro.mp3', { fadeMs: 1600, volume: 0.25 })
+  if ('requestIdleCallback' in window) {
+    ;(window as any).requestIdleCallback(start, { timeout: 2000 })
+  } else {
+    setTimeout(start, 1200)
+  }
 })
 
 onBeforeUnmount(() => {

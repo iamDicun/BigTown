@@ -235,7 +235,7 @@ export class GameScene extends Phaser.Scene {
     window.addEventListener('game:switchMap', this.switchMapHandler)
 
     if (bootstrap.music_asset_key) {
-      playMusic('/assets/' + bootstrap.music_asset_key)
+      playMusic(bootstrap.music_asset_key)
     }
 
     this.environmentFx = createEnvironmentFx(this, bootstrap.map_code)

@@ -41,7 +41,7 @@ ALTER TABLE maps ADD COLUMN IF NOT EXISTS tile_size INTEGER NOT NULL DEFAULT 16;
 
 
 ALTER TABLE maps ADD COLUMN IF NOT EXISTS music_asset_key VARCHAR(255);
-UPDATE maps SET music_asset_key = 'sounds/bgm.mp3' WHERE code = 'village_adventure';
+UPDATE maps SET music_asset_key = 'village_adventure' WHERE code = 'village_adventure';
 
 
 UPDATE characters SET coins = GREATEST(coins, 5000), updated_at = CURRENT_TIMESTAMP;

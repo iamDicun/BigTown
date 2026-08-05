@@ -19,7 +19,7 @@ INSERT INTO maps (
     'Ground,DecorationBelow,Objects,DecorationAbove',
     'DecorationAbove',
     'Collision',
-    'sounds/bgm.mp3'
+    'village_adventure'
 )
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
