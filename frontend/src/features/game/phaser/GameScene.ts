@@ -180,11 +180,13 @@ export class GameScene extends Phaser.Scene {
         }
       },
       onDecorationPlaced: (event) => {
+        this.editorSystem.upsertPlacement(event.placement)
         window.dispatchEvent(new CustomEvent('game:realtimePlacementPlaced', {
           detail: { placement: event.placement }
         }))
       },
       onDecorationDeleted: (event) => {
+        this.editorSystem.removePlacementSprite(event.placementId)
         window.dispatchEvent(new CustomEvent('game:realtimePlacementDeleted', {
           detail: { placementId: event.placementId }
         }))

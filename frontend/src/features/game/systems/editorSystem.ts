@@ -27,6 +27,7 @@ export class EditorSystem {
   private isBehindDecoration = false
   private isOnBridgeCached = false
   private placementRotation = 0
+  private itemCache = new Map<string, DecorationItemDto>()
   private tileSize: number
 
   private onToggleModeHandler!: (e: Event) => void
@@ -234,8 +235,12 @@ export class EditorSystem {
     }
   }
 
-  private renderPlacementsGroup(placements: PlacementDto[], itemMap: Map<string, DecorationItemDto>) {
+  private renderPlacementsGroup(placements: PlacementDto[], itemMap: Map<string, DecorationItemDto>, fullRefresh = true) {
     const safePlacements = placements || []
+
+    for (const [id, item] of itemMap) {
+      this.itemCache.set(id, item)
+    }
     
     // 1. Gather currently rendered sprites by placementId
     const existingSprites = new Map<string, Phaser.GameObjects.Image>()
@@ -414,28 +419,63 @@ export class EditorSystem {
       }
     }
 
-    // 3. Remove orphaned sprites and bodies
-    existingSprites.forEach((sprite) => {
+    // 3. Remove orphaned sprites and bodies (skip for incremental upsert)
+    if (fullRefresh) {
+      existingSprites.forEach((sprite) => {
+        const meta = sprite.getData('meta') as ItemMeta | undefined
+        if (meta) applyBehaviorsOnDestroy(sprite, meta)
+
+        const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
+        if (zones) {
+          zones.forEach((z) => {
+            this.collisionGroup.remove(z, true, true)
+            z.destroy()
+          })
+        }
+        const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+        if (glow) {
+          glow.destroy()
+        }
+        this.collisionGroup.remove(sprite, true, true)
+        this.placementsGroup.remove(sprite, true, true)
+      })
+
+      // 4. Update Phaser's spatial physics hash immediately (PR4)
+      this.collisionGroup.refresh()
+    }
+  }
+
+  public upsertPlacement(p: PlacementDto): void {
+    const item = this.itemCache.get(p.item_id)
+    if (!item) return
+    this.renderPlacementsGroup([p], new Map([[p.item_id, item]]), false)
+    this.collisionGroup.refresh()
+  }
+
+  public removePlacementSprite(placementId: string): void {
+    const children = this.placementsGroup?.getChildren() ?? []
+    for (const child of children) {
+      const sprite = child as Phaser.GameObjects.Image
+      if (sprite.getData('placementId') !== placementId) continue
+
       const meta = sprite.getData('meta') as ItemMeta | undefined
       if (meta) applyBehaviorsOnDestroy(sprite, meta)
 
       const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
       if (zones) {
-        zones.forEach((z) => {
+        for (const z of zones) {
           this.collisionGroup.remove(z, true, true)
           z.destroy()
-        })
+        }
       }
       const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-      if (glow) {
-        glow.destroy()
-      }
+      if (glow) glow.destroy()
+
       this.collisionGroup.remove(sprite, true, true)
       this.placementsGroup.remove(sprite, true, true)
-    })
-
-    // 4. Update Phaser's spatial physics hash immediately (PR4)
-    this.collisionGroup.refresh()
+      this.collisionGroup.refresh()
+      break
+    }
   }
 
   private async confirmPlacement() {
@@ -445,7 +485,6 @@ export class EditorSystem {
     const y = this.previewSprite.y
     const itemId = this.activeDecorationItem.id
 
-    // Call placing API
     try {
       const result = await editorService.placeItem({
         item_id: itemId,
@@ -455,7 +494,8 @@ export class EditorSystem {
         rotation: this.placementRotation || undefined,
       })
 
-      // Reload all placements to sync bodies & sprites correctly
+      this.upsertPlacement(result.placement)
+
       window.dispatchEvent(new CustomEvent('game:placementDone', {
         detail: { newCoins: result.new_coins, placement: result.placement }
       }))
