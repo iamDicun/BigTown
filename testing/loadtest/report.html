@@ -133,89 +133,136 @@
             <thead>
                 <tr>
                     <th>Metric / Chỉ số</th>
-                    <th>Phase 1: Baseline (Chưa tối ưu)</th>
+                    <th>Phase 1: Baseline</th>
                     <th>Phase 2: Actor per-room</th>
-                    <th>Phase 3: Tick-based + RAM Cache</th>
+                    <th>Phase 3: Tick + RAM Cache</th>
+                    <th>Phase 4: Full Test (Grafana)</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td><strong>Trạng thái (Status)</strong></td>
-                    <td><span class="status-badge status-done">Đã chạy Str. 1, 2, 3</span></td>
-                    <td><span class="status-badge status-done">Đã chạy Str. 1 & 2</span></td>
-                    <td><span class="status-badge status-done">Đã chạy Str. 2 & 3 (ĐẠT)</span></td>
+                    <td><span class="status-badge status-done">Str. 1, 2, 3</span></td>
+                    <td><span class="status-badge status-done">Str. 1 & 2</span></td>
+                    <td><span class="status-badge status-done">Str. 2 & 3 (ĐẠT)</span></td>
+                    <td><span class="status-badge status-done">Chat ✅ | Còn lại ⏳</span></td>
                 </tr>
                 <tr>
                     <td><strong>Cơ chế Store chính</strong></td>
                     <td><code>MemoryRoomStore</code> (Global Mutex)</td>
                     <td><code>ActorRoomStore</code> (Actor model)</td>
-                    <td><code>ActorRoomStore</code> + Gom Ticker + RAM Cache</td>
+                    <td><code>ActorRoomStore</code> + Ticker + RAM Cache</td>
+                    <td><code>ActorRoomStore</code> + Ticker + RAM Cache</td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Chat (p95)</strong></td>
                     <td>
-                        Local: <strong>88 ms</strong> (PASS)<br>
-                        Render: <strong style="color: var(--danger-color)">1626 ms</strong> (FAIL)<br>
-                        Grafana: <strong style="color: var(--danger-color)">1850 ms</strong> (FAIL)
+                        Local: <strong>88 ms</strong><br>
+                        Render: <strong style="color: var(--danger-color)">1626 ms</strong><br>
+                        Grafana: <strong style="color: var(--danger-color)">1850 ms</strong>
                     </td>
                     <td>
-                        Local: <strong>190 ms</strong> (PASS)<br>
-                        Render: <strong style="color: var(--danger-color)">1602 ms</strong> (FAIL)
+                        Local: <strong>190 ms</strong><br>
+                        Render: <strong style="color: var(--danger-color)">1602 ms</strong>
                     </td>
                     <td>
-                        Render: <strong style="color: var(--success-color)">718 ms</strong> (PASS ✅)<br>
-                        Grafana: <strong style="color: var(--success-color)">~960 ms</strong> (PASS ✅)
+                        Render: <strong style="color: var(--success-color)">718 ms</strong> ✅<br>
+                        Grafana: <strong style="color: var(--success-color)">~960 ms</strong> ✅
+                    </td>
+                    <td>
+                        Grafana: <strong style="color: var(--success-color)">~900 ms</strong> ✅
                     </td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Move RPC (p95)</strong></td>
-                    <td>
-                        Local: <strong>7 ms</strong> (PASS)<br>
-                        Render: <strong>155 ms</strong> (PASS)<br>
-                        Grafana: -
-                    </td>
-                    <td>
-                        Local: <strong>10 ms</strong> (PASS)<br>
-                        Render: <strong>165 ms</strong> (PASS)
-                    </td>
-                    <td>
-                        Render: <strong>165 ms</strong> (PASS ✅)
-                    </td>
+                    <td>Local: <strong>7 ms</strong><br>Render: <strong>155 ms</strong></td>
+                    <td>Local: <strong>10 ms</strong><br>Render: <strong>165 ms</strong></td>
+                    <td>Render: <strong>165 ms</strong> ✅</td>
+                    <td>Grafana: <strong style="color: var(--success-color)">~285 ms</strong> ✅</td>
                 </tr>
                 <tr>
-                    <td><strong>Hành vi tải CPU</strong></td>
-                    <td>Các Core chạy nhẹ (&lt; 6% CPU) ở local</td>
-                    <td>Core chạy nhỉnh hơn nhẹ ở tải thấp (Overhead của channel)</td>
-                    <td>Tối ưu gộp 10 lần gói tin Centrifuge xuống client</td>
+                    <td><strong>Độ trễ Placement (p95)</strong></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>⏳</td>
+                </tr>
+                <tr>
+                    <td><strong>Độ trễ Bootstrap (p95)</strong></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>⏳</td>
                 </tr>
                 <tr>
                     <td><strong>Rò rỉ Room (Leak)</strong></td>
                     <td>0 (PASS)</td>
                     <td>0 (PASS)</td>
                     <td>0 (PASS)</td>
+                    <td>0 (PASS ✅)</td>
+                </tr>
+                <tr>
+                    <td><strong>GC / Heap / Goroutines</strong></td>
+                    <td>~0.7 runs/s / ~45MB</td>
+                    <td>~0.6 runs/s / ~45MB</td>
+                    <td>~0.6 runs/s / ~45MB</td>
+                    <td>~0.2 runs/s / ~32MB / 95→337→125 ✅</td>
                 </tr>
             </tbody>
         </table>
 
-        <h2>🔍 Chi Tiết Giai Đoạn 3: Tối ưu gộp + Ghi DB ngầm + RAM Cache (Phase 3)</h2>
+        <h2>🔍 Giai Đoạn 3: Tick-based + RAM Cache (Phase 3)</h2>
         <div class="grid-2">
             <div class="card">
                 <h3>Strategy 2: Local to Render</h3>
-                <p>k6 sinh tải từ local hướng tới Backend deploy trên Render (sử dụng tối ưu Phase 3 với RAM Cache).</p>
+                <p>k6 local → Render (Phase 3 với RAM Cache).</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,271 tin gửi | 162,587 tin nhận | <strong style="color: var(--success-color)">p95 latency 718 ms (PASS ✅)</strong></li>
-                    <li><strong>Move:</strong> 326,707 RPC gửi | p95 RPC latency 165ms (PASS ✅)</li>
-                    <li><strong>Thành công:</strong> Bộ đệm RAM cache đã triệt tiêu hoàn toàn các câu lệnh SQL đồng bộ xác thực user, loại bỏ nghẽn Connection Pool và đưa độ trễ chat đạt mốc chuẩn kỹ thuật dưới 1 giây.</li>
-                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-3-tick-broadcast/strategy-2-online/report.html">Xem report.html của Phase 3 Render</a></li>
+                    <li><strong>Chat:</strong> 16,271 tin gửi | 162,587 tin nhận | <strong style="color: var(--success-color)">p95 718 ms (PASS ✅)</strong></li>
+                    <li><strong>Move:</strong> 326,707 RPC | p95 RPC 165ms (PASS ✅)</li>
+                    <li>RAM cache triệt tiêu SQL đồng bộ, loại bỏ nghẽn Connection Pool.</li>
                 </ul>
             </div>
             <div class="card">
                 <h3>Strategy 3: Grafana Cloud</h3>
-                <p>Đo lường hiệu năng khi chịu tải phân tán toàn cầu từ Ohio (Mỹ) tới Render (Singapore) và Postgres (Nhật Bản).</p>
+                <p>Ohio → Singapore → Nhật Bản.</p>
                 <ul>
-                    <li><strong>Chat:</strong> 16,271 tin gửi | 162,587 tin nhận | <strong style="color: var(--success-color)">p95 latency ~960 ms (PASS ✅)</strong></li>
-                    <li><strong>Tỷ lệ thành công:</strong> <strong style="color: var(--success-color)">99.99%</strong> (chỉ lỗi 2 request mạng do mất kết nối TCP WAN).</li>
-                    <li><strong>Thành công:</strong> Hệ thống giữ vững độ trễ dưới 1 giây (&lt; 1000ms) ngay cả khi dữ liệu phải đi vòng qua nửa quả địa cầu từ Mỹ sang Singapore và Nhật Bản.</li>
+                    <li><strong>Chat:</strong> 16,271 gửi | 162,587 nhận | <strong style="color: var(--success-color)">p95 ~960 ms (PASS ✅)</strong></li>
+                    <li><strong>Tỉ lệ thành công:</strong> 99.99%</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>🚀 Giai Đoạn 4: Full Load Test — 4 loại test (Phase 4)</h2>
+        <div class="grid-2">
+            <div class="card">
+                <h3>Chat Test ✅</h3>
+                <p>Grafana Cloud (Ohio → Render Singapore → Postgres Nhật). 100 VU, 10 room, 5 phút.</p>
+                <ul>
+                    <li><strong>p95 delivery:</strong> <strong style="color: var(--success-color)">~900 ms (PASS ✅)</strong></li>
+                    <li><strong>p99 delivery:</strong> ~1050ms | <strong>Median:</strong> ~560ms</li>
+                    <li><strong>Tổng:</strong> ~16,300 gửi | ~163,000 nhận | Tỉ lệ lỗi <strong>0.006%</strong></li>
+                    <li><strong>cross_room_leak:</strong> 0 | <strong>WS errors:</strong> 1 (mất TCP WAN)</li>
+                    <li><strong>Server:</strong> Goroutines 95→337→125 (không leak), Heap 10.8→32→22MB, GC pause &lt; 0.2ms</li>
+                    <li><strong>Báo cáo chi tiết:</strong> <a href="file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html">Phase 4 report</a></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Movement Test ✅</h3>
+                <p>Grafana Cloud (Ohio → Render Singapore). 100 VU, 10 room, 5 phút. Gửi RPC player_move mỗi 100ms qua WebSocket.</p>
+                <ul>
+                    <li><strong>p95 RPC latency:</strong> <strong style="color: var(--success-color)">~285 ms (PASS ✅)</strong> — chỉ 57% ngưỡng 500ms</li>
+                    <li><strong>p99 RPC:</strong> ~310ms | <strong>Median:</strong> ~245ms | <strong>Min:</strong> ~216ms</li>
+                    <li><strong>Tổng:</strong> ~300,000 RPC gửi | <strong>0 lỗi, 0 WS error</strong></li>
+                    <li><strong>Broadcast room_state:</strong> ~9k players/sec gộp qua tick 100ms, rất đều</li>
+                    <li><strong>position_correction:</strong> Hội tụ từ 2,800 → 300/3s</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Placement, Bootstrap ⏳</h3>
+                <p>Đang chờ chạy và cập nhật kết quả.</p>
+                <ul>
+                    <li><strong>Placement:</strong> place_rest_ms p95, place_deliver_ms p95, place_error</li>
+                    <li><strong>Bootstrap:</strong> bootstrap_ms p95/p99, http_req_failed</li>
                 </ul>
             </div>
         </div>
