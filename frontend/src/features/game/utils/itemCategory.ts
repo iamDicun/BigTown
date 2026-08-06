@@ -1,23 +1,15 @@
-export type Category = 'tree' | 'house' | 'fence' | 'bridge' | 'flower' | 'rock' | 'ground' | 'other'
+export type Category = 'plants' | 'structures' | 'nature' | 'other'
 
 export function categoryOf(code: string): Category {
-  if (code.includes('tree') || code === 'deco_stump') return 'tree'
-  if (code.includes('house')) return 'house'
-  if (code.startsWith('deco_fence')) return 'fence'
-  if (code.startsWith('deco_bridge')) return 'bridge'
-  if (code.includes('flower')) return 'flower'
-  if (code.includes('rock')) return 'rock'
-  if (code.startsWith('deco_grass')) return 'ground'
+  if (code.includes('tree') || code.includes('flower') || code.includes('bush') || code === 'deco_stump') return 'plants'
+  if (code.includes('house') || code.startsWith('deco_fence') || code.startsWith('deco_bridge') || code.startsWith('deco_wall')) return 'structures'
+  if (code.includes('rock') || code.startsWith('deco_grass') || code.startsWith('deco_water') || code.startsWith('deco_path')) return 'nature'
   return 'other'
 }
 
 export const CATEGORY_LABELS: Record<Category, string> = {
-  tree: 'Cay',
-  house: 'Nha',
-  fence: 'Hang rao',
-  bridge: 'Cau',
-  flower: 'Hoa',
-  rock: 'Da',
-  ground: 'Nen co',
-  other: 'Khac',
+  plants: 'Cây cối',
+  structures: 'Công trình',
+  nature: 'Tự nhiên',
+  other: 'Khác',
 }

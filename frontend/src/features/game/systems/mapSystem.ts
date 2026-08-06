@@ -75,7 +75,7 @@ export function buildMap(scene: Phaser.Scene, bootstrap: BootstrapDto): MapBuild
     if (layerName === aboveLayerName) aboveLayer = layer
   }
 
-  if (aboveLayer) {
+  if (aboveLayer && bootstrap.map_code !== 'dark_village') {
     aboveLayer.setDepth(10)
   }
 

@@ -1,296 +1,70 @@
-@font-face {
-  font-family: "VT323";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../fonts/VT323-vietnamese.woff2") format("woff2");
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0,
-    U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-@font-face {
-  font-family: "VT323";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../fonts/VT323-latin-ext.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
-    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
-    U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: "VT323";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../fonts/VT323-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
-    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* =============================================================
+   pixel-ui.css — Hệ UI "Cute Fantasy" cho BigTown
+   Import 1 lần trong style.css:  @import './pixel-ui.css';
+   Giữ tương thích ngược: các biến --pixel-* cũ vẫn còn.
+   ============================================================= */
 
 :root {
-  /* ---------- NỀN GỖ – GIẤY DA ---------- */
-  --pixel-outline:       #2a1e12;
-  --pixel-ink:           #3a2b1a;
+  /* ---------- MÀU: nền gỗ – giấy da (giữ nguyên tên cũ) ---------- */
+  --pixel-outline:       #2a1e12;   /* viền pixel gần-đen, dùng cho contour */
+  --pixel-ink:           #3a2b1a;   /* chữ chính */
   --pixel-wood-dark:     #6b4226;
   --pixel-wood:          #8a5a34;
   --pixel-wood-light:    #c98a4b;
-  --pixel-parchment:     #fdf1d6;
+  --pixel-parchment:     #fdf1d6;   /* nền panel */
   --pixel-parchment-dark:#f0dfae;
 
-  /* ---------- HÕM Ô ĐỒ + CHỮ PHỤ ---------- */
-  --pixel-well:          #e7d2a6;
-  --pixel-well-dark:     #cdb078;
+  /* ---------- MÀU MỚI: hõm ô đồ + chữ phụ ---------- */
+  --pixel-well:          #e7d2a6;   /* đáy ô item (sáng) */
+  --pixel-well-dark:     #cdb078;   /* đáy ô item (tối) */
   --pixel-text:          var(--pixel-ink);
   --pixel-text-muted:    #8a6a44;
   --pixel-text-inverse:  #fff8ec;
 
-  /* ---------- HÀNH ĐỘNG ---------- */
-  --pixel-accent:        #ef8b3d;   --pixel-accent-dark:  #c96a24;
-  --pixel-green:         #5a9c4a;   --pixel-green-dark:   #3c6b34;
-  --pixel-danger:        #c94a3c;   --pixel-danger-dark:  #9e3227;
+  /* ---------- MÀU HÀNH ĐỘNG ---------- */
+  --pixel-accent:        #ef8b3d;   --pixel-accent-dark:  #c96a24;  /* cam: hành động chính / đang chọn */
+  --pixel-green:         #5a9c4a;   --pixel-green-dark:   #3c6b34;  /* xanh lá: xác nhận */
+  --pixel-danger:        #c94a3c;   --pixel-danger-dark:  #9e3227;  /* đỏ: xoá / cảnh báo */
 
-  /* ---------- MÀU "KẸO" (dùng tiết chế) ---------- */
+  /* ---------- MÀU "KẸO" cho cảm giác cute (dùng tiết chế) ---------- */
   --pixel-berry:         #d5628f;   --pixel-berry-dark:   #a83f6b;
   --pixel-sky:           #5b8fd6;   --pixel-sky-dark:     #3a63a5;
-  --pixel-gold:          #ffcf5c;   --pixel-gold-dark:    #e0a022;
+  --pixel-gold:          #ffcf5c;   --pixel-gold-dark:    #e0a022;  /* xu vàng */
 
   /* ---------- CHỮ ---------- */
-  --pixel-font:          "VT323", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --pixel-font-display:  var(--pixel-font);
+  --pixel-font:          "VT323", "Segoe UI", ui-sans-serif, system-ui, sans-serif;   /* body */
+  --pixel-font-display:  var(--pixel-font);  /* heading — có thể đổi sang "Pixelify Sans" (xem guide) */
 
   --fs-hero:  34px;  --fs-title: 26px;  --fs-head: 22px;
   --fs-body:  19px;  --fs-label: 16px;  --fs-cap:  14px;
   --ls-pixel: 0.5px;
 
-  /* ---------- LƯỚI 4px ---------- */
+  /* ---------- LƯỚI 4px (pixel art) ---------- */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
 
   /* ---------- BO GÓC / VIỀN ---------- */
   --r-sm: 2px; --r: 3px; --r-lg: 5px;
-  --bw: 3px;
+  --bw: 3px;                 /* độ dày viền chuẩn */
 
-  /* ---------- ĐỔ BÓNG ---------- */
+  /* ---------- ĐỔ BÓNG (bevel pixel cứng, KHÔNG blur ở chi tiết nhỏ) ---------- */
   --bevel-out: inset -3px -3px 0 rgba(0,0,0,.28), inset 3px 3px 0 rgba(255,255,255,.38);
   --bevel-in:  inset 3px 3px 0 rgba(0,0,0,.30),   inset -2px -2px 0 rgba(255,255,255,.25);
-  --lift:      0 4px 0 var(--pixel-outline);
-  --drop:      0 10px 22px rgba(0,0,0,.38);
+  --lift:      0 4px 0 var(--pixel-outline);                 /* cạnh dưới dày, cảm giác khối */
+  --drop:      0 10px 22px rgba(0,0,0,.38);                  /* bóng mềm — CHỈ cho modal lớn */
 
+  /* Khung "9-slice" bằng box-shadow (kế thừa PixelPanel): gỗ đôi lớp */
   --frame-wood:
     0 0 0 3px var(--pixel-wood-dark),
     0 0 0 6px var(--pixel-wood),
     0 0 0 9px var(--pixel-wood-dark);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #101610;
-  color: #f3ead7;
-}
-
-#app {
-  min-height: 100vh;
-}
-
-h1 {
-  margin: 0 0 12px;
-  font-size: 36px;
-}
-
-p {
-  margin: 0;
-  color: #5f6b7a;
-}
-
-/* --- Pixel form kit (Cute Fantasy vibe, used by auth screens) ------------- */
-
-.pixel-field {
-  display: grid;
-  gap: 6px;
-}
-
-.pixel-field__label {
-  font-family: var(--pixel-font);
-  font-size: 20px;
-  color: var(--pixel-wood-dark);
-  letter-spacing: 0.5px;
-}
-
-.pixel-field input {
-  font-family: var(--pixel-font);
-  font-size: 21px;
-  padding: 9px 12px;
-  color: var(--pixel-ink);
-  background: #fffaf0;
-  border: 3px solid var(--pixel-wood-dark);
-  border-radius: 2px;
-  box-shadow: inset 2px 2px 0 rgba(107, 66, 38, 0.25);
-  outline: none;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.pixel-field input:focus {
-  border-color: var(--pixel-accent-dark);
-  box-shadow:
-    inset 2px 2px 0 rgba(107, 66, 38, 0.25),
-    0 0 0 3px rgba(239, 139, 61, 0.4);
-}
-
-.pixel-button {
-  font-family: var(--pixel-font);
-  font-size: 24px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #fff8ec;
-  text-shadow: 1px 1px 0 var(--pixel-accent-dark);
-  background: var(--pixel-accent);
-  border: 3px solid var(--pixel-accent-dark);
-  border-radius: 2px;
-  padding: 10px 16px;
-  cursor: pointer;
-  box-shadow:
-    inset -3px -3px 0 var(--pixel-accent-dark),
-    inset 3px 3px 0 rgba(255, 255, 255, 0.35),
-    0 4px 0 rgba(0, 0, 0, 0.25);
-  transform: translateY(0);
-  transition: transform 0.05s ease;
-}
-
-.pixel-button:hover {
-  filter: brightness(1.05);
-}
-
-.pixel-button:active {
-  transform: translateY(3px);
-  box-shadow:
-    inset 3px 3px 0 var(--pixel-accent-dark),
-    0 1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.pixel-button--sm {
-  font-size: 17px;
-  letter-spacing: 1px;
-  padding: 6px 12px;
-  border-width: 2px;
-  box-shadow:
-    inset -2px -2px 0 var(--pixel-accent-dark),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.35),
-    0 3px 0 rgba(0, 0, 0, 0.25);
-}
-
-.pixel-button--sm:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 2px 2px 0 var(--pixel-accent-dark),
-    0 1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.pixel-button--teams {
-  width: 100%;
-  margin-top: 12px;
-  color: #fff;
-  text-shadow: 1px 1px 0 #33306b;
-  background: #5b5fc7;
-  border-color: #33306b;
-  box-shadow:
-    inset -3px -3px 0 #33306b,
-    inset 3px 3px 0 rgba(255, 255, 255, 0.35),
-    0 4px 0 rgba(0, 0, 0, 0.25);
-}
-
-.pixel-button--teams:active {
-  box-shadow:
-    inset 3px 3px 0 #33306b,
-    0 1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.pixel-field--sm input {
-  font-size: 18px;
-  padding: 6px 10px;
-  border-width: 2px;
-}
-
-.pixel-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--pixel-font);
-  font-size: 15px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--pixel-wood-dark);
-}
-
-.pixel-badge::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  background: currentColor;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
-}
-
-.pixel-badge--ok {
-  color: var(--pixel-green);
-}
-
-.pixel-badge--warn {
-  color: var(--pixel-accent);
-}
-
-.pixel-badge--error {
-  color: var(--pixel-danger);
-}
-
-.pixel-alert {
-  font-family: var(--pixel-font);
-  font-size: 19px;
-  padding: 8px 12px;
-  border: 2px solid;
-  border-radius: 2px;
-  line-height: 1.3;
-}
-
-.pixel-alert--error {
-  color: #7a1f1a;
-  background: #fbe3e0;
-  border-color: var(--pixel-danger);
-}
-
-.pixel-alert--success {
-  color: var(--pixel-green-dark);
-  background: #e9f5e4;
-  border-color: var(--pixel-green);
-}
-
-.pixel-link-row {
-  margin-top: 16px;
-  text-align: center;
-  font-family: var(--pixel-font);
-  font-size: 19px;
-  color: var(--pixel-wood-dark);
-}
-
-.pixel-link-row a {
-  color: var(--pixel-accent-dark);
-  font-weight: bold;
-  text-decoration: underline dotted;
-}
-
-.pixel-link-row a:hover {
-  color: var(--pixel-danger);
-}
-
-/* =============================================================
-   UI "Cute Fantasy" — component classes
-   ============================================================= */
-
+/* Ảnh/icon pixel phải nét, không mờ */
 .pixelated, .ui-slot-icon, .ui-badge img, [data-pixel] { image-rendering: pixelated; }
 
-/* --- PANEL --- */
+/* =============================================================
+   PANEL — khung gỗ giấy da
+   ============================================================= */
 .ui-panel {
   position: relative;
   background: var(--pixel-parchment);
@@ -299,15 +73,19 @@ p {
   border-radius: var(--r);
   box-shadow: var(--frame-wood), var(--drop);
 }
+/* Panel kiểu "sách 2 trang" — cho inventory/menu lớn */
 .ui-panel--book { padding-top: var(--sp-6); }
-.ui-panel--book::after {
+.ui-panel--book::after {   /* gáy sách ở giữa */
   content: ""; position: absolute; top: 12px; bottom: 12px; left: 50%;
   width: 2px; transform: translateX(-1px);
   background: repeating-linear-gradient(180deg, var(--pixel-wood-light) 0 6px, transparent 6px 12px);
   opacity: .4; pointer-events: none;
 }
 
-/* --- BANNER / RIBBON --- */
+/* =============================================================
+   BANNER / RIBBON — biển hiệu treo (ĐẶC TRƯNG nhận diện)
+   Đặt làm tiêu đề cho MỌI panel/modal để đồng bộ.
+   ============================================================= */
 .ui-banner {
   position: absolute; top: calc(-1 * var(--sp-3)); left: 50%; transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -320,13 +98,16 @@ p {
   box-shadow: var(--bevel-out), var(--lift);
   white-space: nowrap;
 }
+/* đuôi ribbon 2 bên (tuỳ chọn) */
 .ui-banner::before, .ui-banner::after {
   content: ""; position: absolute; top: 50%; width: 10px; height: 10px;
   background: var(--pixel-wood-dark); transform: translateY(-50%) rotate(45deg);
 }
 .ui-banner::before { left: -6px; } .ui-banner::after { right: -6px; }
 
-/* --- BUTTON --- */
+/* =============================================================
+   BUTTON — nút bevel bấm lún
+   ============================================================= */
 .ui-btn {
   font-family: var(--pixel-font-display); font-size: var(--fs-label);
   letter-spacing: var(--ls-pixel);
@@ -341,19 +122,16 @@ p {
 .ui-btn:hover { filter: brightness(1.06); }
 .ui-btn:active { transform: translateY(3px); box-shadow: var(--bevel-in), 0 1px 0 var(--pixel-outline); }
 .ui-btn:focus-visible { outline: 3px solid var(--pixel-sky); outline-offset: 2px; }
+
 .ui-btn--confirm { background: var(--pixel-green);  text-shadow: 1px 1px 0 var(--pixel-green-dark); }
 .ui-btn--danger  { background: var(--pixel-danger); text-shadow: 1px 1px 0 var(--pixel-danger-dark); }
 .ui-btn--ghost   { background: var(--pixel-parchment-dark); color: var(--pixel-ink); text-shadow: none; }
 .ui-btn--icon    { width: 40px; height: 40px; padding: 0; font-size: 18px; }
 .ui-btn--sm      { font-size: var(--fs-cap); padding: var(--sp-1) var(--sp-2); }
-.ui-btn--teams   {
-  width: 100%; margin-top: 12px; color: #fff; text-shadow: 1px 1px 0 #33306b;
-  background: #5b5fc7; border-color: #33306b;
-  box-shadow: inset -3px -3px 0 #33306b, inset 3px 3px 0 rgba(255,255,255,.35), var(--lift);
-}
-.ui-btn--teams:active { box-shadow: inset 3px 3px 0 #33306b, 0 1px 0 #33306b; }
 
-/* --- SLOT / WELL --- */
+/* =============================================================
+   SLOT / WELL — ô chứa item (hõm gỗ lõm)
+   ============================================================= */
 .ui-slot {
   position: relative; width: 52px; height: 52px; cursor: pointer;
   background: linear-gradient(180deg, var(--pixel-well) 0%, var(--pixel-well-dark) 100%);
@@ -363,26 +141,21 @@ p {
   transition: transform .05s ease;
 }
 .ui-slot:active { transform: translateY(2px); }
-.ui-slot.is-active {
+.ui-slot.is-active {                 /* ô đang chọn: viền cam sáng */
   border-color: var(--pixel-accent);
   box-shadow: var(--bevel-in), 0 0 0 2px var(--pixel-accent), 0 0 10px rgba(239,139,61,.5);
 }
 .ui-slot.is-locked { opacity: .45; filter: grayscale(.4); }
-.ui-slot.is-disabled { opacity: .4; }
-.ui-slot-key {
+.ui-slot-key {                       /* số phím góc trên trái */
   position: absolute; top: 1px; left: 3px; font-family: var(--pixel-font);
   font-size: var(--fs-cap); color: var(--pixel-text-inverse);
   text-shadow: 1px 1px 0 var(--pixel-outline);
 }
 .ui-slot-icon { width: 40px; height: 40px; }
-.ui-slot-price {
-  position: absolute; bottom: 0; right: 2px; font-family: var(--pixel-font);
-  font-size: 11px; color: #ffd700; text-shadow: 1px 1px 0 #3a2b1a;
-}
-.ui-slot.is-fillable { animation: uiPulse .7s infinite alternate; }
-@keyframes uiPulse { to { box-shadow: var(--bevel-in), 0 0 0 3px var(--pixel-accent); } }
 
-/* --- BADGE --- */
+/* =============================================================
+   BADGE xu vàng / gem
+   ============================================================= */
 .ui-badge--coin {
   display: inline-flex; align-items: center; gap: var(--sp-1);
   font-family: var(--pixel-font); font-size: var(--fs-label); color: var(--pixel-ink);
@@ -392,7 +165,9 @@ p {
   box-shadow: var(--bevel-out);
 }
 
-/* --- TAB --- */
+/* =============================================================
+   TAB — chuyển nhóm
+   ============================================================= */
 .ui-tab {
   font-family: var(--pixel-font-display); font-size: var(--fs-label);
   padding: var(--sp-1) var(--sp-3); cursor: pointer; color: var(--pixel-ink);
@@ -402,7 +177,9 @@ p {
 }
 .ui-tab.is-active { background: var(--pixel-accent); color: var(--pixel-text-inverse); }
 
-/* --- INPUT --- */
+/* =============================================================
+   INPUT / SEARCH
+   ============================================================= */
 .ui-input {
   font-family: var(--pixel-font); font-size: var(--fs-body); color: var(--pixel-ink);
   padding: var(--sp-2) var(--sp-3); background: #fffaf0;
@@ -410,9 +187,10 @@ p {
   box-shadow: var(--bevel-in); outline: none;
 }
 .ui-input:focus { border-color: var(--pixel-accent-dark); box-shadow: var(--bevel-in), 0 0 0 3px rgba(239,139,61,.4); }
-.ui-input::placeholder { color: #a08060; }
 
-/* --- TOOLTIP + TOAST --- */
+/* =============================================================
+   TOOLTIP + TOAST
+   ============================================================= */
 .ui-tooltip {
   font-family: var(--pixel-font); font-size: var(--fs-cap); color: var(--pixel-text-inverse);
   padding: var(--sp-1) var(--sp-2); background: var(--pixel-outline);
@@ -423,12 +201,12 @@ p {
   padding: var(--sp-2) var(--sp-4); background: var(--pixel-danger);
   border: var(--bw) solid var(--pixel-danger-dark); border-radius: var(--r);
   box-shadow: var(--lift), var(--drop);
-  animation: uiToastIn .2s ease-out;
 }
 .ui-toast--ok { background: var(--pixel-green); border-color: var(--pixel-green-dark); }
-@keyframes uiToastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* --- PROGRESS BAR --- */
+/* =============================================================
+   PROGRESS BAR — máu / xp / stamina
+   ============================================================= */
 .ui-bar {
   height: 14px; background: var(--pixel-well-dark);
   border: 2px solid var(--pixel-outline); border-radius: 999px; overflow: hidden;
@@ -438,7 +216,9 @@ p {
 .ui-bar--hp    .ui-bar__fill { background: linear-gradient(180deg, #ef6b6b, var(--pixel-danger)); }
 .ui-bar--xp    .ui-bar__fill { background: linear-gradient(180deg, #6fb0ef, var(--pixel-sky)); }
 
-/* --- OVERLAY + POP --- */
+/* =============================================================
+   OVERLAY MODAL + hiệu ứng pop
+   ============================================================= */
 .ui-overlay {
   position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center;
   background: rgba(20,12,6,.55);
@@ -446,15 +226,15 @@ p {
 .ui-pop { animation: uiPop .16s ease-out; }
 @keyframes uiPop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* --- SCROLL --- */
+/* Thanh cuộn kiểu gỗ */
 .ui-scroll::-webkit-scrollbar { width: 12px; }
 .ui-scroll::-webkit-scrollbar-track { background: var(--pixel-parchment-dark); border-radius: 999px; }
 .ui-scroll::-webkit-scrollbar-thumb {
   background: var(--pixel-wood); border: 2px solid var(--pixel-outline); border-radius: 999px;
 }
 
+/* Tôn trọng người tắt hiệu ứng */
 @media (prefers-reduced-motion: reduce) {
   .ui-pop { animation: none; }
-  .ui-btn, .ui-slot, .ui-bar__fill, .ui-toast { transition: none; animation: none; }
-  .ui-slot.is-fillable { animation: none; }
+  .ui-btn, .ui-slot, .ui-bar__fill { transition: none; }
 }

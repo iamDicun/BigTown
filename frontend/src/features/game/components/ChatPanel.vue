@@ -7,6 +7,7 @@ import type { PlayerChatEvent } from '../network/gameEvents'
 import * as chatService from '../services/chat.service'
 import type { ChatMessageDto } from '../services/chat.service'
 import * as realtimeService from '../services/realtime.service'
+import PixelIcon from '@/shared/components/PixelIcon.vue'
 
 type ChatMessage = {
   id: string
@@ -231,24 +232,24 @@ function scrollToBottom() {
 </script>
 
 <template>
-  <section class="chat-panel" :class="{ collapsed }" aria-label="Game chat">
+  <section class="chat-panel ui-panel" :class="{ collapsed }" aria-label="Game chat">
     <header>
       <span class="chat-panel__title">Chat</span>
       <div class="header-actions">
         <span class="pixel-badge" :class="statusBadgeClass">{{ statusLabel[status] }}</span>
         <button
           type="button"
-          class="toggle-btn"
+          class="ui-btn ui-btn--ghost ui-btn--sm"
           :aria-expanded="!collapsed"
           :aria-label="collapsed ? 'Mở rộng khung chat' : 'Thu nhỏ khung chat'"
           @click="toggleCollapsed"
         >
-          {{ collapsed ? '▸' : '▾' }}
+          <PixelIcon :name="collapsed ? 'chevron-right' : 'chevron-down'" :size="16" />
         </button>
       </div>
     </header>
     <template v-if="!collapsed">
-      <div ref="messagesEl" class="messages">
+      <div ref="messagesEl" class="messages ui-scroll">
         <p v-if="error" class="pixel-alert pixel-alert--error">{{ error }}</p>
         <p v-if="messages.length === 0" class="empty">Mở thêm tab thứ hai rồi gửi thử một tin nhắn.</p>
         <article v-for="item in messages" :key="item.id" :class="['message', { mine: item.mine }]">
@@ -256,9 +257,9 @@ function scrollToBottom() {
           <span>{{ item.message }}</span>
         </article>
       </div>
-      <form class="chat-form pixel-field pixel-field--sm" @submit.prevent="sendMessage">
-        <input ref="inputEl" v-model="draft" type="text" placeholder="Nhắn trong map..." @focus="onInputFocus" @blur="onInputBlur" @keydown="onInputKeydown">
-        <button type="submit" class="pixel-button pixel-button--sm" :disabled="!canSend">Gửi</button>
+      <form class="chat-form" @submit.prevent="sendMessage">
+        <input ref="inputEl" v-model="draft" class="ui-input chat-input" type="text" placeholder="Nhắn trong map..." @focus="onInputFocus" @blur="onInputBlur" @keydown="onInputKeydown">
+        <button type="submit" class="ui-btn ui-btn--sm" :disabled="!canSend">Gửi</button>
       </form>
     </template>
   </section>
@@ -266,114 +267,42 @@ function scrollToBottom() {
 
 <style scoped>
 .chat-panel {
-  min-height: 0;
-  flex: 1 1 auto;
-  display: grid;
+  min-height: 0; flex: 1 1 auto; display: grid;
   grid-template-rows: auto 1fr auto;
-  background: var(--pixel-parchment);
-  box-shadow:
-    0 0 0 3px var(--pixel-wood-dark),
-    0 0 0 6px var(--pixel-wood),
-    0 0 0 8px var(--pixel-wood-dark),
-    0 10px 20px rgba(0, 0, 0, 0.4);
+  padding: 0;
 }
-
 .chat-panel.collapsed {
   flex: 0 0 auto;
   grid-template-rows: auto;
 }
-
 header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   background: linear-gradient(180deg, var(--pixel-wood) 0%, var(--pixel-wood-dark) 100%);
-  border-bottom: 3px solid var(--pixel-ink);
+  border-bottom: var(--bw) solid var(--pixel-outline);
 }
-
 .chat-panel__title {
-  font-family: var(--pixel-font);
-  font-size: 22px;
-  letter-spacing: 1px;
-  color: var(--pixel-parchment);
-  text-shadow: 1px 1px 0 var(--pixel-ink);
+  font-family: var(--pixel-font); font-size: var(--fs-head); letter-spacing: var(--ls-pixel);
+  color: var(--pixel-text-inverse); text-shadow: 1px 1px 0 var(--pixel-outline);
 }
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.toggle-btn {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--pixel-ink);
-  background: var(--pixel-parchment);
-  color: var(--pixel-wood-dark);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.toggle-btn:hover {
-  background: var(--pixel-accent);
-  color: #fff8ec;
-}
-
+.header-actions { display: flex; align-items: center; gap: var(--sp-3); }
 .messages {
-  min-height: 120px;
-  overflow: auto;
-  padding: 12px;
-  font-family: var(--pixel-font);
-  font-size: 18px;
+  min-height: 120px; overflow: auto; padding: var(--sp-3);
+  font-family: var(--pixel-font); font-size: var(--fs-body);
 }
-
-.empty {
-  margin: 0;
-  color: var(--pixel-wood-dark);
-  opacity: 0.75;
-}
-
+.empty { margin: 0; color: var(--pixel-text-muted); opacity: 0.75; }
 .message {
-  display: grid;
-  gap: 2px;
-  margin-bottom: 8px;
-  padding: 7px 9px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 2px solid var(--pixel-parchment-dark);
+  display: grid; gap: 2px; margin-bottom: var(--sp-2); padding: var(--sp-1) var(--sp-2);
+  background: rgba(255,255,255,0.5); border: 2px solid var(--pixel-parchment-dark);
 }
-
 .message.mine {
-  background: rgba(90, 156, 74, 0.16);
-  border-color: var(--pixel-green);
+  background: rgba(90,156,74,0.16); border-color: var(--pixel-green);
 }
-
-.message strong {
-  color: var(--pixel-accent-dark);
-  font-size: 15px;
-  letter-spacing: 0.5px;
-}
-
-.message span {
-  color: var(--pixel-ink);
-  word-break: break-word;
-  line-height: 1.2;
-}
-
+.message strong { color: var(--pixel-accent-dark); font-size: var(--fs-label); letter-spacing: var(--ls-pixel); }
+.message span { color: var(--pixel-ink); word-break: break-word; line-height: 1.2; }
 .chat-form {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  padding: 10px;
-  background: var(--pixel-wood-dark);
+  display: grid; grid-template-columns: 1fr auto; gap: var(--sp-2);
+  padding: var(--sp-3); background: var(--pixel-wood-dark);
 }
-
-.chat-form input {
-  min-width: 0;
-}
+.chat-input { min-width: 0; }
 </style>

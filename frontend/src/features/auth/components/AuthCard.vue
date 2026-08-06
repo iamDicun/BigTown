@@ -7,6 +7,7 @@ import logo from '@/assets/images/logo.png'
   <div class="auth-card">
     <img class="auth-card__logo" :src="logo" alt="BigTown" />
     <PixelPanel>
+      <template #title>BigTown</template>
       <h1 class="auth-card__title"><slot name="title" /></h1>
       <slot />
     </PixelPanel>
@@ -21,22 +22,20 @@ import logo from '@/assets/images/logo.png'
   flex-direction: column;
   align-items: center;
 }
-
 .auth-card__logo {
   width: min(280px, 80%);
-  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
   margin-bottom: -14px;
   position: relative;
   z-index: 1;
 }
-
 .auth-card__title {
   margin: 0 0 18px;
   text-align: center;
-  font-family: var(--pixel-font);
-  font-size: 30px;
-  letter-spacing: 1px;
+  font-family: var(--pixel-font-display);
+  font-size: var(--fs-title);
+  letter-spacing: var(--ls-pixel);
   color: var(--pixel-wood-dark);
   text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
 }

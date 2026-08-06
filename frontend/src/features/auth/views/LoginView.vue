@@ -83,7 +83,7 @@ onMounted(async () => {
     <button
       v-if="inTeams"
       type="button"
-      class="pixel-button pixel-button--teams"
+      class="ui-btn ui-btn--teams"
       @click="handleTeamsLogin"
     >
       Đăng nhập bằng Teams
