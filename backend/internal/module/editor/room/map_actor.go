@@ -223,6 +223,13 @@ func (m *MapActor) handlePlace(c Cmd) {
 	}
 
 	key := [2]int{c.X, c.Y}
+
+	// Giới hạn tối đa 2 item trên cùng 1 tọa độ tile
+	if len(m.occupied[key]) >= 2 {
+		c.Reply <- CmdResult{Err: ErrOccupied}
+		return
+	}
+
 	// Chỉ chặn nếu ô đã có item collision (không cho đè lên item collision)
 	if m.hasCollision[key] {
 		// Kiểm tra xem item mới có collision không — nếu có thì chặn

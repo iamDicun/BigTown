@@ -6,15 +6,17 @@ Tài liệu này tổng hợp và so sánh kết quả load test qua các Phase 
 
 ## 1. Bản Đồ So Sánh Các Giai Đoạn (Phases Comparison)
 
-| Chỉ số / Metric | Phase 1: Baseline (Chưa tối ưu) | Phase 2: Actor per-room | Phase 3: Tick Broadcast + RAM Cache |
-| :--- | :--- | :--- | :--- |
-| **Trạng thái (Status)** | **Đã hoàn thành Str. 1, 2, 3** | **Đã hoàn thành Str. 1 & 2** | **Đã hoàn thành Str. 2 & 3 (ĐẠT ✅)** |
-| **Cơ chế lưu trữ** | `MemoryRoomStore` (Global Mutex) | `ActorRoomStore` (Actor model) | `ActorRoomStore` + gom Ticker + RAM Cache |
-| **Độ trễ Chat (p95)** | **88 ms** (Local) \| **1626 ms** (Render) \| **1850 ms** (Grafana) | **190 ms** (Local) \| **1602 ms** (Render) | **718 ms** (Render) \| **~960 ms** (Grafana - ĐẠT ✅) |
-| **Độ trễ Move RPC (p95)** | **7 ms** (Local) \| **155 ms** (Render) | **10 ms** (Local) \| **165 ms** (Render) | **165 ms** (Render - PASS ✅) |
-| **Phân bổ tải CPU** | Các Core chạy rất nhẹ (< 6% CPU) | Core chạy nhỉnh hơn nhẹ ở tải thấp (Overhead của channel) | Giảm gộp 90% gói tin Centrifuge xuống client |
-| **Rò rỉ kênh (Room Leak)**| **0** (PASS) | **0** (PASS) | **0** (PASS) |
-| **Tần suất GC / Heap** | ~0.7 runs/s / ~45MB | ~0.6 runs/s / ~45MB | ~0.6 runs/s / ~45MB |
+| Chỉ số / Metric | Phase 1: Baseline | Phase 2: Actor per-room | Phase 3: Tick + RAM Cache | Phase 4: Full Test (Grafana) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Trạng thái** | Đã hoàn thành Str. 1, 2, 3 | Đã hoàn thành Str. 1 & 2 | Đã hoàn thành Str. 2 & 3 (ĐẠT ✅) | **Chat ✅ / Còn lại ⏳** |
+| **Cơ chế lưu trữ** | `MemoryRoomStore` (Global Mutex) | `ActorRoomStore` (Actor model) | `ActorRoomStore` + gom Ticker + RAM Cache | `ActorRoomStore` + Ticker + RAM Cache |
+| **Độ trễ Chat (p95)** | 88ms (Local) \| 1626ms (Render) \| 1850ms (Grafana) | 190ms (Local) \| 1602ms (Render) | 718ms (Render) \| ~960ms (Grafana ✅) | **~900ms** (Grafana ✅) |
+| **Độ trễ Move RPC (p95)** | 7ms (Local) \| 155ms (Render) | 10ms (Local) \| 165ms (Render) | 165ms (Render ✅) | **~285ms** (Grafana ✅) |
+| **Độ trễ Placement (p95)** | — | — | — | ⏳ |
+| **Độ trễ Bootstrap (p95)** | — | — | — | ⏳ |
+| **Rò rỉ kênh (Room Leak)**| 0 (PASS) | 0 (PASS) | 0 (PASS) | 0 (PASS ✅) |
+| **Tần suất GC / Heap** | ~0.7 runs/s / ~45MB | ~0.6 runs/s / ~45MB | ~0.6 runs/s / ~45MB | ~0.2 runs/s / ~32MB ✅ |
+| **Goroutines (idle→peak)** | — | — | — | 95→337→125 (không leak ✅) |
 
 ---
 
@@ -48,4 +50,35 @@ Tài liệu này tổng hợp và so sánh kết quả load test qua các Phase 
 *   **Kết quả đo lường đạt mốc lý tưởng:**
     *   **Chat test (Độ trễ p95):** Đạt khoảng **~960 ms** (PASS, đạt tiêu chuẩn &lt; 1000ms bất chấp khoảng cách địa lý nửa vòng Trái Đất).
     *   **Tỷ lệ thành công:** Đạt **99.99%** (chỉ lỗi 2 request trên tổng số 16,271 request do mất kết nối TCP mạng WAN - Connection Reset).
-    *   **Movement test:** Hoạt động gom nhịp phát tin hoạt động hoàn hảo, client nhận gói gộp trơn tru.
+     *   **Movement test:** Hoạt động gom nhịp phát tin hoạt động hoàn hảo, client nhận gói gộp trơn tru.
+
+---
+
+### Giai Đoạn 4: Full Load Test — 4 loại test (Phase 4)
+
+#### **Chat Test: PASS ✅**
+*   **Cấu hình:** 100 VU, 10 room, 5 phút, Grafana Cloud (Ohio → Render Singapore → Postgres Nhật)
+*   **Kết quả:**
+    *   p95 delivery: **~900ms** (PASS, ngưỡng < 1000ms)
+    *   p99 delivery: ~1050ms | Median: ~560ms
+    *   Tổng: ~16,300 chat gửi, ~163,000 chat nhận
+    *   Tỉ lệ lỗi: **0.006%** (1 lỗi WS connect do mất TCP WAN)
+    *   cross_room_leak: **0** (PASS)
+    *   Server: Goroutines 95→337→125 (không leak), Heap 10.8→32→22MB, GC pause < 0.2ms
+*   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
+
+#### **Movement, Placement, Bootstrap Test: ⏳**
+Đang chờ chạy và cập nhật kết quả.
+
+#### **Movement Test: PASS ✅**
+*   **Cấu hình:** 100 VU, 10 room, 5 phút, Grafana Cloud (Ohio → Render Singapore)
+*   **Kết quả:**
+    *   p95 RPC latency: **~285ms** (PASS, ngưỡng < 500ms). Chỉ bằng 57% ngưỡng.
+    *   p99 RPC latency: ~310ms | Median: ~245ms
+    *   Tổng: ~300,000 RPC gửi, **0 lỗi, 0 WS error**
+    *   Broadcast `room_state`: ~9k players/sec gộp qua tick 100ms, rất đều
+    *   `position_correction` hội tụ từ 2,800 → 300/3s: server điều chỉnh vị trí ổn định
+*   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
+
+#### **Placement, Bootstrap Test: ⏳**
+Đang chờ chạy và cập nhật kết quả.

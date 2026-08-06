@@ -269,7 +269,7 @@ export class EditorSystem {
         
         // Sync position (usually unchanged)
         sprite.setPosition(p.x, p.y)
-      const itemDepth = typeof meta.depth === 'number' ? meta.depth : meta.is_animal ? PLAYER_DEPTH : meta.collides ? PLAYER_DEPTH : 2
+      const itemDepth = typeof meta.depth === 'number' ? meta.depth : meta.is_animal ? PLAYER_DEPTH + 0.2 : meta.collides ? PLAYER_DEPTH : 2
         sprite.setDepth(itemDepth + p.y / 10000.0)
 
         if (p.rotation && !sprite.getData('rotation')) {
@@ -343,7 +343,7 @@ export class EditorSystem {
         sprite.setData('rotation', p.rotation)
       }
 
-      const itemDepth = meta.collides ? PLAYER_DEPTH : 2
+      const itemDepth = typeof meta.depth === 'number' ? meta.depth : meta.is_animal ? PLAYER_DEPTH + 0.2 : meta.collides ? PLAYER_DEPTH : 2
       sprite.setDepth(itemDepth + p.y / 10000.0)
 
       if (meta.anchorX !== undefined && meta.anchorY !== undefined) {
