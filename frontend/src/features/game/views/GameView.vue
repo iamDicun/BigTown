@@ -1,18 +1,41 @@
 <script setup lang="ts">
-import { onBeforeUnmount } from 'vue'
-
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { stopMusic } from '@/shared/audio/audio.service'
-
 import AudioSettingsPanel from '../components/AudioSettingsPanel.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import GameCanvas from '../components/GameCanvas.vue'
 import EditorPanel from '../components/EditorPanel.vue'
+import Hotbar from '../components/Hotbar.vue'
+import InventoryModal from '../components/InventoryModal.vue'
 import { useGameStore } from '../stores/game.store'
+import { useHotbarStore } from '../stores/hotbar.store'
+import type { DecorationItemDto } from '../services/editor.service'
 
 const gameStore = useGameStore()
+const hotbarStore = useHotbarStore()
+const invOpen = ref(false)
 
+const catalogItems = computed<DecorationItemDto[]>(() => {
+  return Object.values(hotbarStore.itemById)
+})
+
+function onKey(e: KeyboardEvent) {
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  if (e.key === 'e' || e.key === 'E') {
+    invOpen.value = !invOpen.value
+    e.preventDefault()
+  }
+  if (e.key === 'Escape' && invOpen.value) {
+    invOpen.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+})
 onBeforeUnmount(() => {
   stopMusic()
+  window.removeEventListener('keydown', onKey)
 })
 </script>
 
@@ -21,6 +44,8 @@ onBeforeUnmount(() => {
     <GameCanvas />
     <AudioSettingsPanel />
     <EditorPanel :map-code="gameStore.mapCode" />
+    <Hotbar />
+    <InventoryModal v-if="invOpen" :items="catalogItems" @close="invOpen = false" />
     <aside class="game-overlay">
       <ChatPanel />
     </aside>
