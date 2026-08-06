@@ -28,9 +28,10 @@ type Cmd struct {
 	Kind    CmdKind
 	CharID  string
 	// place:
-	Item    *entity.DecorationItem
-	X, Y    int
-	PlaceID string
+	Item     *entity.DecorationItem
+	X, Y     int
+	Rotation int
+	PlaceID  string
 	// delete:
 	TargetID string
 	// join / credit:

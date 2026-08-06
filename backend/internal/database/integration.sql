@@ -108,17 +108,20 @@ CREATE TABLE IF NOT EXISTS map_placements (
     item_id      UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
     x            INTEGER NOT NULL,
     y            INTEGER NOT NULL,
+    rotation     INTEGER NOT NULL DEFAULT 0,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_map_placements_map_id ON map_placements(map_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_map_placements_coords ON map_placements(map_id, x, y);
+
+ALTER TABLE map_placements ADD COLUMN IF NOT EXISTS rotation INTEGER NOT NULL DEFAULT 0;
 
 DELETE FROM map_placements;
 DELETE FROM items WHERE type = 'decoration';
 
 INSERT INTO items (code, name, type, asset_key, price, metadata_json) VALUES
   ('deco_oak_tree',     'Cây sồi',       'decoration', 'decorations/Oak_Tree.png',                 220,
-     '{"w":64,"h":80,"anchorX":0.5,"anchorY":1.0,"collides":true,"collision_w":64,"collision_h":50}'),
+     '{"w":64,"h":80,"anchorX":0.5,"anchorY":1.0,"collides":true,"collision_w":64,"collision_h":50,"behaviors":["fade_behind"]}'),
   ('deco_house_blue', 'Nhà gỗ xanh',   'decoration', 'decorations/House_1_Wood_Base_Blue.png', 500,
      '{"w":64,"h":80,"anchorX":0.5,"anchorY":1.0,"collides":true,"collision_w":64,"collision_h":80}'),
   ('deco_chest',      'Rương gỗ',      'decoration', 'decorations/Chest.png',                   90,
@@ -194,7 +197,10 @@ INSERT INTO items (code, name, type, asset_key, price, metadata_json) VALUES
   ('deco_flower_bush_80', 'Bụi xác pháo cam', 'decoration', 'decorations/Outdoor_Decor_Free.png', 25, '{"w":16,"h":16,"anchorX":0.5,"anchorY":1.0,"collides":false,"frameWidth":16,"frameHeight":16,"frame":80}'),
 
   -- Lamppost (With base collision)
-  ('deco_lamppost', 'Cột đèn', 'decoration', 'decorations/Lamppost.png', 150, '{"w":16,"h":48,"anchorX":0.5,"anchorY":1.0,"collides":true,"collision_w":16,"collision_h":16}')
+  ('deco_lamppost', 'Cột đèn', 'decoration', 'decorations/Lamppost.png', 150, '{"w":16,"h":48,"anchorX":0.5,"anchorY":1.0,"collides":true,"collision_w":16,"collision_h":16,"behaviors":["glow_night"]}'),
+
+  ('deco_bridge', 'Cầu gỗ', 'decoration', 'decorations/Bridge_Wood.png', 300,
+   '{"w":48,"h":48,"anchorX":0.5,"anchorY":1.0,"collides":false,"collision_override":true,"behaviors":["bridge"],"bridge_zones":[{"dx":-20,"dy":-16,"w":8,"h":32},{"dx":20,"dy":-16,"w":8,"h":32}],"bridge_zones_h":[{"dx":0,"dy":-36,"w":48,"h":8},{"dx":0,"dy":-4,"w":48,"h":8}]}')
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, type = EXCLUDED.type, asset_key = EXCLUDED.asset_key,
   price = EXCLUDED.price, metadata_json = EXCLUDED.metadata_json,

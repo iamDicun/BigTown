@@ -168,6 +168,7 @@ CREATE TABLE map_placements (
     item_id      UUID NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
     x            INTEGER NOT NULL,
     y            INTEGER NOT NULL,
+    rotation     INTEGER NOT NULL DEFAULT 0,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

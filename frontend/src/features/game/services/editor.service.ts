@@ -17,6 +17,7 @@ export interface PlacementDto {
   item_id: string
   x: number
   y: number
+  rotation: number
   created_at: string
 }
 
@@ -39,6 +40,7 @@ export interface PlaceItemPayload {
   map_code: string
   x: number
   y: number
+  rotation?: number
 }
 
 export interface PlaceItemResultDto {

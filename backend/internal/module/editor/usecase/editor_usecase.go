@@ -79,10 +79,11 @@ func (u *EditorUsecase) GetEditorData(ctx context.Context, userID string, mapCod
 }
 
 type PlaceItemInput struct {
-	ItemID  string `json:"item_id" binding:"required"`
-	MapCode string `json:"map_code" binding:"required"`
-	X       int    `json:"x"`
-	Y       int    `json:"y"`
+	ItemID   string `json:"item_id" binding:"required"`
+	MapCode  string `json:"map_code" binding:"required"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Rotation int    `json:"rotation"`
 }
 
 type PlaceItemOutput struct {
@@ -136,13 +137,14 @@ func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input Plac
 
 	reply := make(chan room.CmdResult, 1)
 	cmd := room.Cmd{
-		Kind:    room.CmdPlace,
-		CharID:  charInfo.ID,
-		Item:    item,
-		X:       input.X,
-		Y:       input.Y,
-		PlaceID: uuid.NewString(),
-		Reply:   reply,
+		Kind:     room.CmdPlace,
+		CharID:   charInfo.ID,
+		Item:     item,
+		X:        input.X,
+		Y:        input.Y,
+		Rotation: input.Rotation,
+		PlaceID:  uuid.NewString(),
+		Reply:    reply,
 	}
 
 	if err := a.SendCmd(cmd); err != nil {

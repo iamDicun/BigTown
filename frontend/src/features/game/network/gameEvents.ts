@@ -99,6 +99,7 @@ export type DecorationPlacedEvent = {
     item_id: string
     x: number
     y: number
+    rotation: number
     created_at: string
   }
 }

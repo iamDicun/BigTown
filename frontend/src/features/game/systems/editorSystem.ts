@@ -1,6 +1,15 @@
 import Phaser from 'phaser'
 import type { DecorationItemDto, PlacementDto } from '../services/editor.service'
 import * as editorService from '../services/editor.service'
+import {
+  applyBehaviorsOnCreate,
+  applyBehaviorsOnDestroy,
+  applyBehaviorsOnUpdate,
+  parseItemMeta,
+  type BehaviorContext,
+  type ItemMeta,
+  type UpdateState,
+} from './behaviors/index'
 import { getDarkness } from './effects/common'
 import { PLAYER_DEPTH } from './mapSystem'
 
@@ -17,6 +26,8 @@ export class EditorSystem {
   private playerSprite: Phaser.GameObjects.Sprite
   private isBehindDecoration = false
   private isOnBridgeCached = false
+  private placementRotation = 0
+  private itemCache = new Map<string, DecorationItemDto>()
   private tileSize: number
 
   private onToggleModeHandler!: (e: Event) => void
@@ -84,10 +95,14 @@ export class EditorSystem {
       }
     })
 
-    // Pointer down handler for placing item
+    // Pointer down handler for placing item (left-click) & rotating (right-click)
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown() && this.activeDecorationItem && this.previewSprite && !this.deleteModeActive && this.canPlace) {
         this.confirmPlacement()
+      }
+      if (pointer.rightButtonDown() && this.activeDecorationItem && this.previewSprite && !this.deleteModeActive) {
+        this.placementRotation = this.placementRotation === 0 ? 90 : 0
+        this.previewSprite.setAngle(this.placementRotation)
       }
     })
   }
@@ -117,6 +132,7 @@ export class EditorSystem {
     this.clearPreview()
     this.setDeleteMode(false)
     this.activeDecorationItem = item
+    this.placementRotation = 0
 
     // Parse metadata
     let meta: any = {}
@@ -219,8 +235,12 @@ export class EditorSystem {
     }
   }
 
-  private renderPlacementsGroup(placements: PlacementDto[], itemMap: Map<string, DecorationItemDto>) {
+  private renderPlacementsGroup(placements: PlacementDto[], itemMap: Map<string, DecorationItemDto>, fullRefresh = true) {
     const safePlacements = placements || []
+
+    for (const [id, item] of itemMap) {
+      this.itemCache.set(id, item)
+    }
     
     // 1. Gather currently rendered sprites by placementId
     const existingSprites = new Map<string, Phaser.GameObjects.Image>()
@@ -237,10 +257,7 @@ export class EditorSystem {
       const item = itemMap.get(p.item_id)
       if (!item) continue
 
-      let meta: any = {}
-      try {
-        meta = JSON.parse(item.metadata_json)
-      } catch {}
+      let meta = parseItemMeta(item.metadata_json)
 
       const hasFrames = meta.frameWidth !== undefined && meta.frameHeight !== undefined
       const frameIndex = meta.frame !== undefined ? meta.frame : 0
@@ -254,12 +271,27 @@ export class EditorSystem {
         sprite.setPosition(p.x, p.y)
         const itemDepth = meta.collides ? PLAYER_DEPTH : 2
         sprite.setDepth(itemDepth + p.y / 10000.0)
-        
+
+        if (p.rotation && !sprite.getData('rotation')) {
+          sprite.setAngle(p.rotation)
+          sprite.setData('rotation', p.rotation)
+        }
+
         const glow = sprite.getData('glow') as Phaser.GameObjects.Image
         if (glow) {
           glow.setPosition(p.x, p.y - 40)
         }
-        
+
+        if (!sprite.getData('meta')) {
+          sprite.setData('meta', meta)
+          const behaviorCtx: BehaviorContext = {
+            scene: this.scene,
+            collisionGroup: this.collisionGroup,
+            tileSize: this.tileSize,
+          }
+          applyBehaviorsOnCreate(sprite, meta, behaviorCtx)
+        }
+
         if (meta.collides && sprite.body) {
           const body = sprite.body as Phaser.Physics.Arcade.StaticBody
           body.updateFromGameObject()
@@ -269,8 +301,8 @@ export class EditorSystem {
           const bodyH = (meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height / scale)) * scale
           body.setSize(bodyW, bodyH)
           
-          const spriteW = (hasFrames ? meta.frameWidth : sprite.width / scale) * scale
-          const spriteH = (hasFrames ? meta.frameHeight : sprite.height / scale) * scale
+          const spriteW = (hasFrames ? meta.frameWidth! : sprite.width / scale) * scale
+          const spriteH = (hasFrames ? meta.frameHeight! : sprite.height / scale) * scale
 
           if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
             body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
@@ -292,23 +324,21 @@ export class EditorSystem {
       }
 
       // Scale sprite if asset width is smaller than map tile size
-      const assetW = hasFrames ? meta.frameWidth : sprite.width
-      const scale = assetW < this.tileSize ? this.tileSize / assetW : 1.0
+      const assetW = hasFrames ? meta.frameWidth! : sprite.width
+      const scale = assetW! < this.tileSize ? this.tileSize / assetW! : 1.0
       sprite.setScale(scale)
 
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
+      sprite.setData('meta', meta)
+
+      if (p.rotation) {
+        sprite.setAngle(p.rotation)
+        sprite.setData('rotation', p.rotation)
+      }
+
       const itemDepth = meta.collides ? PLAYER_DEPTH : 2
       sprite.setDepth(itemDepth + p.y / 10000.0)
-
-      if (item.code === 'deco_lamppost') {
-        const glow = this.scene.add.image(p.x, p.y - 40, 'fx_lantern_glow')
-        glow.setDepth(9001) // on top of FX_DEPTH
-        glow.setBlendMode(Phaser.BlendModes.ADD)
-        glow.setScale(0.35)
-        glow.setAlpha(0)
-        sprite.setData('glow', glow)
-      }
 
       if (meta.anchorX !== undefined && meta.anchorY !== undefined) {
         sprite.setOrigin(meta.anchorX, meta.anchorY)
@@ -352,8 +382,8 @@ export class EditorSystem {
         body.updateFromGameObject()
         body.setSize(bodyW, bodyH)
         
-        const spriteW = (hasFrames ? meta.frameWidth : sprite.width) * scale
-        const spriteH = (hasFrames ? meta.frameHeight : sprite.height) * scale
+        const spriteW = (hasFrames ? meta.frameWidth! : sprite.width) * scale
+        const spriteH = (hasFrames ? meta.frameHeight! : sprite.height) * scale
 
         if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
           body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
@@ -365,7 +395,7 @@ export class EditorSystem {
         this.collisionGroup.add(sprite)
       }
 
-      // Add extra colliders and track their references
+      // Generic extra colliders from metadata
       const extraZones: Phaser.GameObjects.Zone[] = []
       if (Array.isArray(meta.extra_colliders)) {
         for (const c of meta.extra_colliders) {
@@ -374,52 +404,78 @@ export class EditorSystem {
           this.collisionGroup.add(zone)
           extraZones.push(zone)
         }
-      } else {
-        // Fallback bridge logic
-        if (item.code.startsWith('deco_bridge_h_')) {
-          const z1 = this.scene.add.zone(p.x, p.y - 28, 48, 8)
-          this.scene.physics.add.existing(z1, true)
-          this.collisionGroup.add(z1)
-          extraZones.push(z1)
-
-          const z2 = this.scene.add.zone(p.x, p.y - 4, 48, 8)
-          this.scene.physics.add.existing(z2, true)
-          this.collisionGroup.add(z2)
-          extraZones.push(z2)
-        } else if (item.code.startsWith('deco_bridge_v_')) {
-          const z1 = this.scene.add.zone(p.x - 20, p.y - 16, 8, 32)
-          this.scene.physics.add.existing(z1, true)
-          this.collisionGroup.add(z1)
-          extraZones.push(z1)
-
-          const z2 = this.scene.add.zone(p.x + 20, p.y - 16, 8, 32)
-          this.scene.physics.add.existing(z2, true)
-          this.collisionGroup.add(z2)
-          extraZones.push(z2)
-        }
       }
-      sprite.setData('extraZones', extraZones)
+
+      const behaviorCtx: BehaviorContext = {
+        scene: this.scene,
+        collisionGroup: this.collisionGroup,
+        tileSize: this.tileSize,
+      }
+      applyBehaviorsOnCreate(sprite, meta, behaviorCtx)
+
+      if (extraZones.length > 0) {
+        const allZones = (sprite.getData('extraZones') as Phaser.GameObjects.Zone[]) ?? []
+        sprite.setData('extraZones', [...allZones, ...extraZones])
+      }
     }
 
-    // 3. Remove orphaned sprites and bodies
-    existingSprites.forEach((sprite) => {
+    // 3. Remove orphaned sprites and bodies (skip for incremental upsert)
+    if (fullRefresh) {
+      existingSprites.forEach((sprite) => {
+        const meta = sprite.getData('meta') as ItemMeta | undefined
+        if (meta) applyBehaviorsOnDestroy(sprite, meta)
+
+        const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
+        if (zones) {
+          zones.forEach((z) => {
+            this.collisionGroup.remove(z, true, true)
+            z.destroy()
+          })
+        }
+        const glow = sprite.getData('glow') as Phaser.GameObjects.Image
+        if (glow) {
+          glow.destroy()
+        }
+        this.collisionGroup.remove(sprite, true, true)
+        this.placementsGroup.remove(sprite, true, true)
+      })
+
+      // 4. Update Phaser's spatial physics hash immediately (PR4)
+      this.collisionGroup.refresh()
+    }
+  }
+
+  public upsertPlacement(p: PlacementDto): void {
+    const item = this.itemCache.get(p.item_id)
+    if (!item) return
+    this.renderPlacementsGroup([p], new Map([[p.item_id, item]]), false)
+    this.collisionGroup.refresh()
+  }
+
+  public removePlacementSprite(placementId: string): void {
+    const children = this.placementsGroup?.getChildren() ?? []
+    for (const child of children) {
+      const sprite = child as Phaser.GameObjects.Image
+      if (sprite.getData('placementId') !== placementId) continue
+
+      const meta = sprite.getData('meta') as ItemMeta | undefined
+      if (meta) applyBehaviorsOnDestroy(sprite, meta)
+
       const zones = sprite.getData('extraZones') as Phaser.GameObjects.Zone[]
       if (zones) {
-        zones.forEach((z) => {
+        for (const z of zones) {
           this.collisionGroup.remove(z, true, true)
           z.destroy()
-        })
+        }
       }
       const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-      if (glow) {
-        glow.destroy()
-      }
+      if (glow) glow.destroy()
+
       this.collisionGroup.remove(sprite, true, true)
       this.placementsGroup.remove(sprite, true, true)
-    })
-
-    // 4. Update Phaser's spatial physics hash immediately (PR4)
-    this.collisionGroup.refresh()
+      this.collisionGroup.refresh()
+      break
+    }
   }
 
   private async confirmPlacement() {
@@ -429,16 +485,17 @@ export class EditorSystem {
     const y = this.previewSprite.y
     const itemId = this.activeDecorationItem.id
 
-    // Call placing API
     try {
       const result = await editorService.placeItem({
         item_id: itemId,
         map_code: this.mapCode,
         x,
-        y
+        y,
+        rotation: this.placementRotation || undefined,
       })
 
-      // Reload all placements to sync bodies & sprites correctly
+      this.upsertPlacement(result.placement)
+
       window.dispatchEvent(new CustomEvent('game:placementDone', {
         detail: { newCoins: result.new_coins, placement: result.placement }
       }))
@@ -528,57 +585,26 @@ export class EditorSystem {
       }
     }
 
-    const player = this.playerSprite
-    const playerBounds = player.getBounds()
-    let localBehindDecoration = false
-    let localOnBridge = false
-
-    const darkness = getDarkness()
-    const scTime = this.scene.time.now
-    const flicker = 0.92 + Math.sin(scTime * 0.008) * 0.05 + Math.sin(scTime * 0.021) * 0.03
+    const playerBounds = this.playerSprite.getBounds()
+    const state: UpdateState = {
+      player: this.playerSprite,
+      playerBounds,
+      darkness: getDarkness(),
+      flicker: 0.92 + Math.sin(this.scene.time.now * 0.008) * 0.05 + Math.sin(this.scene.time.now * 0.021) * 0.03,
+      sceneTime: this.scene.time.now,
+      isBehindDecoration: false,
+      isOnBridge: false,
+    }
 
     const children = this.placementsGroup?.active ? this.placementsGroup.getChildren() : []
     for (const child of children) {
       const sprite = child as Phaser.GameObjects.Image
-      const itemCode = (sprite.getData('itemCode') as string) ?? ''
-
-      if (itemCode.startsWith('deco_bridge_')) {
-        if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, sprite.getBounds())) {
-          localOnBridge = true
-        }
-      }
-
-      if (itemCode.toLowerCase().includes('tree')) {
-        const behind = player.y < sprite.y - 16 && player.y > sprite.y - sprite.height
-        const overlap = Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, sprite.getBounds())
-        const isBehind = behind && overlap
-
-        if (isBehind) {
-          localBehindDecoration = true
-        }
-
-        const targetAlpha = isBehind ? 0.35 : 1.0
-        if (sprite.getData('targetAlpha') !== targetAlpha) {
-          sprite.setData('targetAlpha', targetAlpha)
-          this.scene.tweens.killTweensOf(sprite)
-          this.scene.tweens.add({
-            targets: sprite,
-            alpha: targetAlpha,
-            duration: 150,
-            ease: 'Power1',
-          })
-        }
-      }
-
-      const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-      if (glow) {
-        glow.setAlpha(darkness * 0.8 * flicker)
-        glow.setVisible(darkness > 0.05)
-      }
+      const meta = sprite.getData('meta') as ItemMeta | undefined
+      if (meta) applyBehaviorsOnUpdate(sprite, meta, state)
     }
 
-    this.isBehindDecoration = localBehindDecoration
-    this.isOnBridgeCached = localOnBridge
+    this.isBehindDecoration = state.isBehindDecoration
+    this.isOnBridgeCached = state.isOnBridge
   }
 
   public isPlayerBehindDecoration(): boolean {
@@ -601,10 +627,8 @@ export class EditorSystem {
       try {
         this.placementsGroup.getChildren().forEach((child) => {
           const sprite = child as Phaser.GameObjects.Image
-          const glow = sprite.getData('glow') as Phaser.GameObjects.Image
-          if (glow) {
-            glow.destroy()
-          }
+          const meta = sprite.getData('meta') as ItemMeta | undefined
+          if (meta) applyBehaviorsOnDestroy(sprite, meta)
         })
       } catch {}
     }

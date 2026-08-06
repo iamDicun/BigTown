@@ -227,17 +227,12 @@ onMounted(() => {
     
     if (detail.placement) {
       // Append the new placement locally
-      placements.value.push(detail.placement)
+      if (!placements.value.some(p => p.id === detail.placement!.id)) {
+        placements.value.push(detail.placement)
+      }
     } else if (detail.deletedId) {
       // Remove the deleted placement locally
       placements.value = placements.value.filter(p => p.id !== detail.deletedId)
-    }
-
-    if (detail.placement || detail.deletedId) {
-      // Immediately trigger Phaser redraw with new list
-      window.dispatchEvent(new CustomEvent('game:loadPlacements', {
-        detail: { placements: placements.value, items: items.value }
-      }))
     }
   }
   window.addEventListener('game:placementDone', onPlacementDone)
@@ -251,21 +246,13 @@ onMounted(() => {
     const detail = (e as CustomEvent).detail as { placement: PlacementDto }
     if (detail.placement.character_id !== gameStore.characterId && !placements.value.some(p => p.id === detail.placement.id)) {
       placements.value.push(detail.placement)
-      window.dispatchEvent(new CustomEvent('game:loadPlacements', {
-        detail: { placements: placements.value, items: items.value }
-      }))
     }
   }
   window.addEventListener('game:realtimePlacementPlaced', onRealtimePlaced)
 
   onRealtimeDeleted = (e: Event) => {
     const detail = (e as CustomEvent).detail as { placementId: string }
-    if (placements.value.some(p => p.id === detail.placementId)) {
-      placements.value = placements.value.filter(p => p.id !== detail.placementId)
-      window.dispatchEvent(new CustomEvent('game:loadPlacements', {
-        detail: { placements: placements.value, items: items.value }
-      }))
-    }
+    placements.value = placements.value.filter(p => p.id !== detail.placementId)
   }
   window.addEventListener('game:realtimePlacementDeleted', onRealtimeDeleted)
 
