@@ -208,7 +208,13 @@ INSERT INTO items (code, name, type, asset_key, price, metadata_json) VALUES
   ('tile_path_mid', 'Đường giữa', 'decoration', 'tiles/Path_Middle.png', 5, '{"w":16,"h":16,"anchorX":0,"anchorY":0,"collides":false}'),
 
   -- Grass_Middle (1 frame)
-  ('tile_grass_mid', 'Cỏ giữa', 'decoration', 'tiles/Grass_Middle.png', 5, '{"w":16,"h":16,"anchorX":0,"anchorY":0,"collides":false}')
+  ('tile_grass_mid', 'Cỏ giữa', 'decoration', 'tiles/Grass_Middle.png', 5, '{"w":16,"h":16,"anchorX":0,"anchorY":0,"collides":false}'),
+
+  -- Animal items (đặt con vật như decoration, idle-only)
+  ('npc_chicken', 'Gà',   'decoration', 'animals/Chicken.png', 80,  '{"is_animal":true,"frameWidth":32,"frameHeight":32,"columns":2,"row_idle":0,"idle_frame_rate":4,"anchorX":0.5,"anchorY":1.0,"collides":false}'),
+  ('npc_cow',     'Bò',   'decoration', 'animals/Cow.png',     120, '{"is_animal":true,"frameWidth":32,"frameHeight":32,"columns":2,"row_idle":0,"idle_frame_rate":4,"anchorX":0.5,"anchorY":1.0,"collides":false}'),
+  ('npc_pig',     'Heo',  'decoration', 'animals/Pig.png',     120, '{"is_animal":true,"frameWidth":32,"frameHeight":32,"columns":2,"row_idle":0,"idle_frame_rate":4,"anchorX":0.5,"anchorY":1.0,"collides":false}'),
+  ('npc_sheep',   'Cừu',  'decoration', 'animals/Sheep.png',   120, '{"is_animal":true,"frameWidth":32,"frameHeight":32,"columns":2,"row_idle":0,"idle_frame_rate":4,"anchorX":0.5,"anchorY":1.0,"collides":false}')
 
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, type = EXCLUDED.type, asset_key = EXCLUDED.asset_key,
