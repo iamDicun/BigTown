@@ -7,7 +7,6 @@ import logo from '@/assets/images/logo.png'
   <div class="auth-card">
     <img class="auth-card__logo" :src="logo" alt="BigTown" />
     <PixelPanel>
-      <template #title>BigTown</template>
       <h1 class="auth-card__title"><slot name="title" /></h1>
       <slot />
     </PixelPanel>

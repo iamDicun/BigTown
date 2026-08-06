@@ -180,7 +180,7 @@ let onPlacementError: ((e: Event) => void) | null = null
 
 onMounted(() => {
   onPlacementDone = (e: Event) => {
-    const detail = (e as CustomEvent).detail as { newCoins: number; placement?: PlacementDto; deletedId?: string; sticky?: boolean }
+    const detail = (e as CustomEvent).detail as { newCoins: number; placement?: PlacementDto; deletedId?: string }
     gameStore.coins = detail.newCoins
 
     if (detail.placement) {

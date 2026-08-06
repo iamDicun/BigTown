@@ -9,7 +9,6 @@ const hotbar = useHotbarStore()
 const gameStore = useGameStore()
 
 const isDeleteMode = ref(false)
-const isSticky = ref(true)
 
 const slots = computed(() => hotbar.slots.map((id, i) => ({
   index: i,
@@ -19,24 +18,11 @@ const slots = computed(() => hotbar.slots.map((id, i) => ({
 function toggleDeleteMode() {
   isDeleteMode.value = !isDeleteMode.value
   if (isDeleteMode.value) {
-    isSticky.value = false
-    window.dispatchEvent(new CustomEvent('game:setStickyBrush', { detail: { on: false } }))
     window.dispatchEvent(new CustomEvent('game:cancelPlacement'))
   }
   window.dispatchEvent(new CustomEvent('game:toggleDeleteMode', {
     detail: { active: isDeleteMode.value }
   }))
-}
-
-function toggleSticky() {
-  isSticky.value = !isSticky.value
-  if (isSticky.value) {
-    isDeleteMode.value = false
-    window.dispatchEvent(new CustomEvent('game:toggleDeleteMode', {
-      detail: { active: false }
-    }))
-  }
-  window.dispatchEvent(new CustomEvent('game:setStickyBrush', { detail: { on: isSticky.value } }))
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -49,10 +35,6 @@ function onKeydown(e: KeyboardEvent) {
   }
   if (e.key === 'q' || e.key === 'Q') {
     toggleDeleteMode()
-    e.preventDefault()
-  }
-  if (e.key === 't' || e.key === 'T') {
-    toggleSticky()
     e.preventDefault()
   }
 }
@@ -74,12 +56,6 @@ onBeforeUnmount(() => {
       @click="toggleDeleteMode()"
       title="Xóa vật phẩm (Q)"
     ><PixelIcon name="trash" :size="18" /></button>
-    <button
-      class="ui-btn ui-btn--icon hotbar-mode-btn"
-      :class="{ 'ui-btn--confirm': isSticky }"
-      @click="toggleSticky()"
-      title="Đặt liên tiếp (T)"
-    ><PixelIcon name="brush" :size="18" /></button>
 
     <div class="hotbar-divider"></div>
 
@@ -108,7 +84,6 @@ onBeforeUnmount(() => {
 }
 .hotbar-mode-btn { width: 40px; height: 40px; background: var(--pixel-wood); text-shadow: none; }
 .hotbar-mode-btn.ui-btn--danger { background: var(--pixel-danger); text-shadow: 1px 1px 0 var(--pixel-danger-dark); }
-.hotbar-mode-btn.ui-btn--confirm { background: var(--pixel-green); text-shadow: 1px 1px 0 var(--pixel-green-dark); }
 .hotbar-divider {
   width: 3px; height: 40px; background: var(--pixel-outline); border-radius: 2px;
   margin: 0 var(--sp-1);

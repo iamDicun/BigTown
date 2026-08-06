@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, onBeforeUnmount } from 'vue'
 import { getBootstrap } from '../services/realtime.service'
 import PixelIcon from '@/shared/components/PixelIcon.vue'
 
@@ -49,7 +49,25 @@ onMounted(async () => {
     const data = await getBootstrap()
     current.value = data.map_code
   } catch { /* ignore */ }
+
+  window.addEventListener('keydown', onKey)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+})
+
+function onKey(e: KeyboardEvent) {
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  if (e.key === 'm' || e.key === 'M') {
+    if (open.value) { closeModal() } else { openModal() }
+    e.preventDefault()
+  }
+  if (e.key === 'Escape' && open.value) {
+    closeModal()
+    e.preventDefault()
+  }
+}
 
 const currentMapName = computed(() => {
   const m = maps.value.find(x => x.code === current.value)
