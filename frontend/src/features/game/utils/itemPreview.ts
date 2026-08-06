@@ -23,6 +23,27 @@ export function getItemPreviewStyle(item: DecorationItemDto, maxSize = 64): Reco
     } else if (key.includes('outdoor_decor_free.png')) {
       sheetW = 112
       sheetH = 192
+    } else if (key.includes('water_tile.png')) {
+      sheetW = 48
+      sheetH = 96
+    } else if (key.includes('cliff_tile.png')) {
+      sheetW = 48
+      sheetH = 96
+    } else if (key.includes('path_tile.png')) {
+      sheetW = 48
+      sheetH = 96
+    } else if (key.includes('farmland_tile.png')) {
+      sheetW = 48
+      sheetH = 48
+    } else if (key.includes('beach_tile.png')) {
+      sheetW = 80
+      sheetH = 48
+    } else if (key.includes('path_middle.png')) {
+      sheetW = 16
+      sheetH = 16
+    } else if (key.includes('grass_middle.png')) {
+      sheetW = 16
+      sheetH = 16
     }
 
     if (sheetW > 0 && sheetH > 0) {
