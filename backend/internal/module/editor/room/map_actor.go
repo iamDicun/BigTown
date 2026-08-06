@@ -25,6 +25,7 @@ type MapActor struct {
 	mapW     int
 	mapH     int
 
+	placementsMu sync.RWMutex
 	occupied     map[[2]int][]*entity.Placement
 	byID         map[string]*entity.Placement
 	hasCollision map[[2]int]bool // có item collision nào trong ô này không
@@ -268,8 +269,10 @@ func (m *MapActor) handlePlace(c Cmd) {
 		Rotation:    c.Rotation,
 		CreatedAt:   time.Now(),
 	}
+	m.placementsMu.Lock()
 	m.occupied[key] = append(m.occupied[key], p)
 	m.byID[p.ID] = p
+	m.placementsMu.Unlock()
 	if parseMetadataCollides(c.Item.MetadataJSON) {
 		m.hasCollision[key] = true
 	}
@@ -329,6 +332,7 @@ func (m *MapActor) handleDelete(c Cmd) {
 	m.wallets[c.CharID] = newCoins
 
 	key := [2]int{p.X, p.Y}
+	m.placementsMu.Lock()
 	delete(m.byID, p.ID)
 	if list, ok := m.occupied[key]; ok {
 		filtered := list[:0]
@@ -354,6 +358,7 @@ func (m *MapActor) handleDelete(c Cmd) {
 			}
 		}
 	}
+	m.placementsMu.Unlock()
 
 	// Reply immediately
 	c.Reply <- CmdResult{NewCoins: newCoins}
@@ -581,4 +586,14 @@ func (m *MapActor) parseItemCollides(itemID string) (bool, bool) {
 		return false, false
 	}
 	return parseMetadataCollides(item.MetadataJSON), true
+}
+
+func (m *MapActor) GetPlacements() []entity.Placement {
+	m.placementsMu.RLock()
+	defer m.placementsMu.RUnlock()
+	result := make([]entity.Placement, 0, len(m.byID))
+	for _, p := range m.byID {
+		result = append(result, *p)
+	}
+	return result
 }

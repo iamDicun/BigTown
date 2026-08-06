@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
 	realtimePort "backend/internal/module/realtime/port"
 )
@@ -218,6 +219,14 @@ func (rm *RoomManager) GetSpawnedCoins(mapCode string) []SpawnedCoin {
 		return nil
 	}
 	return a.GetSpawnedCoins()
+}
+
+func (rm *RoomManager) GetPlacements(mapCode string) []entity.Placement {
+	a, err := rm.Actor(mapCode)
+	if err != nil || a == nil {
+		return nil
+	}
+	return a.GetPlacements()
 }
 
 func (rm *RoomManager) ClaimCoin(ctx context.Context, mapCode, characterID, coinID string) (int, error) {
