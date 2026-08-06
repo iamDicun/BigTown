@@ -301,8 +301,8 @@ export class EditorSystem {
           const bodyH = (meta.collision_h ?? meta.h ?? (hasFrames ? meta.frameHeight : sprite.height / scale)) * scale
           body.setSize(bodyW, bodyH)
           
-          const spriteW = (hasFrames ? meta.frameWidth : sprite.width / scale) * scale
-          const spriteH = (hasFrames ? meta.frameHeight : sprite.height / scale) * scale
+          const spriteW = (hasFrames ? meta.frameWidth! : sprite.width / scale) * scale
+          const spriteH = (hasFrames ? meta.frameHeight! : sprite.height / scale) * scale
 
           if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
             body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
@@ -324,8 +324,8 @@ export class EditorSystem {
       }
 
       // Scale sprite if asset width is smaller than map tile size
-      const assetW = hasFrames ? meta.frameWidth : sprite.width
-      const scale = assetW < this.tileSize ? this.tileSize / assetW : 1.0
+      const assetW = hasFrames ? meta.frameWidth! : sprite.width
+      const scale = assetW! < this.tileSize ? this.tileSize / assetW! : 1.0
       sprite.setScale(scale)
 
       sprite.setData('placementId', p.id)
@@ -382,8 +382,8 @@ export class EditorSystem {
         body.updateFromGameObject()
         body.setSize(bodyW, bodyH)
         
-        const spriteW = (hasFrames ? meta.frameWidth : sprite.width) * scale
-        const spriteH = (hasFrames ? meta.frameHeight : sprite.height) * scale
+        const spriteW = (hasFrames ? meta.frameWidth! : sprite.width) * scale
+        const spriteH = (hasFrames ? meta.frameHeight! : sprite.height) * scale
 
         if (meta.collision_x !== undefined && meta.collision_y !== undefined) {
           body.setOffset(meta.collision_x * scale, meta.collision_y * scale)
