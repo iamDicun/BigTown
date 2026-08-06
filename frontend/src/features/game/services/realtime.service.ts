@@ -1,5 +1,16 @@
 import { http } from '@/shared/api/http'
 
+export interface NPCSpawnDto {
+  id: string
+  code: string
+  name: string
+  asset_key: string
+  spawn_x: number
+  spawn_y: number
+  spawn_group?: string
+  metadata_json: string
+}
+
 // Khớp backend/internal/module/realtime/delivery/dto.go BootstrapResponse.
 export interface BootstrapDto {
   tick_rate_ms: number
@@ -15,11 +26,11 @@ export interface BootstrapDto {
   map_width: number
   map_height: number
   tile_size: number
-  // Cho phép mỗi map định nghĩa tên layer riêng. Nếu thiếu, mapSystem dùng default cũ.
   layer_names?: string[]
   above_layer_name?: string
   collision_layer_name?: string
   music_asset_key?: string
+  npc_spawns?: NPCSpawnDto[]
 }
 
 export function getBootstrap(mapCode?: string) {

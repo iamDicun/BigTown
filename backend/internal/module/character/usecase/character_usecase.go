@@ -247,6 +247,10 @@ func (u *CharacterUsecase) GetMapByCode(ctx context.Context, code string) (*enti
 	return mapInfo, nil
 }
 
+func (u *CharacterUsecase) GetNPCSpawnsByMapCode(ctx context.Context, mapCode string) ([]entity.NPCSpawn, error) {
+	return u.repo.FindNPCSpawnsByMapCode(ctx, mapCode)
+}
+
 func isAllowedBaseAssetKey(baseAssetKey string) bool {
 	for _, option := range characterOptions {
 		if option.BaseAssetKey == baseAssetKey {

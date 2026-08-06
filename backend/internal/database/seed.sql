@@ -214,3 +214,71 @@ ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, type = EXCLUDED.type, asset_key = EXCLUDED.asset_key,
   price = EXCLUDED.price, metadata_json = EXCLUDED.metadata_json,
   updated_at = CURRENT_TIMESTAMP;
+
+-- ============================================================
+-- NPC TYPES (animal, không combat)
+-- ============================================================
+
+-- Xóa NPC spawn cũ (enemy từ phase2 cũ nếu có) trước khi seed mới
+DELETE FROM map_npc_spawns WHERE map_id = (SELECT id FROM maps WHERE code = 'village_adventure');
+DELETE FROM npc_types WHERE code NOT LIKE 'animal_%';
+
+INSERT INTO npc_types (code, name, asset_key, max_hp, attack, reward_score, reward_coin, respawn_ms, metadata_json) VALUES
+  ('animal_chicken', 'Gà', 'animals/Chicken.png', 1, 0, 0, 0, 0, '{"frame_width":32,"frame_height":32,"columns":2,"row_idle":0,"row_walk":1,"idle_frame_rate":4,"walk_frame_rate":6,"wander_radius":48,"wander_delay_min":2000,"wander_delay_max":5000}'),
+  ('animal_cow',     'Bò', 'animals/Cow.png',     1, 0, 0, 0, 0, '{"frame_width":32,"frame_height":32,"columns":2,"row_idle":0,"row_walk":1,"idle_frame_rate":4,"walk_frame_rate":6,"wander_radius":48,"wander_delay_min":2000,"wander_delay_max":5000}'),
+  ('animal_pig',     'Heo', 'animals/Pig.png',    1, 0, 0, 0, 0, '{"frame_width":32,"frame_height":32,"columns":2,"row_idle":0,"row_walk":1,"idle_frame_rate":4,"walk_frame_rate":6,"wander_radius":48,"wander_delay_min":2000,"wander_delay_max":5000}'),
+  ('animal_sheep',   'Cừu', 'animals/Sheep.png',  1, 0, 0, 0, 0, '{"frame_width":32,"frame_height":32,"columns":2,"row_idle":0,"row_walk":1,"idle_frame_rate":4,"walk_frame_rate":6,"wander_radius":48,"wander_delay_min":2000,"wander_delay_max":5000}')
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name, asset_key = EXCLUDED.asset_key,
+  max_hp = EXCLUDED.max_hp, attack = EXCLUDED.attack,
+  reward_score = EXCLUDED.reward_score, reward_coin = EXCLUDED.reward_coin,
+  respawn_ms = EXCLUDED.respawn_ms, metadata_json = EXCLUDED.metadata_json,
+  updated_at = CURRENT_TIMESTAMP;
+
+-- ============================================================
+-- MAP NPC SPAWNS (village_adventure)
+-- ============================================================
+
+INSERT INTO map_npc_spawns (map_id, npc_type_id, spawn_x, spawn_y, spawn_group, respawn_ms)
+SELECT m.id, nt.id, s.x, s.y, s.grp, NULL
+FROM maps m, npc_types nt,
+(VALUES
+  -- Đàn gà 1 (5 con, tọa độ cỏ ~480-512)
+  ('animal_chicken', 496, 496, 'chicken_flock_1'),
+  ('animal_chicken', 480, 480, 'chicken_flock_1'),
+  ('animal_chicken', 480, 496, 'chicken_flock_1'),
+  ('animal_chicken', 480, 512, 'chicken_flock_1'),
+  ('animal_chicken', 496, 480, 'chicken_flock_1'),
+  -- Đàn gà 2 (5 con, ~1472-1504)
+  ('animal_chicken', 1488, 288, 'chicken_flock_2'),
+  ('animal_chicken', 1472, 272, 'chicken_flock_2'),
+  ('animal_chicken', 1472, 288, 'chicken_flock_2'),
+  ('animal_chicken', 1472, 304, 'chicken_flock_2'),
+  ('animal_chicken', 1488, 272, 'chicken_flock_2'),
+  -- Đàn gà 3 (5 con, ~2384-2416)
+  ('animal_chicken', 2400, 1792, 'chicken_flock_3'),
+  ('animal_chicken', 2384, 1776, 'chicken_flock_3'),
+  ('animal_chicken', 2384, 1792, 'chicken_flock_3'),
+  ('animal_chicken', 2384, 1808, 'chicken_flock_3'),
+  ('animal_chicken', 2400, 1776, 'chicken_flock_3'),
+  -- Heo (5 con, ~1072-1104)
+  ('animal_pig', 1088, 1392, 'pig_group'),
+  ('animal_pig', 1072, 1376, 'pig_group'),
+  ('animal_pig', 1072, 1392, 'pig_group'),
+  ('animal_pig', 1072, 1408, 'pig_group'),
+  ('animal_pig', 1088, 1376, 'pig_group'),
+  -- Bò (5 con, ~1776-1808)
+  ('animal_cow', 1792, 896, 'cow_group'),
+  ('animal_cow', 1776, 880, 'cow_group'),
+  ('animal_cow', 1776, 896, 'cow_group'),
+  ('animal_cow', 1776, 912, 'cow_group'),
+  ('animal_cow', 1792, 880, 'cow_group'),
+  -- Cừu (5 con, ~2080-2128)
+  ('animal_sheep', 2080, 1072, 'sheep_group'),
+  ('animal_sheep', 2096, 1072, 'sheep_group'),
+  ('animal_sheep', 2112, 1072, 'sheep_group'),
+  ('animal_sheep', 2112, 1088, 'sheep_group'),
+  ('animal_sheep', 2112, 1104, 'sheep_group')
+) AS s(code, x, y, grp)
+WHERE m.code = 'village_adventure' AND nt.code = s.code
+ON CONFLICT DO NOTHING;

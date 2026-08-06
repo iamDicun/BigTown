@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log"
 
 	characterentity "backend/internal/module/character/entity"
 	"backend/internal/module/realtime/port"
@@ -9,6 +10,7 @@ import (
 
 type RealtimeUsecase struct {
 	mapReader port.MapReader
+	npcReader port.NPCReader
 }
 
 type BootstrapData struct {
@@ -19,21 +21,22 @@ type BootstrapData struct {
 	DefaultChannel   string
 	ProtocolFeatures []string
 
-	TilemapAssetKey   string
-	TilesetAssetKey   string
-	SpawnX            int
-	SpawnY            int
-	MapWidth          int
-	MapHeight         int
-	TileSize          int
-	LayerNames        []string
-	AboveLayerName    string
+	TilemapAssetKey    string
+	TilesetAssetKey    string
+	SpawnX             int
+	SpawnY             int
+	MapWidth           int
+	MapHeight          int
+	TileSize           int
+	LayerNames         []string
+	AboveLayerName     string
 	CollisionLayerName string
 	MusicAssetKey      string
+	NPCSpawns          []characterentity.NPCSpawn
 }
 
-func NewRealtimeUsecase(mapReader port.MapReader) *RealtimeUsecase {
-	return &RealtimeUsecase{mapReader: mapReader}
+func NewRealtimeUsecase(mapReader port.MapReader, npcReader port.NPCReader) *RealtimeUsecase {
+	return &RealtimeUsecase{mapReader: mapReader, npcReader: npcReader}
 }
 
 func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*BootstrapData, error) {
@@ -49,12 +52,21 @@ func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*Bo
 		return nil, err
 	}
 
+	var npcSpawns []characterentity.NPCSpawn
+	if u.npcReader != nil {
+		npcSpawns, err = u.npcReader.GetNPCSpawnsByMapCode(ctx, mapInfo.Code)
+		if err != nil {
+			log.Printf("realtime: failed to load NPC spawns for map %s: %v", mapInfo.Code, err)
+			npcSpawns = nil
+		}
+	}
+
 	return &BootstrapData{
-		TickRateMS:     100,
-		MapCode:        mapInfo.Code,
-		WebSocketPath:  "/connection/websocket",
-		DefaultRoomID:  mapInfo.Code,
-		DefaultChannel: "room:" + mapInfo.Code,
+		TickRateMS:      100,
+		MapCode:         mapInfo.Code,
+		WebSocketPath:   "/connection/websocket",
+		DefaultRoomID:   mapInfo.Code,
+		DefaultChannel:  "room:" + mapInfo.Code,
 		ProtocolFeatures: []string{
 			"centrifuge_transport",
 			"room_channels",
@@ -62,16 +74,17 @@ func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*Bo
 			"chat_bubble",
 			"npc_combat",
 		},
-		TilemapAssetKey:   mapInfo.TilemapAssetKey,
-		TilesetAssetKey:   mapInfo.TilesetAssetKey,
-		SpawnX:            mapInfo.SpawnX,
-		SpawnY:            mapInfo.SpawnY,
-		MapWidth:       mapInfo.Width,
-		MapHeight:      mapInfo.Height,
-		TileSize:       mapInfo.TileSize,
-		LayerNames:     mapInfo.LayerNames,
-		AboveLayerName:    mapInfo.AboveLayerName,
+		TilemapAssetKey:    mapInfo.TilemapAssetKey,
+		TilesetAssetKey:    mapInfo.TilesetAssetKey,
+		SpawnX:             mapInfo.SpawnX,
+		SpawnY:             mapInfo.SpawnY,
+		MapWidth:           mapInfo.Width,
+		MapHeight:          mapInfo.Height,
+		TileSize:           mapInfo.TileSize,
+		LayerNames:         mapInfo.LayerNames,
+		AboveLayerName:     mapInfo.AboveLayerName,
 		CollisionLayerName: mapInfo.CollisionLayerName,
 		MusicAssetKey:      mapInfo.MusicAssetKey,
+		NPCSpawns:          npcSpawns,
 	}, nil
 }

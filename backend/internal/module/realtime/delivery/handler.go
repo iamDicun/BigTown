@@ -25,6 +25,20 @@ func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
 		return
 	}
 
+	npcSpawns := make([]NPCSpawnDto, 0, len(data.NPCSpawns))
+	for _, s := range data.NPCSpawns {
+		npcSpawns = append(npcSpawns, NPCSpawnDto{
+			ID:           s.ID,
+			Code:         s.Code,
+			Name:         s.Name,
+			AssetKey:     s.AssetKey,
+			SpawnX:       s.SpawnX,
+			SpawnY:       s.SpawnY,
+			SpawnGroup:   s.SpawnGroup,
+			MetadataJSON: s.MetadataJSON,
+		})
+	}
+
 	ctx.JSON(http.StatusOK, response.SuccessResponse[BootstrapResponse]{
 		Success: true,
 		Data: BootstrapResponse{
@@ -45,6 +59,7 @@ func (h *RealtimeHandler) GetBootstrap(ctx *gin.Context) {
 			AboveLayerName:   data.AboveLayerName,
 			CollisionLayerName: data.CollisionLayerName,
 			MusicAssetKey:      data.MusicAssetKey,
+			NPCSpawns:          npcSpawns,
 		},
 	})
 }
