@@ -83,6 +83,35 @@ func (r *CharacterRepository) SyncMapID(ctx context.Context, characterID string,
 	return &mapInfo.ID, nil
 }
 
+func (r *CharacterRepository) FindNPCSpawnsByMapCode(ctx context.Context, mapCode string) ([]entity.NPCSpawn, error) {
+	query := `SELECT
+		mns.id::text, nt.code, nt.name, nt.asset_key,
+		mns.spawn_x, mns.spawn_y,
+		COALESCE(mns.spawn_group, ''),
+		COALESCE(nt.metadata_json::text, '{}')
+	FROM map_npc_spawns mns
+	JOIN npc_types nt ON nt.id = mns.npc_type_id
+	JOIN maps m ON m.id = mns.map_id
+	WHERE m.code = $1
+	ORDER BY nt.code, mns.spawn_x`
+
+	rows, err := r.db.QueryContext(ctx, query, mapCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var spawns []entity.NPCSpawn
+	for rows.Next() {
+		var s entity.NPCSpawn
+		if err := rows.Scan(&s.ID, &s.Code, &s.Name, &s.AssetKey, &s.SpawnX, &s.SpawnY, &s.SpawnGroup, &s.MetadataJSON); err != nil {
+			return nil, err
+		}
+		spawns = append(spawns, s)
+	}
+	return spawns, nil
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }

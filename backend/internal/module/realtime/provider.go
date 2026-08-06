@@ -14,6 +14,7 @@ type Provider struct {
 	jwtSecret      string
 	allowedOrigins []string
 	mapReader      port.MapReader
+	npcReader      port.NPCReader
 	characters     port.CharacterResolver
 
 	usecase     *usecase.RealtimeUsecase
@@ -23,13 +24,13 @@ type Provider struct {
 	handler     *delivery.RealtimeHandler
 }
 
-func NewProvider(jwtSecret string, allowedOrigins []string, mapReader port.MapReader, characters port.CharacterResolver) *Provider {
-	return &Provider{jwtSecret: jwtSecret, allowedOrigins: allowedOrigins, mapReader: mapReader, characters: characters}
+func NewProvider(jwtSecret string, allowedOrigins []string, mapReader port.MapReader, npcReader port.NPCReader, characters port.CharacterResolver) *Provider {
+	return &Provider{jwtSecret: jwtSecret, allowedOrigins: allowedOrigins, mapReader: mapReader, npcReader: npcReader, characters: characters}
 }
 
 func (p *Provider) Usecase() *usecase.RealtimeUsecase {
 	if p.usecase == nil {
-		p.usecase = usecase.NewRealtimeUsecase(p.mapReader)
+		p.usecase = usecase.NewRealtimeUsecase(p.mapReader, p.npcReader)
 	}
 	return p.usecase
 }

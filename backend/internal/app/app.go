@@ -63,10 +63,10 @@ func (a *App) registerModules() {
 	// cho user cũ — xem character/port/user_reader.go.
 	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode, a.container.Config.Game.StartingCoins)
 
-	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap) lẫn
-	// port.CharacterResolver (GetByUserID) — dùng chung 1 instance cho cả bootstrap
-	// map lẫn resolve character khi join room/movement.
-	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase())
+	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap), port.NPCReader
+	// (GetNPCSpawnsByMapCode) lẫn port.CharacterResolver (GetByUserID) — dùng chung 1 instance
+	// cho bootstrap map, NPC spawns và resolve character khi join room/movement.
+	realtimeModule := realtime.NewRealtimeModule(a.container.Config.Auth.JWTSecret, a.container.Config.Web.AllowedOrigins, characterModule.Usecase(), characterModule.Usecase(), characterModule.Usecase())
 	realtimeModule.RegisterConnectionRoute(a.router)
 	
 	a.router.GET("/metrics", gin.WrapH(promhttp.Handler()))

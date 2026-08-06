@@ -19,4 +19,7 @@ type CharacterRepository interface {
 	// Nếu currentMapID đã khớp thì không ghi DB, trả lại nguyên currentMapID. Nếu map mặc định
 	// chưa được seed, trả lại nguyên currentMapID (không chặn login vì thiếu seed data).
 	SyncMapID(ctx context.Context, characterID string, currentMapID *string) (*string, error)
+
+	// FindNPCSpawnsByMapCode lấy danh sách NPC spawn trên map (JOIN map_npc_spawns + npc_types).
+	FindNPCSpawnsByMapCode(ctx context.Context, mapCode string) ([]entity.NPCSpawn, error)
 }

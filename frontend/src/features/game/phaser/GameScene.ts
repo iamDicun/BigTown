@@ -13,6 +13,7 @@ import * as realtimeService from '../services/realtime.service'
 import { playMusic } from '@/shared/audio/audio.service'
 import { EditorSystem } from '../systems/editorSystem'
 import { CoinPickupSystem } from '../systems/coinPickupSystem'
+import { AnimalSystem } from '../systems/animalSystem'
 import type { SpawnedCoinDto } from '../services/editor.service'
 
 export const gameSceneKey = 'game'
@@ -46,6 +47,7 @@ export class GameScene extends Phaser.Scene {
   private enterKey!: Phaser.Input.Keyboard.Key
   private movementKeyCodes: number[] = []
   private editorSystem!: EditorSystem
+  private animalSystem!: AnimalSystem
   private mapCollider!: Phaser.Physics.Arcade.Collider
   private coinPickupSystem: CoinPickupSystem | null = null
   public map!: Phaser.Tilemaps.Tilemap
@@ -92,6 +94,11 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.localPlayer.sprite, this.remotePlayers.group)
 
     this.editorSystem = new EditorSystem(this, bootstrap.map_code, this.localPlayer.sprite, bootstrap.tile_size)
+
+    this.animalSystem = new AnimalSystem(this)
+    if (bootstrap.npc_spawns) {
+      this.animalSystem.spawnFromBootstrap(bootstrap.npc_spawns)
+    }
 
     if (bootstrap.map_code === 'winter' || bootstrap.map_code === 'dark_village') {
       this.coinPickupSystem = new CoinPickupSystem(this, bootstrap, this.localPlayer.sprite)
@@ -211,6 +218,7 @@ export class GameScene extends Phaser.Scene {
       this.gameSocket = null
       this.remotePlayers.destroyAll()
       this.editorSystem.destroy()
+      this.animalSystem.destroy()
       if (this.coinPickupSystem) {
         this.coinPickupSystem.destroy()
         this.coinPickupSystem = null
@@ -266,6 +274,7 @@ export class GameScene extends Phaser.Scene {
       this.mapCollider.active = !this.editorSystem.isPlayerOnBridge()
     }
     this.editorSystem.update()
+    this.animalSystem.update(time, this.game.loop.delta)
     if (this.aboveLayerFade) {
       const underPlacement = this.editorSystem.isPlayerBehindDecoration()
       updateAboveLayerFade(this, this.aboveLayerFade, this.localPlayer.sprite, time, underPlacement)

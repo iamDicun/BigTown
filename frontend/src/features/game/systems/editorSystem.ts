@@ -317,7 +317,13 @@ export class EditorSystem {
 
       // Create new sprite
       let sprite: Phaser.GameObjects.Image
-      if (hasFrames) {
+      if (meta.is_animal) {
+        const animKey = item.asset_key.replace(/\//g, '_').replace(/\.png$/i, '')
+        this.ensureIdleAnim(animKey, item.asset_key, meta)
+        const sp = this.scene.add.sprite(p.x, p.y, item.asset_key, 0)
+        sp.play(`${animKey}_idle`)
+        sprite = sp as unknown as Phaser.GameObjects.Image
+      } else if (hasFrames) {
         sprite = this.scene.add.image(p.x, p.y, item.asset_key, frameIndex)
       } else {
         sprite = this.scene.add.image(p.x, p.y, item.asset_key)
@@ -638,5 +644,18 @@ export class EditorSystem {
       this.collisionGroup.destroy(true, true)
     }
     this.clearPreview()
+  }
+
+  private ensureIdleAnim(animKey: string, textureKey: string, meta: any): void {
+    if (this.scene.anims.exists(`${animKey}_idle`)) return
+    const cols = meta.columns ?? 2
+    const rowIdle = meta.row_idle ?? 0
+    const frames = Array.from({ length: cols }, (_, i) => rowIdle * cols + i)
+    this.scene.anims.create({
+      key: `${animKey}_idle`,
+      frames: this.scene.anims.generateFrameNumbers(textureKey, { frames }),
+      frameRate: meta.idle_frame_rate ?? 4,
+      repeat: -1,
+    })
   }
 }
