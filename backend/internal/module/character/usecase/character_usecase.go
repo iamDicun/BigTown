@@ -23,6 +23,9 @@ type CharacterUsecase struct {
 	mapCache   *entity.MapInfo
 	mapByCode  map[string]*entity.MapInfo
 
+	npcSpawnMu    sync.RWMutex
+	npcSpawnCache map[string][]entity.NPCSpawn
+
 	// RAM Cache cho nhân vật để triệt tiêu việc query DB Postgres liên tục trên hot path (Chat/Move)
 	charCache sync.Map
 }
@@ -248,7 +251,33 @@ func (u *CharacterUsecase) GetMapByCode(ctx context.Context, code string) (*enti
 }
 
 func (u *CharacterUsecase) GetNPCSpawnsByMapCode(ctx context.Context, mapCode string) ([]entity.NPCSpawn, error) {
-	return u.repo.FindNPCSpawnsByMapCode(ctx, mapCode)
+	u.npcSpawnMu.RLock()
+	if u.npcSpawnCache != nil {
+		if cached, ok := u.npcSpawnCache[mapCode]; ok {
+			u.npcSpawnMu.RUnlock()
+			return cached, nil
+		}
+	}
+	u.npcSpawnMu.RUnlock()
+
+	spawns, err := u.repo.FindNPCSpawnsByMapCode(ctx, mapCode)
+	if err != nil {
+		return nil, err
+	}
+
+	u.npcSpawnMu.Lock()
+	if u.npcSpawnCache == nil {
+		u.npcSpawnCache = make(map[string][]entity.NPCSpawn)
+	}
+	u.npcSpawnCache[mapCode] = spawns
+	u.npcSpawnMu.Unlock()
+
+	return spawns, nil
+}
+
+func (u *CharacterUsecase) PreloadNPCs(ctx context.Context) error {
+	_, err := u.GetNPCSpawnsByMapCode(ctx, u.defaultMapCode)
+	return err
 }
 
 func isAllowedBaseAssetKey(baseAssetKey string) bool {

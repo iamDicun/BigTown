@@ -145,7 +145,7 @@
                     <td><span class="status-badge status-done">Str. 1, 2, 3</span></td>
                     <td><span class="status-badge status-done">Str. 1 & 2</span></td>
                     <td><span class="status-badge status-done">Str. 2 & 3 (ĐẠT)</span></td>
-                    <td><span class="status-badge status-done">Chat ✅ | Còn lại ⏳</span></td>
+                    <td><span class="status-badge status-done">Hoàn tất 4/4</span></td>
                 </tr>
                 <tr>
                     <td><strong>Cơ chế Store chính</strong></td>
@@ -185,14 +185,14 @@
                     <td>—</td>
                     <td>—</td>
                     <td>—</td>
-                    <td>⏳</td>
+                    <td>~1000ms REST / ~1800ms deliver ⚠️</td>
                 </tr>
                 <tr>
                     <td><strong>Độ trễ Bootstrap (p95)</strong></td>
                     <td>—</td>
                     <td>—</td>
                     <td>—</td>
-                    <td>⏳</td>
+                    <td>~890ms p95 / ~1080ms p99 ⚠️</td>
                 </tr>
                 <tr>
                     <td><strong>Rò rỉ Room (Leak)</strong></td>
@@ -258,11 +258,23 @@
                 </ul>
             </div>
             <div class="card">
-                <h3>Placement, Bootstrap ⏳</h3>
-                <p>Đang chờ chạy và cập nhật kết quả.</p>
+                <h3>Placement Test ⚠️</h3>
+                <p>100 VU, place mỗi 1s. Actor serialize GHI tạo nghẽn.</p>
                 <ul>
-                    <li><strong>Placement:</strong> place_rest_ms p95, place_deliver_ms p95, place_error</li>
-                    <li><strong>Bootstrap:</strong> bootstrap_ms p95/p99, http_req_failed</li>
+                    <li><strong>REST p95:</strong> ~1000ms (ngưỡng 800ms — FAIL sát)</li>
+                    <li><strong>Delivery p95:</strong> ~1800ms (ngưỡng 1500ms) | <strong>Median:</strong> ~710ms (OK)</li>
+                    <li><strong>2 phút đầu ổn định</strong> (0 lỗi), sau đó 292 timeout + 52 WS error</li>
+                    <li><strong>Nguyên nhân:</strong> 10 place/s/room actor xếp hàng tuần tự</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Bootstrap Test ⚠️</h3>
+                <p>ramping-arrival-rate, đỉnh ~166 RPS. DB read maps + NPC spawns là bottleneck.</p>
+                <ul>
+                    <li><strong>p95 đỉnh 166 RPS:</strong> ~890ms (ngưỡng 600ms — FAIL) | p99: ~1080ms (PASS)</li>
+                    <li><strong>p95 &lt; 100 RPS:</strong> ~450ms (PASS) | <strong>Median:</strong> ~560ms</li>
+                    <li><strong>0 lỗi, 0 fail, 100% checks:</strong> Hệ thống ổn định tuyệt đối</li>
+                    <li><strong>Khuyến nghị:</strong> Cache map metadata nếu muốn p95 &lt; 600ms ở 200 RPS</li>
                 </ul>
             </div>
         </div>

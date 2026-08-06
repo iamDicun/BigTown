@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+
 	"backend/internal/middleware"
 	"backend/internal/module/auth"
 	authrepo "backend/internal/module/auth/repository"
@@ -62,6 +64,10 @@ func (a *App) registerModules() {
 	// userrepo truyền vào để CharacterUsecase lấy full_name thật của user nếu cần migrate/fallback
 	// cho user cũ — xem character/port/user_reader.go.
 	characterModule := character.NewCharacterModule(a.container.DB, userrepo.NewUserRepository(a.container.DB), defaultMapCode, a.container.Config.Game.StartingCoins)
+
+	// Preload NPC spawns vào cache lúc startup để bootstrap endpoint không phải
+	// query DB ngay request đầu tiên (cold start).
+	_ = characterModule.Usecase().PreloadNPCs(context.Background())
 
 	// characterModule.Usecase() thỏa mãn cả port.MapReader (GetDefaultMap), port.NPCReader
 	// (GetNPCSpawnsByMapCode) lẫn port.CharacterResolver (GetByUserID) — dùng chung 1 instance

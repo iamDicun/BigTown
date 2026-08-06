@@ -12,8 +12,8 @@
 |:---|:---|:---:|:---|:---|:---|
 | 1 | **Chat** | ✅ PASS | ~900ms delivery | < 1000ms | ĐẠT |
 | 2 | **Movement** | ✅ PASS | ~285ms RPC | < 500ms RPC | ĐẠT |
-| 3 | **Placement** | ⏳ chưa chạy | — | < 800ms REST / < 1500ms delivery | — |
-| 4 | **Bootstrap** | ⏳ chưa chạy | — | < 600ms p95 / < 1200ms p99 | — |
+| 3 | **Placement** | ⚠️ FAIL (sát) | ~1000ms REST / ~1800ms deliver | < 800ms / < 1500ms | SÁT NGƯỠNG |
+| 4 | **Bootstrap** | ⚠️ FAIL p95 / PASS p99 | ~890ms p95 / ~1080ms p99 | < 600ms p95 / < 1200ms p99 | p95 vượt ngưỡng |
 
 ---
 
@@ -133,19 +133,114 @@ Chênh ~120ms so với local→Render là hoàn toàn do độ trễ mạng WAN 
 
 ---
 
-## 4. Chi tiết: Placement Load Test
+## 4. Chi tiết: Placement Load Test ⚠️
 
-⏳ *Đang chờ kết quả...*
+### 4.1 Cấu hình test
 
-*(sẽ cập nhật: place_rest_ms p95, place_deliver_ms p95, place_error, place_occupied, fanout ratio)*
+| Tham số | Giá trị |
+|:---|:---|
+| Executor | `constant-vus` |
+| VUs | 100 |
+| Duration | 5 phút |
+| Rooms | 10 (10 VU/room) |
+| Place interval | 1 giây/lần |
+| Load zone | `amazon:us:columbus` (Ohio) |
+| Backend | `bigtown-1.onrender.com` (Singapore) |
+| Yêu cầu đặc biệt | Đã nạp coin (100M/character) + restart backend |
+
+### 4.2 Kết quả client-side (k6)
+
+Test có 2 giai đoạn rõ rệt:
+
+#### Giai đoạn 1: Ổn định (17:01:30 – 17:03:24, ~2 phút)
+
+| Metric | Giá trị | Ngưỡng | Kết quả |
+|:---|:---|:---|:---:|
+| **Tổng place gửi** | ~11,500 | — | — |
+| **p95 REST place** | **~1000ms** (920-1175ms) | < 800ms | ⚠️ FAIL (sát) |
+| **Median REST place** | ~700ms | — | — |
+| **p95 delivery** (place→broadcast) | **~1800ms** (1700-2200ms) | < 1500ms | ⚠️ FAIL |
+| **Median delivery** | **~710ms** | — | ✅ Nhanh |
+| **Place error** | 0 | < 10 | ✅ PASS |
+| **WS connect errors** | 0 | < 5 | ✅ PASS |
+| **Tỉ lệ broadcast** | ~2,700-3,500/3s (10x fanout) | — | Ổn định |
+
+#### Giai đoạn 2: Suy giảm (17:03:24 – 17:06:57, ~3 phút)
+
+| Metric | Giá trị |
+|:---|:---|
+| **Place error (timeout 60s)** | 292 |
+| **WS connect errors** | 52 |
+| **REST response** | Hàng loạt timeout 60 giây |
+| **Delivery spike** | p95 lên tới 139,511ms (139 giây!) |
+
+### 4.3 Phân tích
+
+**Nguyên nhân gốc:** Actor model serialize mọi thao tác GHI theo từng map. Với 100 VU × 1 place/s = ~100 place/s tổng. Mỗi room actor xử lý ~10 place/s tuần tự (coin deduct → insert placement → reply → broadcast → write-behind DB). Đây là điểm nghẽn tự nhiên của kiến trúc actor.
+
+**Tại sao median nhanh (710ms) nhưng p95 cao (1800ms):**
+- Median ~710ms: khi actor không bận, request được xử lý ngay
+- p95 ~1800ms: khi nhiều VU cùng room gửi cùng lúc, request xếp hàng chờ actor. Mỗi place mất ~70ms → 10 place xếp hàng = 700ms + network RTT ~500ms = ~1200ms. Đôi khi hàng dài hơn.
+- Delivery delay thêm ~800ms so với REST (1800 vs 1000ms) do broadcast qua Centrifuge bị backpressure khi tải cao.
+
+**Giai đoạn 2 (suy giảm):** Sau ~2 phút, hàng đợi actor tích tụ → REST bắt đầu timeout (60s). Đồng thời WS connections bắt đầu rớt (52 errors) do broadcast backlog quá lớn. Đây là hiệu ứng domino: actor chậm → broadcast chậm → WS timeout → reconnect → thêm tải.
+
+### 4.4 Kết luận Placement test
+
+**⚠️ SÁT NGƯỠNG — cần tối ưu thêm.** p95 REST (1000ms) vượt ngưỡng 800ms ~25%, p95 delivery (1800ms) vượt ngưỡng 1500ms ~20%. Median vẫn tốt (710ms). Hệ thống sập sau ~2 phút tải liên tục do actor serialization.
+
+**Hướng cải thiện tiềm năng:**
+- Tách coin deduct ra khỏi actor path (dùng atomic SQL UPDATE)
+- Dùng write-behind batch cho placement (gom nhiều insert vào 1 transaction)
+- Thêm rate limiter hoặc queue riêng cho broadcast để tránh backpressure lan sang REST
 
 ---
 
-## 5. Chi tiết: Bootstrap Load Test
+## 5. Chi tiết: Bootstrap Load Test ⚠️
 
-⏳ *Đang chờ kết quả...*
+### 5.1 Cấu hình test
 
-*(sẽ cập nhật: bootstrap_ms p95/p99, http_req_failed, bootstrap_npc_count)*
+| Tham số | Giá trị |
+|:---|:---|
+| Executor | `ramping-arrival-rate` (open model) |
+| Stages | 10→50 RPS (30s) → 200 RPS (1m ramp) → 200 RPS (2m hold) → 0 (30s cooldown) |
+| Max VUs | ~100 |
+| Load zone | `amazon:us:columbus` (Ohio) |
+| Backend | `bigtown-1.onrender.com` (Singapore) |
+| Ghi chú | `npc_spawns` = 0 (loadtest maps không seed NPC) |
+
+### 5.2 Kết quả client-side (k6)
+
+| Metric | Tải thấp (< 50 RPS) | Đỉnh (~166 RPS) | Ngưỡng | Kết quả |
+|:---|:---|:---|:---|:---:|
+| **p95 bootstrap** | ~450ms | **~890ms** | < 600ms | ⚠️ FAIL |
+| **p99 bootstrap** | ~800ms | **~1080ms** | < 1200ms | ✅ PASS |
+| **Median bootstrap** | ~375ms | ~560ms | — | — |
+| **Min bootstrap** | ~361ms | ~375ms | — | — |
+| **http_req_failed** | 0% | **0%** | < 1% | ✅ PASS |
+| **bootstrap_bad** | 0 | **0** | < 10 | ✅ PASS |
+| **Checks pass** | 100% | **100%** | > 99% | ✅ PASS |
+| **npc_spawns** | 0 | 0 | — | Map loadtest ko có NPC |
+
+### 5.3 Phân tích
+
+**Đây là điểm cần chú ý:** Bootstrap p95 vượt ngưỡng ~50% ở tải đỉnh (890ms vs 600ms). Tuy nhiên p99 vẫn dưới 1200ms và tỉ lệ lỗi = 0%.
+
+**Đặc điểm của bootstrap endpoint:**
+- Đây là request HTTP thuần, không dùng WS, không có actor
+- Server phải: parse JWT → load character → load map metadata → load NPC spawns → tạo reply
+- Với RAM cache cho `GetByUserID`, phần character load đã được tối ưu (tương tự chat test)
+- Map metadata load và NPC spawns load vẫn query DB mỗi lần
+
+**Diễn biến theo tải:**
+| RPS | p95 | Ghi chú |
+|:---|:---|:---|
+| ~10-50 | **~450ms** | PASS thoải mái |
+| ~100 | **~450-500ms** | PASS |
+| ~166 (đỉnh) | **~880-910ms** | FAIL – DB read bắt đầu nghẽn |
+| Cooldown | **~410ms** | Hồi phục ngay |
+
+**Kết luận:** Bootstrap chịu được ~100 RPS với p95 < 600ms. Ở 166 RPS, DB read (maps + NPC spawns) trở thành bottleneck. Median vẫn thấp (560ms) chứng tỏ hầu hết request nhanh, chỉ một số bị nghẽn DB pool. **Có thể cần cache map metadata** nếu muốn p95 dưới 600ms ở 200 RPS. Tuy nhiên 166 RPS bootstrap tương đương rất nhiều người chơi login đồng thời — đây là kịch bản "thundering herd" hiếm gặp.
 
 ---
 
@@ -153,9 +248,9 @@ Chênh ~120ms so với local→Render là hoàn toàn do độ trễ mạng WAN 
 
 | Chỉ số | Chat | Movement | Placement | Bootstrap |
 |:---|:---:|:---:|:---:|:---:|
-| **p95 chính** | ~900ms ✅ | ~285ms ✅ | — | — |
-| **Lỗi** | 0.006% ✅ | 0% ✅ | — | — |
-| **Room leak** | 0 ✅ | N/A (channel) | — | — |
-| **Server ổn định** | ✅ | ✅ | — | — |
+| **p95 chính** | ~900ms ✅ | ~285ms ✅ | ~1000ms / ~1800ms ⚠️ | ~890ms p95 / ~1080ms p99 ⚠️ |
+| **Lỗi** | 0.006% ✅ | 0% ✅ | 292 + 52 WS ⚠️ | 0% ✅ |
+| **Room leak** | 0 ✅ | N/A | N/A | N/A |
+| **Server ổn định** | ✅ | ✅ | ⚠️ Sập sau 2 phút | ✅ |
 
-> **Ghi chú:** Kết quả sẽ được cập nhật dần sau mỗi lần chạy test. Các test còn lại (movement, placement, bootstrap) chạy lần lượt trên cùng hạ tầng.
+> Bootstrap p95 vượt ngưỡng 600ms → **~890ms** ở đỉnh 166 RPS. p99 ~1080ms vẫn PASS. Nguyên nhân: DB read maps + NPC spawns mỗi request. Có thể cache map metadata nếu cần. 0 lỗi tuyệt đối.
