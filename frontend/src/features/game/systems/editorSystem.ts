@@ -269,7 +269,7 @@ export class EditorSystem {
         
         // Sync position (usually unchanged)
         sprite.setPosition(p.x, p.y)
-        const itemDepth = meta.collides ? PLAYER_DEPTH : 2
+      const itemDepth = meta.is_animal ? PLAYER_DEPTH : meta.collides ? PLAYER_DEPTH : 2
         sprite.setDepth(itemDepth + p.y / 10000.0)
 
         if (p.rotation && !sprite.getData('rotation')) {
