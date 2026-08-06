@@ -2,6 +2,7 @@ package room
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"math/rand"
@@ -24,9 +25,10 @@ type MapActor struct {
 	mapW     int
 	mapH     int
 
-	occupied  map[[2]int]*entity.Placement
-	byID      map[string]*entity.Placement
-	wallets   map[string]int
+	occupied     map[[2]int][]*entity.Placement
+	byID         map[string]*entity.Placement
+	hasCollision map[[2]int]bool // có item collision nào trong ô này không
+	wallets      map[string]int
 	residents map[string]int
 	prices    map[string]int // itemID -> price (P0 cache)
 
@@ -55,9 +57,10 @@ func NewMapActor(
 		tileSize:   tileSize,
 		mapW:       mapW,
 		mapH:       mapH,
-		occupied:   make(map[[2]int]*entity.Placement),
-		byID:       make(map[string]*entity.Placement),
-		wallets:    make(map[string]int),
+		occupied:     make(map[[2]int][]*entity.Placement),
+		byID:         make(map[string]*entity.Placement),
+		hasCollision: make(map[[2]int]bool),
+		wallets:      make(map[string]int),
 		residents:  make(map[string]int),
 		prices:     make(map[string]int),
 		coinsOnMap: make(map[string]SpawnedCoin),
@@ -93,8 +96,12 @@ func (m *MapActor) loadFromDB() error {
 	for _, p := range placements {
 		pCopy := p
 		key := [2]int{p.X, p.Y}
-		m.occupied[key] = &pCopy
+		m.occupied[key] = append(m.occupied[key], &pCopy)
 		m.byID[p.ID] = &pCopy
+		// Track collision per cell
+		if collides, _ := m.parseItemCollides(p.ItemID); collides {
+			m.hasCollision[key] = true
+		}
 	}
 
 	return nil
@@ -216,10 +223,18 @@ func (m *MapActor) handlePlace(c Cmd) {
 	}
 
 	key := [2]int{c.X, c.Y}
-	if _, taken := m.occupied[key]; taken {
-		c.Reply <- CmdResult{Err: ErrOccupied}
-		return
+	// Chỉ chặn nếu ô đã có item collision (không cho đè lên item collision)
+	if m.hasCollision[key] {
+		// Kiểm tra xem item mới có collision không — nếu có thì chặn
+		newCollides := parseMetadataCollides(c.Item.MetadataJSON)
+		if newCollides || len(m.occupied[key]) > 0 {
+			c.Reply <- CmdResult{Err: ErrOccupied}
+			return
+		}
 	}
+	// Nếu item mới không collision và ô có sẵn item không collision → cho phép stacking
+	// Nếu ô có sẵn item collision → đã bị chặn ở trên
+	// Nếu ô trống → cho phép như cũ
 
 	coins, err := m.getOrLoadWallet(c.CharID)
 	if err != nil {
@@ -246,8 +261,11 @@ func (m *MapActor) handlePlace(c Cmd) {
 		Rotation:    c.Rotation,
 		CreatedAt:   time.Now(),
 	}
-	m.occupied[key] = p
+	m.occupied[key] = append(m.occupied[key], p)
 	m.byID[p.ID] = p
+	if parseMetadataCollides(c.Item.MetadataJSON) {
+		m.hasCollision[key] = true
+	}
 
 	// Reply to HTTP handler immediately
 	c.Reply <- CmdResult{Placement: p, NewCoins: newCoins}
@@ -303,8 +321,32 @@ func (m *MapActor) handleDelete(c Cmd) {
 	newCoins := coins + price
 	m.wallets[c.CharID] = newCoins
 
-	delete(m.occupied, [2]int{p.X, p.Y})
+	key := [2]int{p.X, p.Y}
 	delete(m.byID, p.ID)
+	if list, ok := m.occupied[key]; ok {
+		filtered := list[:0]
+		for _, pp := range list {
+			if pp.ID != p.ID {
+				filtered = append(filtered, pp)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(m.occupied, key)
+			delete(m.hasCollision, key)
+		} else {
+			m.occupied[key] = filtered
+			hasCol := false
+			for _, pp := range filtered {
+				if collides, _ := m.parseItemCollides(pp.ItemID); collides {
+					hasCol = true
+					break
+				}
+			}
+			if !hasCol {
+				delete(m.hasCollision, key)
+			}
+		}
+	}
 
 	// Reply immediately
 	c.Reply <- CmdResult{NewCoins: newCoins}
@@ -511,4 +553,25 @@ func coinValue(t string) int {
 	default:
 		return 10
 	}
+}
+
+func parseMetadataCollides(metadataJSON string) bool {
+	if metadataJSON == "" || metadataJSON == "{}" {
+		return false
+	}
+	var meta struct {
+		Collides bool `json:"collides"`
+	}
+	if err := json.Unmarshal([]byte(metadataJSON), &meta); err != nil {
+		return false
+	}
+	return meta.Collides
+}
+
+func (m *MapActor) parseItemCollides(itemID string) (bool, bool) {
+	item, err := m.repo.GetItemByID(context.Background(), itemID)
+	if err != nil || item == nil {
+		return false, false
+	}
+	return parseMetadataCollides(item.MetadataJSON), true
 }
