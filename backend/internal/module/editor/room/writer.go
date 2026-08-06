@@ -3,7 +3,9 @@ package room
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"backend/internal/module/editor/entity"
@@ -105,19 +107,28 @@ func (w *Writer) flush(batch []persistOp) {
 		}
 	}
 
-	// 2. Placements: INSERT idempotent + DELETE
+	// 2. Placements: INSERT batch idempotent + DELETE batch
+	var placeOps []persistOp
+	var deleteOps []persistOp
 	for _, op := range batch {
 		switch op.Kind {
 		case opPlace:
-			query := `INSERT INTO map_placements (id, map_id, character_id, item_id, x, y, rotation)
-			          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`
-			_, err = tx.Exec(query, op.P.ID, op.P.MapID, op.P.CharacterID, op.P.ItemID, op.P.X, op.P.Y, op.P.Rotation)
+			placeOps = append(placeOps, op)
 		case opDelete:
-			query := `DELETE FROM map_placements WHERE id = $1`
-			_, err = tx.Exec(query, op.P.ID)
+			deleteOps = append(deleteOps, op)
 		}
-		if err != nil {
-			log.Printf("[writer] failed to execute placement operation (kind: %v, id: %v): %v", op.Kind, op.P.ID, err)
+	}
+
+	if len(placeOps) > 0 {
+		if err := w.batchInsertPlacements(tx, placeOps); err != nil {
+			return
+		}
+	}
+
+	for _, op := range deleteOps {
+		query := `DELETE FROM map_placements WHERE id = $1`
+		if _, err := tx.Exec(query, op.P.ID); err != nil {
+			log.Printf("[writer] failed to delete placement %v: %v", op.P.ID, err)
 			return
 		}
 	}
@@ -128,8 +139,7 @@ func (w *Writer) flush(batch []persistOp) {
 			continue
 		}
 		query := `INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES ($1, $2, $3)`
-		_, err = tx.Exec(query, op.CharID, op.EventType, op.CoinDelta)
-		if err != nil {
+		if _, err := tx.Exec(query, op.CharID, op.EventType, op.CoinDelta); err != nil {
 			log.Printf("[writer] failed to insert reward event for %s (delta: %d): %v", op.CharID, op.CoinDelta, err)
 			return
 		}
@@ -144,4 +154,29 @@ func (w *Writer) flush(batch []persistOp) {
 func (w *Writer) Close() {
 	close(w.in) // trigger loop shutdown
 	<-w.done    // wait for loop to clean up and flush
+}
+
+func (w *Writer) batchInsertPlacements(tx *sql.Tx, ops []persistOp) error {
+	if len(ops) == 0 {
+		return nil
+	}
+
+	valueRows := make([]string, 0, len(ops))
+	args := make([]interface{}, 0, len(ops)*7)
+	for i, op := range ops {
+		base := i * 7
+		valueRows = append(valueRows,
+			fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4, base+5, base+6, base+7))
+		args = append(args, op.P.ID, op.P.MapID, op.P.CharacterID, op.P.ItemID, op.P.X, op.P.Y, op.P.Rotation)
+	}
+
+	query := fmt.Sprintf(
+		"INSERT INTO map_placements (id, map_id, character_id, item_id, x, y, rotation) VALUES %s ON CONFLICT (id) DO NOTHING",
+		strings.Join(valueRows, ","))
+
+	_, err := tx.Exec(query, args...)
+	if err != nil {
+		log.Printf("[writer] failed to batch insert %d placements: %v", len(ops), err)
+	}
+	return err
 }
