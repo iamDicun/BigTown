@@ -56,21 +56,12 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-function onWheel(e: WheelEvent) {
-  hotbar.cycle(e.deltaY > 0 ? 1 : -1)
-  e.preventDefault()
-}
-
 onMounted(() => {
   hotbar.load()
   window.addEventListener('keydown', onKeydown)
-  const canvas = document.getElementById('game-root')
-  canvas?.addEventListener('wheel', onWheel, { passive: false })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
-  const canvas = document.getElementById('game-root')
-  canvas?.removeEventListener('wheel', onWheel)
 })
 </script>
 
