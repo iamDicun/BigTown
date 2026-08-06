@@ -29,7 +29,7 @@ async function handleLogout() {
     <div v-if="authStore.isAuthenticated" class="navbar-user">
       <span class="pixel-badge pixel-badge--ok">Online</span>
       <MapSwitcher v-if="route.name === 'game'" />
-      <button class="pixel-button pixel-button--sm" @click="handleLogout">Đăng xuất</button>
+      <button class="ui-btn" @click="handleLogout">Đăng xuất</button>
     </div>
   </header>
 </template>

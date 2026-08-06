@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/game.store'
 import { useHotbarStore } from '../stores/hotbar.store'
 import * as editorService from '../services/editor.service'
 import type { DecorationItemDto, PlacementDto } from '../services/editor.service'
+import PixelIcon from '@/shared/components/PixelIcon.vue'
 
 const props = defineProps<{
   mapCode: string
@@ -179,7 +180,7 @@ let onPlacementError: ((e: Event) => void) | null = null
 
 onMounted(() => {
   onPlacementDone = (e: Event) => {
-    const detail = (e as CustomEvent).detail as { newCoins: number; placement?: PlacementDto; deletedId?: string; sticky?: boolean }
+    const detail = (e as CustomEvent).detail as { newCoins: number; placement?: PlacementDto; deletedId?: string }
     gameStore.coins = detail.newCoins
 
     if (detail.placement) {
@@ -239,13 +240,13 @@ watch(() => props.mapCode, (newMapCode) => {
 
 <template>
   <div class="editor-panel-container">
-    <div v-if="!isResourceLoading" class="coins-display-global" aria-label="Player Coins">
-      <span class="coin-icon-global">🪙</span>
-      <span class="coin-amount-global">{{ gameStore.coins }}</span>
+    <div v-if="!isResourceLoading" class="coins-display-global ui-badge--coin" aria-label="Player Coins">
+      <PixelIcon name="coin" :size="22" />
+      <span>{{ gameStore.coins }}</span>
     </div>
 
-    <div v-if="errorMessage" class="error-toast" aria-live="polite">
-      ⚠️ {{ errorMessage }}
+    <div v-if="errorMessage" class="error-toast ui-toast" aria-live="polite">
+      <PixelIcon name="warning" :size="18" /> {{ errorMessage }}
     </div>
   </div>
 </template>
@@ -263,41 +264,8 @@ watch(() => props.mapCode, (newMapCode) => {
   top: 70px;
   right: 16px;
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #fdf6e2;
-  border: 3px solid var(--pixel-wood-dark);
-  padding: 4px 12px;
-  box-shadow:
-    0 3px 0 rgba(0, 0, 0, 0.2),
-    inset 1px 1px 0 #ffffff;
-  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Crect x='0' y='0' width='12' height='12' fill='%23633e24'/%3E%3Crect x='2' y='2' width='8' height='8' fill='%23fdf6e2'/%3E%3C/svg%3E") 3 repeat;
-}
-
-.coin-icon-global {
-  font-size: 20px;
-  filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.15));
-  animation: coin-pulse 1.2s infinite alternate ease-in-out;
-}
-
-.coin-amount-global {
-  font-family: var(--pixel-font);
-  color: #f7a900;
-  font-weight: bold;
-  font-size: 20px;
-  text-shadow:
-    1px 1px 0 var(--pixel-wood-dark),
-    -1px -1px 0 var(--pixel-wood-dark),
-    1px -1px 0 var(--pixel-wood-dark),
-    -1px 1px 0 var(--pixel-wood-dark),
-    1px 1px 0 var(--pixel-wood-dark);
-  letter-spacing: 0.5px;
-}
-
-@keyframes coin-pulse {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.15); }
+  font-size: var(--fs-head);
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .error-toast {
@@ -306,20 +274,6 @@ watch(() => props.mapCode, (newMapCode) => {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1010;
-  font-family: var(--pixel-font);
-  font-size: 18px;
-  color: #fff;
-  background: var(--pixel-danger);
-  border: 3px solid #6b1a10;
-  padding: 8px 20px;
-  border-radius: 6px;
-  box-shadow: 0 4px 0 #6b1a10, 0 8px 16px rgba(0,0,0,0.3);
   pointer-events: auto;
-  animation: toast-in 0.2s ease-out;
-}
-
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 </style>

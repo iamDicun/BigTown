@@ -21,7 +21,7 @@ function handleSubmit() {
       <input v-model="form.password" type="password" required autocomplete="current-password" />
     </label>
     <slot name="error" />
-    <button type="submit" class="pixel-button">Đăng nhập</button>
+    <button type="submit" class="ui-btn">Đăng nhập</button>
   </form>
 </template>
 

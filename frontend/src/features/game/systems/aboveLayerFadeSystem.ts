@@ -1,11 +1,11 @@
 import type Phaser from 'phaser'
 
-const MASK_RADIUS = 64
-const FADE_ALPHA_CENTER = 0.35
-const FADE_DURATION_MS = 150
+const MASK_RADIUS = 72
+const FADE_ALPHA_CENTER = 0.15
+const FADE_DURATION_MS = 120
 const PROBE_PADDING = { x: 4, top: 16, bottom: 0 }
-const PLAYER_FADE_ALPHA = 0.45
-const UPDATE_THROTTLE_MS = 50
+const PLAYER_FADE_ALPHA = 0.3
+const UPDATE_THROTTLE_MS = 40
 
 export type AboveLayerFade = {
   layer: Phaser.Tilemaps.TilemapLayerBase
@@ -48,7 +48,9 @@ export function updateAboveLayerFade(
     if (dist > MASK_RADIUS) continue
 
     activeKeys.add(key)
-    const target = FADE_ALPHA_CENTER + (dist / MASK_RADIUS) * (1 - FADE_ALPHA_CENTER)
+    const t = dist / MASK_RADIUS
+    const eased = t * t
+    const target = FADE_ALPHA_CENTER + eased * (1 - FADE_ALPHA_CENTER)
     const rounded = Math.round(target * 100) / 100
 
     if (fade.tileAlpha.get(key) === rounded) continue

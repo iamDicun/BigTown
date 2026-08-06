@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, onBeforeUnmount } from 'vue'
 import { getBootstrap } from '../services/realtime.service'
+import PixelIcon from '@/shared/components/PixelIcon.vue'
 
 interface MapItem {
   code: string
@@ -48,7 +49,25 @@ onMounted(async () => {
     const data = await getBootstrap()
     current.value = data.map_code
   } catch { /* ignore */ }
+
+  window.addEventListener('keydown', onKey)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+})
+
+function onKey(e: KeyboardEvent) {
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  if (e.key === 'm' || e.key === 'M') {
+    if (open.value) { closeModal() } else { openModal() }
+    e.preventDefault()
+  }
+  if (e.key === 'Escape' && open.value) {
+    closeModal()
+    e.preventDefault()
+  }
+}
 
 const currentMapName = computed(() => {
   const m = maps.value.find(x => x.code === current.value)
@@ -90,8 +109,8 @@ function handleConfirm() {
 
 <template>
   <div class="map-switcher">
-    <button class="pixel-button pixel-button--sm map-switcher__btn" @click="openModal">
-      {{ currentMapName }} ▾
+    <button class="ui-btn map-switcher__btn" @click="openModal">
+      <PixelIcon name="map" :size="18" /> {{ currentMapName }}
     </button>
 
     <!-- Teleport modal to body to prevent rendering issues in game layout -->
@@ -101,7 +120,7 @@ function handleConfirm() {
           <!-- Header -->
           <div class="modal-header">
             <h2 class="modal-title">CHỌN BẢN ĐỒ</h2>
-            <button class="close-btn" @click="closeModal">×</button>
+            <button class="close-btn" @click="closeModal"><PixelIcon name="close" :size="24" /></button>
           </div>
 
           <!-- Body split layout -->
@@ -155,9 +174,9 @@ function handleConfirm() {
 
           <!-- Footer Actions -->
           <div class="modal-footer">
-            <button class="pixel-button pixel-button--sm btn-cancel" @click="closeModal">Hủy</button>
+            <button class="ui-btn btn-cancel" @click="closeModal">Hủy</button>
             <button 
-              class="pixel-button pixel-button--sm btn-confirm" 
+              class="ui-btn btn-confirm" 
               :disabled="selectedCode === current"
               @click="handleConfirm"
             >
@@ -176,14 +195,10 @@ function handleConfirm() {
 }
 
 .map-switcher__btn {
-  font-family: var(--pixel-font, inherit);
-  display: flex;
-  align-items: center;
-  gap: 6px;
   background: linear-gradient(180deg, #d3c4a2 0%, #b8a67d 100%);
   border-color: #1a1c1e;
   color: #1a1c1e;
-  cursor: pointer;
+  text-shadow: none;
 }
 
 .map-switcher__btn:hover {
@@ -252,23 +267,12 @@ function handleConfirm() {
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  font-family: var(--pixel-font), monospace, sans-serif;
-  font-size: 28px;
-  color: var(--pixel-parchment, #f4ecd8);
-  cursor: pointer;
-  line-height: 1;
-  padding: 0;
-  margin: 0;
-  text-shadow: 2px 2px 0 var(--pixel-ink, #1a1c1e);
+  background: none; border: none; cursor: pointer; line-height: 1; padding: 0; margin: 0;
+  color: var(--pixel-parchment);
   transition: transform 0.1s;
+  display: flex; align-items: center; justify-content: center;
 }
-
-.close-btn:hover {
-  transform: scale(1.15);
-  color: #ff8a80;
-}
+.close-btn:hover { transform: scale(1.15); color: #ff8a80; }
 
 /* Body */
 .modal-body {

@@ -29,14 +29,12 @@ export class EditorSystem {
   private placementRotation = 0
   private itemCache = new Map<string, DecorationItemDto>()
   private tileSize: number
-  private stickyBrush = true
 
   private onToggleModeHandler!: (e: Event) => void
   private onToggleDeleteModeHandler!: (e: Event) => void
   private onSelectDecorationHandler!: (e: Event) => void
   private onCancelPlacementHandler!: (e: Event) => void
   private onLoadPlacementsHandler!: (e: Event) => void
-  private onSetStickyBrushHandler!: (e: Event) => void
 
   constructor(scene: Phaser.Scene, mapCode: string, playerSprite: Phaser.GameObjects.Sprite, tileSize = 16) {
     this.scene = scene
@@ -85,11 +83,6 @@ export class EditorSystem {
       this.drawPlacements(detail.placements, detail.items)
     }
     window.addEventListener('game:loadPlacements', this.onLoadPlacementsHandler)
-
-    this.onSetStickyBrushHandler = (e: Event) => {
-      this.stickyBrush = (e as CustomEvent).detail.on
-    }
-    window.addEventListener('game:setStickyBrush', this.onSetStickyBrushHandler)
 
     // Keyboard ESC key to cancel placement or delete mode
     this.scene.input.keyboard?.on('keydown-ESC', () => {
@@ -504,12 +497,8 @@ export class EditorSystem {
       this.upsertPlacement(result.placement)
 
       window.dispatchEvent(new CustomEvent('game:placementDone', {
-        detail: { newCoins: result.new_coins, placement: result.placement, sticky: this.stickyBrush }
+        detail: { newCoins: result.new_coins, placement: result.placement }
       }))
-
-      if (!this.stickyBrush) {
-        this.clearPreview()
-      }
     } catch (err: any) {
       console.error('Failed to place item:', err)
       window.dispatchEvent(new CustomEvent('game:placementError', {
@@ -624,17 +613,12 @@ export class EditorSystem {
     return this.isOnBridgeCached
   }
 
-  public setStickyBrush(on: boolean) {
-    this.stickyBrush = on
-  }
-
   public destroy() {
     window.removeEventListener('game:toggleEditorMode', this.onToggleModeHandler)
     window.removeEventListener('game:toggleDeleteMode', this.onToggleDeleteModeHandler)
     window.removeEventListener('game:selectDecoration', this.onSelectDecorationHandler)
     window.removeEventListener('game:cancelPlacement', this.onCancelPlacementHandler)
     window.removeEventListener('game:loadPlacements', this.onLoadPlacementsHandler)
-    window.removeEventListener('game:setStickyBrush', this.onSetStickyBrushHandler)
 
     // Destroy glow images before destroying group
     if (this.placementsGroup && this.placementsGroup.active && this.placementsGroup.getChildren) {

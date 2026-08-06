@@ -7,17 +7,13 @@ const MUSIC_MUTED_KEY = 'bigtown:music-muted'
 const CLICK_SFX_SRC = '/assets/sounds/click.mp3'
 
 function detectAudioExt(): 'ogg' | 'mp3' {
-  try {
-    const a = new Audio()
-    if (a.canPlayType('audio/ogg') !== '') return 'ogg'
-  } catch { /* fall through */ }
   return 'mp3'
 }
 const AUDIO_EXT = detectAudioExt()
 
 export function resolveSound(raw: string): string {
   const name = raw.replace(/^.*[\\/]/, '').replace(/\.(mp3|ogg|wav|aac|m4a)$/i, '')
-  return `/assets/sounds/opt/${name}.${AUDIO_EXT}`
+  return `/assets/sounds/${name}.${AUDIO_EXT}`
 }
 
 type MusicOptions = {
