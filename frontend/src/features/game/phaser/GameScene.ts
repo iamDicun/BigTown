@@ -67,6 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.map = map
     this.warpZones = warpZones
     this.aboveLayerFade = aboveLayer ? createAboveLayerFade(this, aboveLayer) : null
+    this.input.mouse?.disableContextMenu()
 
     for (const option of characterOptions) {
       createAnimations(this, option.base_asset_key, option.spritesheet)

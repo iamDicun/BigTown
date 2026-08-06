@@ -49,7 +49,7 @@ func (r *EditorRepository) GetDecorationItems(ctx context.Context) ([]entity.Dec
 }
 
 func (r *EditorRepository) GetPlacementsByMap(ctx context.Context, mapID string) ([]entity.Placement, error) {
-	query := `SELECT id::text, map_id::text, character_id::text, item_id::text, x, y, created_at FROM map_placements WHERE map_id = $1 ORDER BY created_at ASC`
+	query := `SELECT id::text, map_id::text, character_id::text, item_id::text, x, y, COALESCE(rotation, 0), created_at FROM map_placements WHERE map_id = $1 ORDER BY created_at ASC`
 	rows, err := r.db.QueryContext(ctx, query, mapID)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (r *EditorRepository) GetPlacementsByMap(ctx context.Context, mapID string)
 	var placements []entity.Placement
 	for rows.Next() {
 		var p entity.Placement
-		if err := rows.Scan(&p.ID, &p.MapID, &p.CharacterID, &p.ItemID, &p.X, &p.Y, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.MapID, &p.CharacterID, &p.ItemID, &p.X, &p.Y, &p.Rotation, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		placements = append(placements, p)

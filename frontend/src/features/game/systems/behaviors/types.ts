@@ -23,6 +23,7 @@ export interface ItemMeta {
   frame?: number
   behaviors?: string[]
   bridge_zones?: ExtraCollider[]
+  bridge_zones_h?: ExtraCollider[]
   extra_colliders?: ExtraCollider[]
   [key: string]: unknown
 }

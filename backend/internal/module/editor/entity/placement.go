@@ -9,6 +9,7 @@ type Placement struct {
 	ItemID      string    `json:"item_id"`
 	X           int       `json:"x"`
 	Y           int       `json:"y"`
+	Rotation    int       `json:"rotation"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

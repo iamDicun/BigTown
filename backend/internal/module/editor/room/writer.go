@@ -109,9 +109,9 @@ func (w *Writer) flush(batch []persistOp) {
 	for _, op := range batch {
 		switch op.Kind {
 		case opPlace:
-			query := `INSERT INTO map_placements (id, map_id, character_id, item_id, x, y)
-			          VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`
-			_, err = tx.Exec(query, op.P.ID, op.P.MapID, op.P.CharacterID, op.P.ItemID, op.P.X, op.P.Y)
+			query := `INSERT INTO map_placements (id, map_id, character_id, item_id, x, y, rotation)
+			          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`
+			_, err = tx.Exec(query, op.P.ID, op.P.MapID, op.P.CharacterID, op.P.ItemID, op.P.X, op.P.Y, op.P.Rotation)
 		case opDelete:
 			query := `DELETE FROM map_placements WHERE id = $1`
 			_, err = tx.Exec(query, op.P.ID)

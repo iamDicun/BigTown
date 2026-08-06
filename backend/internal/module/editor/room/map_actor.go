@@ -243,6 +243,7 @@ func (m *MapActor) handlePlace(c Cmd) {
 		ItemID:      c.Item.ID,
 		X:           c.X,
 		Y:           c.Y,
+		Rotation:    c.Rotation,
 		CreatedAt:   time.Now(),
 	}
 	m.occupied[key] = p

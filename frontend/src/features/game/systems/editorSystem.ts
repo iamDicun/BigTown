@@ -26,6 +26,7 @@ export class EditorSystem {
   private playerSprite: Phaser.GameObjects.Sprite
   private isBehindDecoration = false
   private isOnBridgeCached = false
+  private placementRotation = 0
   private tileSize: number
 
   private onToggleModeHandler!: (e: Event) => void
@@ -93,10 +94,14 @@ export class EditorSystem {
       }
     })
 
-    // Pointer down handler for placing item
+    // Pointer down handler for placing item (left-click) & rotating (right-click)
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown() && this.activeDecorationItem && this.previewSprite && !this.deleteModeActive && this.canPlace) {
         this.confirmPlacement()
+      }
+      if (pointer.rightButtonDown() && this.activeDecorationItem && this.previewSprite && !this.deleteModeActive) {
+        this.placementRotation = this.placementRotation === 0 ? 90 : 0
+        this.previewSprite.setAngle(this.placementRotation)
       }
     })
   }
@@ -126,6 +131,7 @@ export class EditorSystem {
     this.clearPreview()
     this.setDeleteMode(false)
     this.activeDecorationItem = item
+    this.placementRotation = 0
 
     // Parse metadata
     let meta: any = {}
@@ -260,7 +266,12 @@ export class EditorSystem {
         sprite.setPosition(p.x, p.y)
         const itemDepth = meta.collides ? PLAYER_DEPTH : 2
         sprite.setDepth(itemDepth + p.y / 10000.0)
-        
+
+        if (p.rotation && !sprite.getData('rotation')) {
+          sprite.setAngle(p.rotation)
+          sprite.setData('rotation', p.rotation)
+        }
+
         const glow = sprite.getData('glow') as Phaser.GameObjects.Image
         if (glow) {
           glow.setPosition(p.x, p.y - 40)
@@ -315,6 +326,12 @@ export class EditorSystem {
       sprite.setData('placementId', p.id)
       sprite.setData('itemCode', item.code)
       sprite.setData('meta', meta)
+
+      if (p.rotation) {
+        sprite.setAngle(p.rotation)
+        sprite.setData('rotation', p.rotation)
+      }
+
       const itemDepth = meta.collides ? PLAYER_DEPTH : 2
       sprite.setDepth(itemDepth + p.y / 10000.0)
 
@@ -434,7 +451,8 @@ export class EditorSystem {
         item_id: itemId,
         map_code: this.mapCode,
         x,
-        y
+        y,
+        rotation: this.placementRotation || undefined,
       })
 
       // Reload all placements to sync bodies & sprites correctly
