@@ -179,4 +179,4 @@ CREATE INDEX idx_reward_events_character_id ON reward_events(character_id);
 CREATE INDEX idx_map_npc_spawns_map_id ON map_npc_spawns(map_id);
 CREATE INDEX idx_chat_messages_room_created_at ON chat_messages(room_id, created_at DESC);
 CREATE INDEX idx_map_placements_map_id ON map_placements(map_id);
-CREATE UNIQUE INDEX idx_map_placements_coords ON map_placements(map_id, x, y);
+CREATE INDEX idx_map_placements_coords ON map_placements(map_id, x, y);
