@@ -72,17 +72,17 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 </tr>
 <tr>
   <td>3</td><td><strong>Placement</strong></td>
-  <td><span class="badge badge-pending">CHƯA CHẠY</span></td>
-  <td class="num">—</td>
-  <td>&lt; 800ms REST / &lt; 1500ms delivery</td>
-  <td>⏳</td>
+  <td><span class="badge badge-fail">FAIL (sát)</span></td>
+  <td class="num val-warn">~1000ms REST / ~1800ms deliver</td>
+  <td>&lt; 800ms / &lt; 1500ms</td>
+  <td>⚠️ SÁT NGƯỠNG</td>
 </tr>
 <tr>
   <td>4</td><td><strong>Bootstrap</strong></td>
-  <td><span class="badge badge-pending">CHƯA CHẠY</span></td>
-  <td class="num">—</td>
-  <td>&lt; 600ms p95 / &lt; 1200ms p99</td>
-  <td>⏳</td>
+  <td><span class="badge badge-fail">FAIL p95 / PASS p99</span></td>
+  <td class="num val-warn">~890ms p95 / ~1080ms p99</td>
+  <td>&lt; 600ms / &lt; 1200ms</td>
+  <td>⚠️ p95 vượt</td>
 </tr>
 </tbody>
 </table>
@@ -215,15 +215,87 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 </div>
 
 <!-- ====== PLACEMENT ====== -->
-<h2>4. Placement Load Test ⏳</h2>
+<h2>4. Placement Load Test ⚠️</h2>
+
 <div class="card">
-<p style="color:var(--text2)"><em>Đang chờ kết quả. Sẽ cập nhật: place_rest_ms p95, place_deliver_ms p95, place_error, place_occupied, fanout ratio.</em></p>
+<h3>4.1 Cấu hình</h3>
+<table>
+<tr><td style="width:180px"><strong>Executor</strong></td><td>constant-vus (100 VU, 5 phút)</td></tr>
+<tr><td><strong>Rooms</strong></td><td>10 (10 VU/room)</td></tr>
+<tr><td><strong>Place interval</strong></td><td>1 giây/lần</td></tr>
+<tr><td><strong>Load zone</strong></td><td>amazon:us:columbus (Ohio, Mỹ)</td></tr>
+<tr><td><strong>Backend</strong></td><td>bigtown-1.onrender.com (Singapore)</td></tr>
+<tr><td><strong>Điều kiện</strong></td><td>Đã nạp coin + restart backend</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>4.2 Giai đoạn 1: Ổn định (2 phút đầu)</h3>
+<table>
+<thead><tr><th>Metric</th><th>Giá trị</th><th>Ngưỡng</th><th>Kết quả</th></tr></thead>
+<tbody>
+<tr><td><strong>Tổng place gửi</strong></td><td class="num">~11,500</td><td>—</td><td>—</td></tr>
+<tr><td><strong>p95 REST place</strong></td><td class="num val-warn">~1000ms</td><td>&lt; 800ms</td><td><span class="badge badge-fail">FAIL (sát)</span></td></tr>
+<tr><td><strong>Median REST place</strong></td><td class="num">~700ms</td><td>—</td><td>—</td></tr>
+<tr><td><strong>p95 delivery</strong></td><td class="num val-warn">~1800ms</td><td>&lt; 1500ms</td><td><span class="badge badge-fail">FAIL</span></td></tr>
+<tr><td><strong>Median delivery</strong></td><td class="num val-pass">~710ms</td><td>—</td><td>✅ Nhanh</td></tr>
+<tr><td><strong>Place error</strong></td><td class="num val-pass">0</td><td>&lt; 10</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td><strong>WS connect errors</strong></td><td class="num val-pass">0</td><td>&lt; 5</td><td><span class="badge badge-pass">PASS</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>4.3 Giai đoạn 2: Suy giảm (3 phút sau)</h3>
+<table>
+<thead><tr><th>Metric</th><th>Giá trị</th></tr></thead>
+<tbody>
+<tr><td><strong>Place error (timeout 60s)</strong></td><td class="num val-fail">292</td></tr>
+<tr><td><strong>WS connect errors</strong></td><td class="num val-fail">52</td></tr>
+<tr><td><strong>Delivery spike max</strong></td><td class="num val-fail">139,511ms (139 giây)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="anomaly">
+<strong>Nguyên nhân gốc:</strong> Actor model serialize GHI theo map. 10 place/s/room actor (100 VU / 10 rooms) xếp hàng tuần tự qua coin deduct → insert → reply → broadcast → write-behind DB. Median nhanh (710ms) nhưng p95 cao (1800ms) do request xếp hàng. Sau ~2 phút hàng đợi quá dài → timeout domino.
+</div>
+
+<div class="note">
+<strong>Kết luận Placement test:</strong> SÁT NGƯỠNG. REST p95 vượt 25%, delivery p95 vượt 20%. Hướng cải thiện: tách coin deduct atomic SQL, write-behind batch placement, rate limiter broadcast.
 </div>
 
 <!-- ====== BOOTSTRAP ====== -->
-<h2>5. Bootstrap Load Test ⏳</h2>
+<h2>5. Bootstrap Load Test ⚠️</h2>
+
 <div class="card">
-<p style="color:var(--text2)"><em>Đang chờ kết quả. Sẽ cập nhật: bootstrap_ms p95/p99, http_req_failed, bootstrap_npc_count.</em></p>
+<h3>5.1 Cấu hình</h3>
+<table>
+<tr><td style="width:180px"><strong>Executor</strong></td><td>ramping-arrival-rate (open model)</td></tr>
+<tr><td><strong>Stages</strong></td><td>10→50 RPS (30s) → 200 RPS (1m ramp) → 200 RPS (2m hold) → 0 (30s)</td></tr>
+<tr><td><strong>Max VUs</strong></td><td>~100</td></tr>
+<tr><td><strong>Load zone</strong></td><td>amazon:us:columbus (Ohio)</td></tr>
+<tr><td><strong>Backend</strong></td><td>bigtown-1.onrender.com (Singapore)</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>5.2 Kết quả</h3>
+<table>
+<thead><tr><th>Metric</th><th>Tải thấp (&lt;50 RPS)</th><th>Đỉnh (~166 RPS)</th><th>Ngưỡng</th><th>Kết quả</th></tr></thead>
+<tbody>
+<tr><td><strong>p95 bootstrap</strong></td><td class="num val-pass">~450ms</td><td class="num val-warn">~890ms</td><td>&lt; 600ms</td><td><span class="badge badge-fail">FAIL</span></td></tr>
+<tr><td><strong>p99 bootstrap</strong></td><td class="num">~800ms</td><td class="num val-pass">~1080ms</td><td>&lt; 1200ms</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td><strong>Median</strong></td><td class="num">~375ms</td><td class="num">~560ms</td><td>—</td><td>—</td></tr>
+<tr><td><strong>http_req_failed</strong></td><td class="num">0%</td><td class="num val-pass">0%</td><td>&lt; 1%</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td><strong>bootstrap_bad</strong></td><td class="num">0</td><td class="num val-pass">0</td><td>&lt; 10</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td><strong>npc_spawns</strong></td><td class="num">0</td><td class="num">0</td><td>—</td><td>Map ko có NPC</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<strong>Phân tích:</strong> Bootstrap chịu được ~100 RPS với p95 &lt; 600ms. Ở đỉnh 166 RPS, DB read maps + NPC spawns thành bottleneck. p95 vượt ~50% (890ms vs 600ms) nhưng 0 lỗi, hệ thống không sập, không giảm chất lượng. Median vẫn 560ms — hầu hết request nhanh, chỉ số ít bị nghẽn DB pool. <strong>Có thể cache map metadata</strong> nếu cần p95 &lt; 600ms ở 200 RPS. 166 RPS bootstrap = thundering herd hiếm gặp.
 </div>
 
 <!-- ====== SUMMARY ====== -->
@@ -231,10 +303,10 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 <table>
 <thead><tr><th>Chỉ số</th><th>Chat</th><th>Movement</th><th>Placement</th><th>Bootstrap</th></tr></thead>
 <tbody>
-<tr><td><strong>p95 chính</strong></td><td class="num val-pass">~900ms ✅</td><td class="num val-pass">~285ms ✅</td><td class="num">—</td><td class="num">—</td></tr>
-<tr><td><strong>Tỉ lệ lỗi</strong></td><td class="num val-pass">0.006% ✅</td><td class="num val-pass">0% ✅</td><td class="num">—</td><td class="num">—</td></tr>
-<tr><td><strong>Room leak</strong></td><td class="num val-pass">0 ✅</td><td class="num">N/A (channel)</td><td class="num">—</td><td class="num">—</td></tr>
-<tr><td><strong>Server ổn định</strong></td><td class="val-pass">✅</td><td class="val-pass">✅</td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><strong>p95 chính</strong></td><td class="num val-pass">~900ms ✅</td><td class="num val-pass">~285ms ✅</td><td class="num val-warn">~1000ms / ~1800ms ⚠️</td><td class="num val-warn">~890ms / ~1080ms ⚠️</td></tr>
+<tr><td><strong>Tỉ lệ lỗi</strong></td><td class="num val-pass">0.006% ✅</td><td class="num val-pass">0% ✅</td><td class="num val-fail">292 + 52 WS ⚠️</td><td class="num val-pass">0% ✅</td></tr>
+<tr><td><strong>Room leak</strong></td><td class="num val-pass">0 ✅</td><td class="num">N/A</td><td class="num">N/A</td><td class="num">N/A</td></tr>
+<tr><td><strong>Server ổn định</strong></td><td class="val-pass">✅</td><td class="val-pass">✅</td><td class="val-warn">⚠️ Sập sau 2 phút</td><td class="val-pass">✅</td></tr>
 </tbody>
 </table>
 

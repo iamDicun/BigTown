@@ -1,0 +1,7 @@
+"time","metric","scenario","group","load_zone","tags","count"
+"2026-08-06T17:04:21+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",65
+"2026-08-06T17:04:24+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",35
+"2026-08-06T17:05:30+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",95
+"2026-08-06T17:05:33+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",5
+"2026-08-06T17:06:54+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",7
+"2026-08-06T17:06:57+00:00","place_error","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",85
