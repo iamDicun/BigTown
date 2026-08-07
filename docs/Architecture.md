@@ -379,42 +379,27 @@ Khi cần scale nhiều backend node:
 
 ---
 
-## 12. Quyết định Tối ưu Placement: DB Transaction (Phase 6)
+## 12. Thử nghiệm DB Transaction cho Placement (Phase 5) — Không khả thi
 
-**Ngày:** 2026-08-07 | **Tài liệu chi tiết:** `docs/phase 6/placement-optimization.md`
+**Ngày:** 2026-08-07 | **Kết quả:** Reverted
 
-### 12.1 Vấn đề
+Đã thử nghiệm chuyển placement từ actor (batch write-behind) sang DB transaction trực tiếp (`UPDATE coins + INSERT placement` trong 1 transaction). Mục đích: giảm p95 REST từ 1200ms xuống < 800ms bằng cách tận dụng connection pool Postgres thay vì actor goroutine đơn luồng.
 
-Sau 3 phase load test placement (100 VU, 10 room, Grafana Cloud + local), kết quả xác nhận bottleneck là **actor command queue**, không phải CPU hay mạng:
+### Kết quả (Grafana Cloud, Ohio → Render SG → Aiven JP)
 
-| Môi trường | REST p95 | Kết luận |
+| Metric | Actor + batch write (Phase 3) | DB Transaction (Phase 5) |
 |:---|:---|:---|
-| Grafana Cloud (Ohio → SG, ping ~200ms) | ~1200ms | Mạng không phải bottleneck |
-| Local (VN → SG, ping ~30ms) | **1213ms** | CPU không max, goroutine ~350, heap ~50MB |
+| REST p95 | ~1200ms | **~5000-10000ms** ❌ |
+| Delivery p95 | ~5000ms | **~15000-55000ms** ❌ |
+| WS errors | 2 | 23 |
 
-Gốc rễ: 10 lệnh/s/room xếp hàng tuần tự trong 1 actor goroutine. Go scheduler trên 1 core không đảm bảo actor được chạy ngay → lệnh tích tụ → p95 ~1200ms.
+### Nguyên nhân thất bại
 
-### 12.2 Giải pháp
+DB transaction tạo 100 transaction/s (2 round-trip/transaction: UPDATE + INSERT) qua kết nối Render (Singapore) → Aiven (Nhật Bản, ~80ms RTT). Với connection pool ~20, hàng đợi DB vượt quá actor queue.
 
-Chuyển coin deduct + insert placement từ actor goroutine sang **DB transaction**:
+Actor + batch write-behind (1 batch/giây, 512 ops/batch) hiệu quả hơn vì gộp 100 round-trip thành 1.
 
-- `UPDATE coins = coins - price WHERE id=X AND coins >= price` (atomic, DB tự serialize)
-- `INSERT INTO map_placements ON CONFLICT (map_id,x,y) DO NOTHING` (tự chặn double-place)
-- Cả 2 trong 1 transaction: ACID, không mất data nếu crash
-- Connection pool 25: đủ cho 100 req/s (100 × 25ms = 2.5 connections trung bình)
+### Kết luận
 
-Actor giữ lại occupancy grid (RAM) + broadcast — không cần xử lý coin/insert nữa.
-
-### 12.3 Lợi ích
-
-| | Actor (hiện tại) | DB Transaction |
-|:---|:---|:---|
-| **REST p95 dự kiến** | 1200ms | **~300-400ms** |
-| **Consistency** | Write-behind 1s, mất data nếu crash | ACID, không mất |
-| **Race RAM-DB** | CÓ | KHÔNG (DB source of truth) |
-| **Scale** | 1 goroutine/room | Connection pool = scale theo DB |
-
-### 12.4 Quyết định
-
-**Áp dụng DB transaction cho placement**, giữ actor cho occupancy check + broadcast. Đây là giải pháp chuẩn cho bài toán GHI nặng trên 1 core — chuyển phần việc serialize sang Postgres (CPU riêng, đa luồng).
+**Actor + batch write-behind là giải pháp tối ưu cho hạ tầng hiện tại (Render SG + Aiven JP).** DB transaction chỉ có lợi khi DB ở gần (< 10ms RTT). CPU và mạng không phải bottleneck — khoảng cách địa lý giữa app server và DB server mới là yếu tố quyết định. Hiện tại không còn cách tối ưu placement nào khác với hạ tầng 1 core Render + Aiven JP.
 

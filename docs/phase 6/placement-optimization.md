@@ -1,6 +1,30 @@
-# BigTown — Tối ưu Placement: Chuyển từ Actor sang DB Transaction
+# BigTown — Thử nghiệm Tối ưu Placement: DB Transaction
 
-**Ngày:** 2026-08-07 | **Phase:** 6 | **Mức:** Cao (cải thiện p95 REST từ 1200ms → ~400ms)
+**Ngày:** 2026-08-07 | **Phase:** 5 | **Kết quả:** ❌ Reverted — không khả thi với hạ tầng hiện tại
+
+---
+
+## Kết luận sau thử nghiệm
+
+**DB transaction làm placement chậm hơn actor batch write-behind** trong điều kiện hạ tầng Render (Singapore) + Aiven Postgres (Nhật Bản, ~80ms RTT).
+
+| | Actor + batch write (Phase 3) | DB Transaction (Phase 5) |
+|:---|:---|:---|
+| REST p95 | ~1200ms | ~5000-10000ms |
+| Delivery p95 | ~5000ms | ~15000-55000ms |
+| WS errors | 2 | 23 |
+
+### Nguyên nhân
+
+Mỗi DB transaction = 2 round-trip (UPDATE + INSERT) × 80ms = 160ms network tối thiểu. Với 100 req/s và connection pool ~20, hàng đợi DB vượt xa actor queue (1 batch/s gộp 512 ops thành 1 round-trip).
+
+### Bài học
+
+- CPU không phải bottleneck
+- Mạng không phải bottleneck  
+- **Khoảng cách địa lý app server ↔ DB server** mới là yếu tố quyết định
+- Batch write-behind phù hợp với DB ở xa, DB transaction chỉ phù hợp khi DB cùng datacenter
+- Với hạ tầng hiện tại (Render 1 core + Aiven JP), actor batch write-behind là tối ưu, không còn cách cải thiện placement nào khác
 
 ---
 

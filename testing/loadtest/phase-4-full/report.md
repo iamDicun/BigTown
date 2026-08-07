@@ -85,7 +85,19 @@
 | 4 | **Race condition fix** (editor load từ RAM) | `editor_usecase.go`, `map_actor.go` | Hết lệch RAM/DB |
 | 5 | **Metrics backpressure** | `editor_metrics.go` | Theo dõi queue writer |
 
-### 4.4 Local test (VN → Singapore) — xác nhận bottleneck
+### 4.4 Thử nghiệm DB Transaction (Phase 5) — Không khả thi ❌
+
+| Metric | Phase 3 (actor + batch) | Phase 5 (DB transaction) |
+|:---|:---|:---|
+| **REST p95** | ~1200ms | **~5000-10000ms** ❌ |
+| **Delivery p95** | ~5000ms | **~15000-55000ms** ❌ |
+| **WS errors** | 2 | **23** |
+
+**Nguyên nhân:** DB transaction tạo 100 transaction/s (2 round-trip/txn: UPDATE + INSERT) qua Render (SG) → Aiven (JP, ~80ms RTT). Với connection pool ~20, hàng đợi DB vượt xa actor queue. Actor + batch write-behind (1 batch/giây) hiệu quả hơn vì gộp 100 round-trip DB thành 1.
+
+**Kết luận:** Actor + batch write-behind là giải pháp tối ưu cho hạ tầng hiện tại. DB transaction chỉ có lợi khi DB ở gần (< 10ms RTT). **CPU và mạng không phải bottleneck — khoảng cách địa lý Render↔Aiven mới là yếu tố quyết định. Với hạ tầng 1 core Render + Aiven JP, không còn cách tối ưu placement nào khác.**
+
+### 4.5 Tổng hợp tất cả phase placement
 
 | Metric | Grafana Cloud (Ohio) | Local (VN) | Khác biệt |
 |:---|:---|:---|:---|
@@ -147,7 +159,9 @@
 
 ### Còn lại
 
-| Vấn đề | Nguyên nhân | Hướng fix |
+| Vấn đề | Nguyên nhân | Kết luận |
 |:---|:---|:---|
-| Placement REST p95 ~1200ms | Actor serialize GHI, 1 core Render | Atomic SQL coin deduct |
-| Placement delivery p95 ~5000ms | Broadcast backlog khi tải cao | Tách broadcast khỏi actor path |
+| Placement REST p95 ~1200ms | Actor batch write-behind | Tối ưu nhất cho Render SG + Aiven JP |
+| Placement delivery p95 ~5000ms | Broadcast backlog khi tải cao | Chấp nhận được ở 100 VU |
+
+**Đã thử DB transaction (Phase 5) → tệ hơn (REST p95 5000-10000ms).** Khoảng cách Render↔Aiven (80ms RTT) khiến mỗi transaction tốn 2 round-trip, connection pool 20 không đủ cho 100 txn/s. Actor batch write-behind (1 batch/s, 512 ops) vẫn là tối ưu. CPU và mạng không phải bottleneck — vị trí địa lý DB mới là yếu tố quyết định.
