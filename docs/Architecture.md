@@ -377,3 +377,29 @@ Khi cần scale nhiều backend node:
 - Cân nhắc room ownership để một room realtime chỉ do một node xử lý authoritative state tại một thời điểm.
 - Tách state quan trọng khỏi RAM, chỉ giữ realtime ephemeral state trong RAM hoặc sau `RoomStore` interface.
 
+---
+
+## 12. Thử nghiệm DB Transaction cho Placement (Phase 5) — Không khả thi
+
+**Ngày:** 2026-08-07 | **Kết quả:** Reverted
+
+Đã thử nghiệm chuyển placement từ actor (batch write-behind) sang DB transaction trực tiếp (`UPDATE coins + INSERT placement` trong 1 transaction). Mục đích: giảm p95 REST từ 1200ms xuống < 800ms bằng cách tận dụng connection pool Postgres thay vì actor goroutine đơn luồng.
+
+### Kết quả (Grafana Cloud, Ohio → Render SG → Aiven JP)
+
+| Metric | Actor + batch write (Phase 3) | DB Transaction (Phase 5) |
+|:---|:---|:---|
+| REST p95 | ~1200ms | **~5000-10000ms** ❌ |
+| Delivery p95 | ~5000ms | **~15000-55000ms** ❌ |
+| WS errors | 2 | 23 |
+
+### Nguyên nhân thất bại
+
+DB transaction tạo 100 transaction/s (2 round-trip/transaction: UPDATE + INSERT) qua kết nối Render (Singapore) → Aiven (Nhật Bản, ~80ms RTT). Với connection pool ~20, hàng đợi DB vượt quá actor queue.
+
+Actor + batch write-behind (1 batch/giây, 512 ops/batch) hiệu quả hơn vì gộp 100 round-trip thành 1.
+
+### Kết luận
+
+**Actor + batch write-behind là giải pháp tối ưu cho hạ tầng hiện tại (Render SG + Aiven JP).** DB transaction chỉ có lợi khi DB ở gần (< 10ms RTT). CPU và mạng không phải bottleneck — khoảng cách địa lý giữa app server và DB server mới là yếu tố quyết định. Hiện tại không còn cách tối ưu placement nào khác với hạ tầng 1 core Render + Aiven JP.
+
