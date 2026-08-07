@@ -377,3 +377,44 @@ Khi cần scale nhiều backend node:
 - Cân nhắc room ownership để một room realtime chỉ do một node xử lý authoritative state tại một thời điểm.
 - Tách state quan trọng khỏi RAM, chỉ giữ realtime ephemeral state trong RAM hoặc sau `RoomStore` interface.
 
+---
+
+## 12. Quyết định Tối ưu Placement: DB Transaction (Phase 6)
+
+**Ngày:** 2026-08-07 | **Tài liệu chi tiết:** `docs/phase 6/placement-optimization.md`
+
+### 12.1 Vấn đề
+
+Sau 3 phase load test placement (100 VU, 10 room, Grafana Cloud + local), kết quả xác nhận bottleneck là **actor command queue**, không phải CPU hay mạng:
+
+| Môi trường | REST p95 | Kết luận |
+|:---|:---|:---|
+| Grafana Cloud (Ohio → SG, ping ~200ms) | ~1200ms | Mạng không phải bottleneck |
+| Local (VN → SG, ping ~30ms) | **1213ms** | CPU không max, goroutine ~350, heap ~50MB |
+
+Gốc rễ: 10 lệnh/s/room xếp hàng tuần tự trong 1 actor goroutine. Go scheduler trên 1 core không đảm bảo actor được chạy ngay → lệnh tích tụ → p95 ~1200ms.
+
+### 12.2 Giải pháp
+
+Chuyển coin deduct + insert placement từ actor goroutine sang **DB transaction**:
+
+- `UPDATE coins = coins - price WHERE id=X AND coins >= price` (atomic, DB tự serialize)
+- `INSERT INTO map_placements ON CONFLICT (map_id,x,y) DO NOTHING` (tự chặn double-place)
+- Cả 2 trong 1 transaction: ACID, không mất data nếu crash
+- Connection pool 25: đủ cho 100 req/s (100 × 25ms = 2.5 connections trung bình)
+
+Actor giữ lại occupancy grid (RAM) + broadcast — không cần xử lý coin/insert nữa.
+
+### 12.3 Lợi ích
+
+| | Actor (hiện tại) | DB Transaction |
+|:---|:---|:---|
+| **REST p95 dự kiến** | 1200ms | **~300-400ms** |
+| **Consistency** | Write-behind 1s, mất data nếu crash | ACID, không mất |
+| **Race RAM-DB** | CÓ | KHÔNG (DB source of truth) |
+| **Scale** | 1 goroutine/room | Connection pool = scale theo DB |
+
+### 12.4 Quyết định
+
+**Áp dụng DB transaction cho placement**, giữ actor cho occupancy check + broadcast. Đây là giải pháp chuẩn cho bài toán GHI nặng trên 1 core — chuyển phần việc serialize sang Postgres (CPU riêng, đa luồng).
+

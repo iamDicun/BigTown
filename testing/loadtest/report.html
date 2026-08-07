@@ -259,22 +259,21 @@
             </div>
             <div class="card">
                 <h3>Placement Test ⚠️</h3>
-                <p>100 VU, place mỗi 1s. Actor serialize GHI tạo nghẽn.</p>
+                <p>100 VU, place mỗi 1s. Sau tối ưu batch write + cache collides.</p>
                 <ul>
-                    <li><strong>REST p95:</strong> ~1000ms (ngưỡng 800ms — FAIL sát)</li>
-                    <li><strong>Delivery p95:</strong> ~1800ms (ngưỡng 1500ms) | <strong>Median:</strong> ~710ms (OK)</li>
-                    <li><strong>2 phút đầu ổn định</strong> (0 lỗi), sau đó 292 timeout + 52 WS error</li>
-                    <li><strong>Nguyên nhân:</strong> 10 place/s/room actor xếp hàng tuần tự</li>
+                    <li><strong>REST p95:</strong> ~1200ms (ngưỡng 800ms) | <strong>Delivery p95:</strong> ~5000ms</li>
+                    <li><strong>WS errors:</strong> chỉ 2 (↓ từ 89) | <strong>Không crash</strong> suốt 5 phút</li>
+                    <li><strong>Tối ưu đã làm:</strong> batch INSERT, cache collides, batch DELETE, editor load từ RAM</li>
+                    <li><strong>Còn lại:</strong> Actor serialize GHI trên 1 core — cần atomic SQL coin deduct</li>
                 </ul>
             </div>
             <div class="card">
-                <h3>Bootstrap Test ⚠️</h3>
-                <p>ramping-arrival-rate, đỉnh ~166 RPS. DB read maps + NPC spawns là bottleneck.</p>
+                <h3>Bootstrap Test ✅</h3>
+                <p>ramping-arrival-rate, đỉnh ~200 RPS. Cache NPC spawns trong RAM.</p>
                 <ul>
-                    <li><strong>p95 đỉnh 166 RPS:</strong> ~890ms (ngưỡng 600ms — FAIL) | p99: ~1080ms (PASS)</li>
-                    <li><strong>p95 &lt; 100 RPS:</strong> ~450ms (PASS) | <strong>Median:</strong> ~560ms</li>
-                    <li><strong>0 lỗi, 0 fail, 100% checks:</strong> Hệ thống ổn định tuyệt đối</li>
-                    <li><strong>Khuyến nghị:</strong> Cache map metadata nếu muốn p95 &lt; 600ms ở 200 RPS</li>
+                    <li><strong>p95 đỉnh:</strong> <strong style="color: var(--success-color)">~340ms (PASS ✅)</strong> — ↓ 62% từ 890ms</li>
+                    <li><strong>p99:</strong> ~600ms (PASS) | <strong>Median:</strong> ~301ms ≈ network RTT</li>
+                    <li><strong>0 lỗi, 0 fail, 100% checks:</strong> Bootstrap 100% in-memory sau cache</li>
                 </ul>
             </div>
         </div>

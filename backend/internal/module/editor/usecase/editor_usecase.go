@@ -9,6 +9,7 @@ import (
 	"backend/internal/module/editor/entity"
 	"backend/internal/module/editor/port"
 	"backend/internal/module/editor/room"
+	"encoding/json"
 	"github.com/google/uuid"
 )
 
@@ -133,41 +134,106 @@ func (u *EditorUsecase) PlaceItem(ctx context.Context, userID string, input Plac
 		return nil, apperror.BadRequest("Vật phẩm không tồn tại", nil)
 	}
 
-	a, err := u.rooms.Actor(input.MapCode)
+	mapID, err := u.repo.GetMapIDByCode(ctx, input.MapCode)
 	if err != nil {
-		return nil, apperror.Internal(err)
+		return nil, apperror.NotFound("Không tìm thấy bản đồ", err)
 	}
-	if a == nil {
+
+	// Validate coordinates (snap grid + bounds) — gọi actor để kiểm tra
+	a, err := u.rooms.Actor(input.MapCode)
+	if err != nil || a == nil {
 		return nil, apperror.NotFound("Không tìm thấy bản đồ", nil)
 	}
-
-	reply := make(chan room.CmdResult, 1)
-	cmd := room.Cmd{
-		Kind:     room.CmdPlace,
-		CharID:   charInfo.ID,
-		Item:     item,
-		X:        input.X,
-		Y:        input.Y,
-		Rotation: input.Rotation,
-		PlaceID:  uuid.NewString(),
-		Reply:    reply,
-	}
-
-	if err := a.SendCmd(cmd); err != nil {
+	if err := a.ValidatePlacement(input.X, input.Y); err != nil {
 		return nil, mapErr(err)
 	}
 
-	res := <-reply
-	if res.Err != nil {
-		return nil, mapErr(res.Err)
+	placementID := uuid.NewString()
+
+	// DB transaction: trừ coin + insert placement (atomic, DB tự serialize)
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, apperror.Internal(err)
+	}
+	defer tx.Rollback()
+
+	// 1. Advisory Lock trên map_id + x + y để chống race condition
+	lockQuery := `SELECT pg_advisory_xact_lock(hashtext($1::text), ($2 << 16) | $3)`
+	if _, err := tx.ExecContext(ctx, lockQuery, mapID, input.X, input.Y); err != nil {
+		return nil, apperror.Internal(err)
 	}
 
-	u.rooms.SetOnlineCoins(charInfo.ID, res.NewCoins)
+	// 2. Query các placement hiện tại ở ô tọa độ này
+	checkQuery := `SELECT p.item_id, i.metadata_json FROM map_placements p JOIN items i ON p.item_id = i.id WHERE p.map_id = $1 AND p.x = $2 AND p.y = $3`
+	rows, err := tx.QueryContext(ctx, checkQuery, mapID, input.X, input.Y)
+	if err != nil {
+		return nil, apperror.Internal(err)
+	}
+	defer rows.Close()
 
-	return &PlaceItemOutput{
-		Placement: *res.Placement,
-		NewCoins:  res.NewCoins,
-	}, nil
+	var existingCount int
+	var tileHasCollision bool
+	for rows.Next() {
+		existingCount++
+		var itemID string
+		var metadataJSON string
+		if err := rows.Scan(&itemID, &metadataJSON); err != nil {
+			return nil, apperror.Internal(err)
+		}
+		if parseMetadataCollides(metadataJSON) {
+			tileHasCollision = true
+		}
+	}
+
+	// 3. Thực hiện validation logic stacking + collision tương tự actor
+	if existingCount >= 2 {
+		return nil, apperror.BadRequest("Ô này đã có vật thể", nil)
+	}
+
+	if tileHasCollision {
+		newCollides := parseMetadataCollides(item.MetadataJSON)
+		if newCollides || existingCount > 0 {
+			return nil, apperror.BadRequest("Ô này đã có vật thể", nil)
+		}
+	}
+
+	// 4. Trừ coin
+	var newCoins int
+	coinQuery := `UPDATE characters SET coins = coins - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND coins >= $1 RETURNING coins`
+	if err := tx.QueryRowContext(ctx, coinQuery, item.Price, charInfo.ID).Scan(&newCoins); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperror.BadRequest("Không đủ coins để mua vật phẩm này", nil)
+		}
+		return nil, apperror.Internal(err)
+	}
+
+	// 5. Insert placement vào DB
+	placeQuery := `INSERT INTO map_placements (id, map_id, character_id, item_id, x, y, rotation)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id`
+	var insertedID string
+	if err := tx.QueryRowContext(ctx, placeQuery, placementID, mapID, charInfo.ID, item.ID, input.X, input.Y, input.Rotation).Scan(&insertedID); err != nil {
+		return nil, apperror.Internal(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, apperror.Internal(err)
+	}
+
+	u.rooms.SetOnlineCoins(charInfo.ID, newCoins)
+
+	p := &entity.Placement{
+		ID:          insertedID,
+		MapID:       mapID,
+		CharacterID: charInfo.ID,
+		ItemID:      item.ID,
+		X:           input.X,
+		Y:           input.Y,
+		Rotation:    input.Rotation,
+	}
+	u.rooms.RegisterPlacement(input.MapCode, p, charInfo.ID, newCoins, item.Price)
+
+	return &PlaceItemOutput{Placement: *p, NewCoins: newCoins}, nil
 }
 
 func (u *EditorUsecase) DeletePlacement(ctx context.Context, userID, mapCode, placementID string) (int, error) {
@@ -222,5 +288,18 @@ func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, co
 	}
 
 	return newCoins, nil
+}
+
+func parseMetadataCollides(metadataJSON string) bool {
+	if metadataJSON == "" || metadataJSON == "{}" {
+		return false
+	}
+	var meta struct {
+		Collides bool `json:"collides"`
+	}
+	if err := json.Unmarshal([]byte(metadataJSON), &meta); err != nil {
+		return false
+	}
+	return meta.Collides
 }
 

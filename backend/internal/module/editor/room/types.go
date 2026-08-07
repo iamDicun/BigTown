@@ -22,13 +22,16 @@ const (
 	CmdLeave
 	CmdCredit
 	CmdClaimCoin // <-- claim coin by ID
+	CmdRegisterPlacement
 )
 
 type Cmd struct {
 	Kind    CmdKind
 	CharID  string
-	// place:
-	Item     *entity.DecorationItem
+	// place / register placement:
+	Item      *entity.DecorationItem
+	Placement *entity.Placement
+	Price     int
 	X, Y     int
 	Rotation int
 	PlaceID  string
