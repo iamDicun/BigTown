@@ -7,6 +7,7 @@ import GameCanvas from '../components/GameCanvas.vue'
 import EditorPanel from '../components/EditorPanel.vue'
 import Hotbar from '../components/Hotbar.vue'
 import InventoryModal from '../components/InventoryModal.vue'
+import HelpHTMLOverlay from '../components/HelpHTMLOverlay.vue'
 import { useGameStore } from '../stores/game.store'
 import { useHotbarStore } from '../stores/hotbar.store'
 import type { DecorationItemDto } from '../services/editor.service'
@@ -43,6 +44,7 @@ onBeforeUnmount(() => {
   <section class="game-view">
     <GameCanvas />
     <AudioSettingsPanel />
+    <HelpHTMLOverlay />
     <EditorPanel :map-code="gameStore.mapCode" />
     <Hotbar />
     <InventoryModal v-if="invOpen" :items="catalogItems" @close="invOpen = false" />
