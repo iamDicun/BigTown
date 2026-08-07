@@ -255,6 +255,14 @@ func (rm *RoomManager) ClaimCoin(ctx context.Context, mapCode, characterID, coin
 	return res.NewCoins, res.Err
 }
 
+func (rm *RoomManager) RegisterPlacement(mapCode string, p *entity.Placement, charID string, newCoins int, price int) {
+	a, err := rm.Actor(mapCode)
+	if err != nil || a == nil {
+		return
+	}
+	a.RegisterPlacement(p, charID, newCoins, price)
+}
+
 func (rm *RoomManager) StartMetrics() {
 	StartMetricsCollector(rm, rm.writer)
 }

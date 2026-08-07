@@ -203,6 +203,8 @@ func (m *MapActor) run() {
 					CoinDelta: delta,
 					EventType: "coin_pickup",
 				}
+			case CmdRegisterPlacement:
+				m.handleRegisterPlacement(c)
 			}
 		case <-ticker.C:
 			m.tickCoins()
@@ -211,18 +213,8 @@ func (m *MapActor) run() {
 }
 
 func (m *MapActor) handlePlace(c Cmd) {
-	// 1. Validate coordinates (bounds + grid)
-	if m.tileSize <= 0 {
-		c.Reply <- CmdResult{Err: errors.New("tileSize must be positive")}
-		return
-	}
-	if c.X%m.tileSize != 0 || c.Y%m.tileSize != 0 {
-		log.Printf("DEBUG: placement coordinate is not matching snap grid: X=%d, Y=%d, tileSize=%d", c.X, c.Y, m.tileSize)
-		c.Reply <- CmdResult{Err: errors.New("toạ độ không khớp snap grid")}
-		return
-	}
-	if c.X < 0 || c.X >= m.mapW || c.Y < 0 || c.Y >= m.mapH {
-		c.Reply <- CmdResult{Err: errors.New("toạ độ vượt quá giới hạn bản đồ")}
+	if err := m.ValidatePlacement(c.X, c.Y); err != nil {
+		c.Reply <- CmdResult{Err: err}
 		return
 	}
 
@@ -607,3 +599,55 @@ func (m *MapActor) GetPlacements() []entity.Placement {
 }
 
 func (m *MapActor) CmdQueueLen() int { return len(m.cmds) }
+
+func (m *MapActor) ValidatePlacement(x, y int) error {
+	if m.tileSize <= 0 {
+		return errors.New("tileSize must be positive")
+	}
+	if x%m.tileSize != 0 || y%m.tileSize != 0 {
+		return errors.New("toạ độ không khớp snap grid")
+	}
+	if x < 0 || x >= m.mapW || y < 0 || y >= m.mapH {
+		return errors.New("toạ độ vượt quá giới hạn bản đồ")
+	}
+	return nil
+}
+
+func (m *MapActor) RegisterPlacement(p *entity.Placement, charID string, newCoins int, price int) {
+	m.SendCmd(Cmd{
+		Kind:      CmdRegisterPlacement,
+		CharID:    charID,
+		Placement: p,
+		Coins:     newCoins,
+		Price:     price,
+	})
+}
+
+func (m *MapActor) handleRegisterPlacement(c Cmd) {
+	p := c.Placement
+	key := [2]int{p.X, p.Y}
+
+	m.placementsMu.Lock()
+	m.occupied[key] = append(m.occupied[key], p)
+	m.byID[p.ID] = p
+	m.placementsMu.Unlock()
+
+	m.wallets[c.CharID] = c.Coins
+
+	if m.itemCollides(p.ItemID) {
+		m.hasCollision[key] = true
+	}
+
+	m.outbound <- map[string]any{
+		"type":      "decoration_placed",
+		"placement": p,
+	}
+
+	m.dirty <- persistOp{
+		Kind:      opFlushWallet,
+		CharID:    c.CharID,
+		NewCoins:  c.Coins,
+		CoinDelta: -c.Price,
+		EventType: "decoration_place",
+	}
+}
