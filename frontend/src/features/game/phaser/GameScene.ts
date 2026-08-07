@@ -14,6 +14,7 @@ import { playMusic } from '@/shared/audio/audio.service'
 import { EditorSystem } from '../systems/editorSystem'
 import { CoinPickupSystem } from '../systems/coinPickupSystem'
 import { AnimalSystem } from '../systems/animalSystem'
+import { HelpOverlay } from '../systems/helpOverlay'
 import type { SpawnedCoinDto } from '../services/editor.service'
 
 export const gameSceneKey = 'game'
@@ -48,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private movementKeyCodes: number[] = []
   private editorSystem!: EditorSystem
   private animalSystem!: AnimalSystem
+  private helpOverlay!: HelpOverlay
   private mapCollider!: Phaser.Physics.Arcade.Collider
   private coinPickupSystem: CoinPickupSystem | null = null
   public map!: Phaser.Tilemaps.Tilemap
@@ -129,6 +131,13 @@ export class GameScene extends Phaser.Scene {
     ]
 
     this.enterKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
+
+    const hKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H)
+    this.helpOverlay = new HelpOverlay(this)
+    hKey.on('down', () => {
+      if ((document.activeElement as HTMLElement)?.tagName === 'INPUT') return
+      this.helpOverlay.toggle()
+    })
 
     this.chatFocusHandler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { focused: boolean }
@@ -223,6 +232,7 @@ export class GameScene extends Phaser.Scene {
         this.coinPickupSystem.destroy()
         this.coinPickupSystem = null
       }
+      this.helpOverlay.destroy()
       if (this.switchMapHandler) {
         window.removeEventListener('game:switchMap', this.switchMapHandler)
         this.switchMapHandler = null
