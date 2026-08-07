@@ -125,22 +125,38 @@ func (w *Writer) flush(batch []persistOp) {
 		}
 	}
 
-	for _, op := range deleteOps {
-		query := `DELETE FROM map_placements WHERE id = $1`
-		if _, err := tx.Exec(query, op.P.ID); err != nil {
-			log.Printf("[writer] failed to delete placement %v: %v", op.P.ID, err)
+	if len(deleteOps) > 0 {
+		placeholders := make([]string, len(deleteOps))
+		args := make([]interface{}, len(deleteOps))
+		for i, op := range deleteOps {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			args[i] = op.P.ID
+		}
+		query := "DELETE FROM map_placements WHERE id IN (" + strings.Join(placeholders, ",") + ")"
+		if _, err := tx.Exec(query, args...); err != nil {
+			log.Printf("[writer] failed to batch delete %d placements: %v", len(deleteOps), err)
 			return
 		}
 	}
 
-	// 3. Reward events: append logs
+	// 3. Reward events: batch append logs
+	var evOps []persistOp
 	for _, op := range batch {
-		if op.EventType == "" {
-			continue
+		if op.EventType != "" {
+			evOps = append(evOps, op)
 		}
-		query := `INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES ($1, $2, $3)`
-		if _, err := tx.Exec(query, op.CharID, op.EventType, op.CoinDelta); err != nil {
-			log.Printf("[writer] failed to insert reward event for %s (delta: %d): %v", op.CharID, op.CoinDelta, err)
+	}
+	if len(evOps) > 0 {
+		rows := make([]string, 0, len(evOps))
+		args := make([]interface{}, 0, len(evOps)*3)
+		for i, op := range evOps {
+			b := i * 3
+			rows = append(rows, fmt.Sprintf("($%d,$%d,$%d)", b+1, b+2, b+3))
+			args = append(args, op.CharID, op.EventType, op.CoinDelta)
+		}
+		query := "INSERT INTO reward_events (character_id, event_type, coin_delta) VALUES " + strings.Join(rows, ",")
+		if _, err := tx.Exec(query, args...); err != nil {
+			log.Printf("[writer] failed to batch insert %d reward events: %v", len(evOps), err)
 			return
 		}
 	}
@@ -155,6 +171,8 @@ func (w *Writer) Close() {
 	close(w.in) // trigger loop shutdown
 	<-w.done    // wait for loop to clean up and flush
 }
+
+func (w *Writer) QueueLen() int { return len(w.in) }
 
 func (w *Writer) batchInsertPlacements(tx *sql.Tx, ops []persistOp) error {
 	if len(ops) == 0 {

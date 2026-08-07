@@ -56,9 +56,15 @@ func (u *EditorUsecase) GetEditorData(ctx context.Context, userID string, mapCod
 		items = make([]entity.DecorationItem, 0)
 	}
 
-	placements, err := u.repo.GetPlacementsByMap(ctx, mapID)
-	if err != nil {
-		return nil, apperror.Internal(err)
+	var placements []entity.Placement
+	if live := u.rooms.GetPlacements(mapCode); live != nil {
+		placements = live
+	} else {
+		dbP, err := u.repo.GetPlacementsByMap(ctx, mapID)
+		if err != nil {
+			return nil, apperror.Internal(err)
+		}
+		placements = dbP
 	}
 	if placements == nil {
 		placements = make([]entity.Placement, 0)
