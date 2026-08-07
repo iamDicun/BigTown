@@ -254,3 +254,7 @@ func (rm *RoomManager) ClaimCoin(ctx context.Context, mapCode, characterID, coin
 	}
 	return res.NewCoins, res.Err
 }
+
+func (rm *RoomManager) StartMetrics() {
+	StartMetricsCollector(rm, rm.writer)
+}

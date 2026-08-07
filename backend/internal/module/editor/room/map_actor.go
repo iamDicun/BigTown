@@ -31,7 +31,8 @@ type MapActor struct {
 	hasCollision map[[2]int]bool // có item collision nào trong ô này không
 	wallets      map[string]int
 	residents map[string]int
-	prices    map[string]int // itemID -> price (P0 cache)
+	prices    map[string]int  // itemID -> price (P0 cache)
+	collides  map[string]bool // itemID -> has collision (P2 cache)
 
 	coinsOnMap map[string]SpawnedCoin // <-- spawned coins registry
 	coinsMu    sync.RWMutex           // <-- reader/writer mutex for spawned coins
@@ -64,6 +65,7 @@ func NewMapActor(
 		wallets:      make(map[string]int),
 		residents:  make(map[string]int),
 		prices:     make(map[string]int),
+		collides:   make(map[string]bool),
 		coinsOnMap: make(map[string]SpawnedCoin),
 		cmds:       make(chan Cmd, 4096),
 		outbound:   make(chan any, 1024),
@@ -88,6 +90,7 @@ func (m *MapActor) loadFromDB() error {
 	}
 	for _, it := range items {
 		m.prices[it.ID] = it.Price
+		m.collides[it.ID] = parseMetadataCollides(it.MetadataJSON)
 	}
 
 	placements, err := m.repo.GetPlacementsByMap(context.Background(), m.mapID)
@@ -100,7 +103,7 @@ func (m *MapActor) loadFromDB() error {
 		m.occupied[key] = append(m.occupied[key], &pCopy)
 		m.byID[p.ID] = &pCopy
 		// Track collision per cell
-		if collides, _ := m.parseItemCollides(p.ItemID); collides {
+		if m.itemCollides(p.ItemID) {
 			m.hasCollision[key] = true
 		}
 	}
@@ -348,7 +351,7 @@ func (m *MapActor) handleDelete(c Cmd) {
 			m.occupied[key] = filtered
 			hasCol := false
 			for _, pp := range filtered {
-				if collides, _ := m.parseItemCollides(pp.ItemID); collides {
+			if m.itemCollides(pp.ItemID) {
 					hasCol = true
 					break
 				}
@@ -580,12 +583,17 @@ func parseMetadataCollides(metadataJSON string) bool {
 	return meta.Collides
 }
 
-func (m *MapActor) parseItemCollides(itemID string) (bool, bool) {
+func (m *MapActor) itemCollides(itemID string) bool {
+	if c, ok := m.collides[itemID]; ok {
+		return c
+	}
 	item, err := m.repo.GetItemByID(context.Background(), itemID)
 	if err != nil || item == nil {
-		return false, false
+		return false
 	}
-	return parseMetadataCollides(item.MetadataJSON), true
+	c := parseMetadataCollides(item.MetadataJSON)
+	m.collides[itemID] = c
+	return c
 }
 
 func (m *MapActor) GetPlacements() []entity.Placement {
@@ -597,3 +605,5 @@ func (m *MapActor) GetPlacements() []entity.Placement {
 	}
 	return result
 }
+
+func (m *MapActor) CmdQueueLen() int { return len(m.cmds) }
