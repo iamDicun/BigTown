@@ -1,0 +1,3 @@
+"time","metric","scenario","group","load_zone","tags","count"
+"2026-08-07T08:58:45+00:00","ws_connect_errors","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",1
+"2026-08-07T08:59:15+00:00","ws_connect_errors","soak_100vu","","amazon:us:columbus","{'k6_cloud_test_id': '1303698', 'k6_cloud_test_name': 'placement_load_test.js', 'k6_cloud_project_id': '8236866', 'k6_cloud_project_name': 'Default project'}",1

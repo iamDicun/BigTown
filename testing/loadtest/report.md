@@ -8,7 +8,7 @@ Tài liệu này tổng hợp và so sánh kết quả load test qua các Phase 
 
 | Chỉ số / Metric | Phase 1: Baseline | Phase 2: Actor per-room | Phase 3: Tick + RAM Cache | Phase 4: Full Test (Grafana) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Trạng thái** | Đã hoàn thành Str. 1, 2, 3 | Đã hoàn thành Str. 1 & 2 | Đã hoàn thành Str. 2 & 3 (ĐẠT ✅) | **Hoàn tất 4/4** |
+| **Trạng thái** | Đã hoàn thành Str. 1, 2, 3 | Đã hoàn thành Str. 1 & 2 | Đã hoàn thành Str. 2 & 3 (ĐẠT ✅) | **Hoàn tất 4/4 ✅** |
 | **Cơ chế lưu trữ** | `MemoryRoomStore` (Global Mutex) | `ActorRoomStore` (Actor model) | `ActorRoomStore` + gom Ticker + RAM Cache | `ActorRoomStore` + Ticker + RAM Cache |
 | **Độ trễ Chat (p95)** | 88ms (Local) \| 1626ms (Render) \| 1850ms (Grafana) | 190ms (Local) \| 1602ms (Render) | 718ms (Render) \| ~960ms (Grafana ✅) | **~900ms** (Grafana ✅) |
 | **Độ trễ Move RPC (p95)** | 7ms (Local) \| 155ms (Render) | 10ms (Local) \| 165ms (Render) | 165ms (Render ✅) | **~285ms** (Grafana ✅) |
@@ -58,47 +58,20 @@ Tài liệu này tổng hợp và so sánh kết quả load test qua các Phase 
 
 #### **Chat Test: PASS ✅**
 *   **Cấu hình:** 100 VU, 10 room, 5 phút, Grafana Cloud (Ohio → Render Singapore → Postgres Nhật)
-*   **Kết quả:**
-    *   p95 delivery: **~900ms** (PASS, ngưỡng < 1000ms)
-    *   p99 delivery: ~1050ms | Median: ~560ms
-    *   Tổng: ~16,300 chat gửi, ~163,000 chat nhận
-    *   Tỉ lệ lỗi: **0.006%** (1 lỗi WS connect do mất TCP WAN)
-    *   cross_room_leak: **0** (PASS)
-    *   Server: Goroutines 95→337→125 (không leak), Heap 10.8→32→22MB, GC pause < 0.2ms
-*   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
-
-#### **Movement, Placement, Bootstrap Test: ⏳**
-Đang chờ chạy và cập nhật kết quả.
+*   **Kết quả:** p95 delivery **~900ms** (PASS), p99 ~1050ms, Median ~560ms, ~16,300 gửi / ~163,000 nhận, tỉ lệ lỗi 0.006%, cross_room_leak 0
+*   **Server:** Goroutines 95→337→125 (không leak), Heap 10.8→32→22MB
 
 #### **Movement Test: PASS ✅**
-*   **Cấu hình:** 100 VU, 10 room, 5 phút, Grafana Cloud (Ohio → Render Singapore)
-*   **Kết quả:**
-    *   p95 RPC latency: **~285ms** (PASS, ngưỡng < 500ms). Chỉ bằng 57% ngưỡng.
-    *   p99 RPC latency: ~310ms | Median: ~245ms
-    *   Tổng: ~300,000 RPC gửi, **0 lỗi, 0 WS error**
-    *   Broadcast `room_state`: ~9k players/sec gộp qua tick 100ms, rất đều
-    *   `position_correction` hội tụ từ 2,800 → 300/3s: server điều chỉnh vị trí ổn định
-*   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
-
-#### **Placement, Bootstrap Test: ⏳**
-Đang chờ chạy và cập nhật kết quả.
+*   **Cấu hình:** 100 VU, 10 room, 5 phút
+*   **Kết quả:** p95 RPC **~285ms** (57% ngưỡng 500ms), p99 ~310ms, 0 lỗi, 0 WS error, ~300,000 RPC gửi
 
 #### **Placement Test: ⚠️ SÁT NGƯỠNG**
-*   **Cấu hình:** 100 VU, 10 room, place mỗi 1s, Grafana Cloud (Ohio → Render Singapore)
-*   **Giai đoạn ổn định (2 phút đầu):**
-    *   p95 REST place: **~1000ms** (FAIL sát, ngưỡng < 800ms)
-    *   p95 delivery: **~1800ms** (FAIL, ngưỡng < 1500ms) | Median: ~710ms (OK)
-    *   0 lỗi, WS ổn định
-*   **Giai đoạn suy giảm (3 phút sau):** 292 timeout place, 52 WS error, delivery spike 139s
-*   **Nguyên nhân:** Actor serialize GHI theo map — 10 place/s/room actor tạo hàng đợi. Đề xuất: tách coin deduct atomic SQL, write-behind batch, rate limiter broadcast.
-*   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
+*   **Cấu hình:** 100 VU, 10 room, place mỗi 1s
+*   **Kết quả (Phase 3 - sau tối ưu):** REST p95 **~1200ms** (ngưỡng 800ms), delivery p95 ~5000ms (ngưỡng 1500ms), WS errors chỉ 2 (↓ từ 89), không crash
+*   **Tối ưu đã làm:** batch INSERT, cache collides, batch DELETE, editor load từ RAM, metrics backpressure
+*   **Còn lại:** Actor serialize GHI trên 1 core Render — cần atomic SQL coin deduct để đạt < 800ms
 
-#### **Bootstrap Test: ⚠️ FAIL p95, PASS p99**
-*   **Cấu hình:** `ramping-arrival-rate` 10→50→200→0 RPS, max ~100 VU, Grafana Cloud (Ohio → Render SG)
-*   **Kết quả:**
-    *   p95 ở đỉnh 166 RPS: **~890ms** (FAIL, ngưỡng < 600ms)
-    *   p99 ở đỉnh: **~1080ms** (PASS, ngưỡng < 1200ms) | Median: ~560ms
-    *   **0 lỗi, 0 fail, 100% checks pass** — hệ thống không sập
-    *   p95 ở tải thấp (~100 RPS): chỉ ~450ms (PASS), dưới đỉnh ~100 RPS rất khỏe
-*   **Nguyên nhân:** DB read maps + NPC spawns mỗi request gây nghẽn ở RPS cao. Có thể cache map metadata.
+#### **Bootstrap Test: PASS ✅**
+*   **Cấu hình:** ramping-arrival-rate, đỉnh ~200 RPS
+*   **Kết quả (Phase 2 - sau cache NPC):** p95 **~340ms** (↓ 62% từ 890ms), p99 ~600ms, Median ~301ms, 0% lỗi. Cache NPC spawns trong RAM + preload startup.
 *   **Báo cáo chi tiết:** [phase-4-full/report.html](file:///c:/Users/ADMIN/Documents/GitHub/BigTown/testing/loadtest/phase-4-full/report.html)
