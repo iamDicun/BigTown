@@ -55,25 +55,48 @@ BigTown là bản MVP nhằm kiểm chứng phần lõi của sản phẩm: **đ
 
 ### Hạ tầng
 - **PostgreSQL** — lưu trữ bền vững
-- **Nginx** — reverse proxy, TLS termination, WSS (khi self-host / chạy trong Teams)
-- **Docker Compose** — Postgres + auto-migrate schema
+- **Docker Compose** — full stack local dev (Postgres + Backend + Frontend qua Nginx)
+- **Centrifuge** (`github.com/centrifugal/centrifuge`) — WebSocket realtime (embedded trong Go backend, không cần container riêng)
 
 ---
 
 ## Kiến trúc tổng thể
 
+### Production (Vercel + Render)
+
 ```text
-Client Browser / Microsoft Teams
-  │  HTTPS / WSS
-  ▼
-Nginx  (terminate TLS, serve static FE, proxy /api và /connection/websocket)
-  │  HTTP / WS nội bộ
-  ▼
-Go Backend  (REST API + Centrifuge WebSocket + realtime room state trong RAM)
-  │
-  ▼
-PostgreSQL
+Browser
+   │
+   ├──→ Vercel (static files, CDN)
+   │
+   └──→ Render Backend (Go + Centrifuge embedded)
+          │
+          ▼
+        PostgreSQL (Aiven)
 ```
+
+Frontend và backend deploy riêng biệt trên 2 domain khác nhau. Backend tự xử lý routing, không cần Nginx.
+
+### Local Dev (Docker Compose)
+
+```text
+Browser
+   │
+   ▼
+localhost:3000 (Nginx)
+   │
+   ├── /              → static files (Vue/Phaser)
+   ├── /api/*         → proxy → backend:8080
+   └── /connection/*  → proxy → backend:8080 (WebSocket upgrade)
+         │
+         ▼
+      backend:8080 (Go + Centrifuge embedded)
+         │
+         ▼
+      postgres:5432
+```
+
+Docker dùng Nginx làm reverse proxy để mô phỏng 1 domain duy nhất, tránh CORS khi dev local.
 
 Backend đi theo mô hình **Vertical Modular Monolith + Clean Architecture nhẹ + Repository Pattern**. Mỗi module tự chứa đủ các tầng `entity / port / usecase / repository / delivery`. Luồng phụ thuộc một chiều:
 
@@ -193,18 +216,37 @@ WS   /connection/websocket         # Centrifuge, token = access_token
 
 ## Chạy dev
 
-Yêu cầu: **Go 1.26+**, **Node.js**, **Docker**.
+Yêu cầu: **Docker**.
 
-### 1. Backend
+### Quickstart (Docker Compose — khuyến nghị)
+
+```sh
+cp .env.example .env          # sửa JWT_SECRET nếu cần
+docker compose up -d          # build + start toàn bộ stack
+```
+
+| Dịch vụ | URL |
+|----------|-----|
+| Frontend | http://localhost:3000 |
+| Backend  | http://localhost:8080 |
+| Postgres | localhost:5433 |
+
+> **Lưu ý:** Docker dùng Nginx làm reverse proxy nên frontend gọi API qua path relative `/api`. Không giống production (Vercel + Render) — xem [Kiến trúc tổng thể](#kiến-trúc-tổng-thể).
+
+### Chạy riêng từng phần (không dùng Docker cho backend/frontend)
+
+Yêu cầu thêm: **Go 1.26+**, **Node.js**.
+
+#### 1. Backend
 
 ```sh
 cd backend
-cp .env.example .env          # sửa JWT_SECRET trước khi dùng thật
-docker compose up -d          # Postgres + tự migrate schema.sql + seed.sql
+cp .env.example .env
+docker compose up -d          # chỉ Postgres
 go run ./cmd/server           # -> http://localhost:8080
 ```
 
-### 2. Frontend
+#### 2. Frontend
 
 ```sh
 cd frontend
@@ -212,15 +254,6 @@ cp .env.example .env
 npm install
 npm run dev                   # -> http://localhost:5173
 ```
-
-### Cổng mặc định
-
-| Dịch vụ | Cổng |
-|---|---|
-| Backend (Go) | 8080 |
-| Frontend (Vite) | 5173 |
-| PostgreSQL | 5432 |
-| Nginx (tuỳ chọn) | 8088 |
 
 ### Kiểm tra (backend)
 
@@ -267,9 +300,11 @@ Khi chạy sau Nginx cùng origin, dùng `VITE_API_BASE_URL=/api`.
 
 ## Triển khai
 
-- **Frontend:** Vercel (static build từ Vite).
-- **Backend:** Render (hoặc bất kỳ host Go + Postgres nào).
-- **Self-host / Teams:** đặt Nginx phía trước để terminate TLS và proxy `/api` + `/connection/websocket` — xem `docs/Nginx-Deployment-Guide.md`.
+- **Frontend:** Vercel (static build từ Vite, CDN toàn cầu).
+- **Backend:** Render Web Service (Go + Centrifuge embedded trong 1 process).
+- **Database:** Aiven PostgreSQL (hoặc Render Postgres).
+- **Khác biệt với local:** Production không dùng Nginx — Vercel serve static file, Render tự xử lý reverse proxy và WebSocket upgrade. Backend cần cấu hình `CORS_ALLOWED_ORIGINS` để cho phép domain Vercel.
+- **Teams:** Khi nhúng vào Microsoft Teams, cần thêm Nginx để terminate TLS và proxy (xem `docs/Nginx-Deployment-Guide.md`).
 
 ---
 

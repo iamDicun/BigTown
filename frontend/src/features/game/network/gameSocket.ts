@@ -38,9 +38,13 @@ type GameSocketOptions = {
 }
 
 export function getDefaultRealtimeUrl() {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  let apiBaseUrl = import.meta.env.VITE_API_BASE_URL
   if (!apiBaseUrl) {
     throw new Error('Thiếu biến môi trường VITE_API_BASE_URL — kiểm tra file .env (xem .env.example).')
+  }
+
+  if (apiBaseUrl.startsWith('/')) {
+    apiBaseUrl = window.location.origin + apiBaseUrl
   }
 
   const baseUrl = new URL(apiBaseUrl)
