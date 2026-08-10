@@ -35,6 +35,11 @@ jobs:
       - name: go build
         run: go build ./...
 
+      - name: go test
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
