@@ -24,4 +24,3 @@ func (m *CharacterModule) Usecase() *usecase.CharacterUsecase {
 func (m *CharacterModule) Repository() port.CharacterRepository {
 	return m.provider.Repository()
 }
-

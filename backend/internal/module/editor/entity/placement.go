@@ -29,4 +29,3 @@ type MapInfo struct {
 	Height   int    `json:"height"`
 	TileSize int    `json:"tile_size"`
 }
-

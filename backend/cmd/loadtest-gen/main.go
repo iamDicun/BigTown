@@ -31,9 +31,9 @@ type tokenEntry struct {
 	Room   string `json:"room"` // map code VU này sẽ join (để đối chiếu, k6 cũng tự tính lại)
 }
 
-func userID(i int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", i) }
-func charID(i int) string { return fmt.Sprintf("00000000-0000-0000-0001-%012d", i) }
-func mapID(i int) string  { return fmt.Sprintf("00000000-0000-0000-0002-%012d", i) }
+func userID(i int) string  { return fmt.Sprintf("00000000-0000-0000-0000-%012d", i) }
+func charID(i int) string  { return fmt.Sprintf("00000000-0000-0000-0001-%012d", i) }
+func mapID(i int) string   { return fmt.Sprintf("00000000-0000-0000-0002-%012d", i) }
 func mapCode(i int) string { return fmt.Sprintf("loadtest-map-%02d", i) }
 
 func main() {

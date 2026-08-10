@@ -223,4 +223,3 @@ func (u *EditorUsecase) ClaimCoinPickup(ctx context.Context, userID, mapCode, co
 
 	return newCoins, nil
 }
-

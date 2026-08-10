@@ -213,7 +213,7 @@ func handlePlayerMove(node *centrifuge.Node, roomUsecase *usecase.RoomUsecase, c
 		return
 	}
 
-	// ĐÃ LOẠI BỎ: Không broadcast tức thời nữa. 
+	// ĐÃ LOẠI BỎ: Không broadcast tức thời nữa.
 	// Server-side Tick Broadcast (100ms Ticker) trong Actor Room Store sẽ chịu trách nhiệm
 	// quét và gom nhóm các người chơi di chuyển rồi phát tin 1 lần (room_state) cho toàn phòng.
 	_ = updated // Tránh unused variable warning

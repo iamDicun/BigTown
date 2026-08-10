@@ -320,10 +320,10 @@ func (s *ActorRoomStore) MovePlayer(ctx context.Context, roomID string, characte
 		p.X, p.Y = m.X, m.Y
 		p.Direction, p.Moving = m.Direction, m.Moving
 		p.LastSeenAt = time.Now()
-		
+
 		// Đánh dấu dirty để phát tin theo nhịp (Tick Broadcast)
 		actor.dirty[characterID] = struct{}{}
-		
+
 		cp := *p
 		reply <- &cp
 	})

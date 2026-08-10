@@ -85,4 +85,3 @@ func (p *Provider) Handler() *delivery.EditorHandler {
 	}
 	return p.handler
 }
-
