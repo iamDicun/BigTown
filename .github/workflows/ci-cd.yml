@@ -64,14 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy
-        if: ${{ vars.RENDER_DEPLOY_HOOK != '' }}
         run: |
-          curl -s -X POST "${{ vars.RENDER_DEPLOY_HOOK }}"
+          if [ -z "$HOOK" ]; then
+            echo "::notice::RENDER_DEPLOY_HOOK chưa cấu hình — Render auto-deploy sẽ xử lý."
+            exit 0
+          fi
+          curl -s -X POST "$HOOK"
           echo "Render deploy triggered."
-
-      - name: Deploy info (auto-deploy)
-        if: ${{ vars.RENDER_DEPLOY_HOOK == '' }}
-        run: |
-          echo "::notice::RENDER_DEPLOY_HOOK chưa cấu hình."
-          echo "Render sẽ auto-deploy khi push main (nếu đã bật trong dashboard)."
-          echo "Vercel sẽ auto-deploy khi push main."
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
