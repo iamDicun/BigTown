@@ -1,1 +1,3 @@
 .env
+testing/unit/coverage/coverage.out
+testing/unit/coverage/coverage.html
