@@ -36,15 +36,21 @@ type mockEditorRepo struct {
 	placements []entity.Placement
 }
 
-func (m *mockEditorRepo) GetMapIDByCode(ctx context.Context, code string) (string, error) { return "map-1", nil }
+func (m *mockEditorRepo) GetMapIDByCode(ctx context.Context, code string) (string, error) {
+	return "map-1", nil
+}
 func (m *mockEditorRepo) GetMapInfoByCode(ctx context.Context, code string) (*entity.MapInfo, error) {
 	return &entity.MapInfo{ID: "map-1", Width: 1000, Height: 1000, TileSize: 16}, nil
 }
-func (m *mockEditorRepo) GetDecorationItems(ctx context.Context) ([]entity.DecorationItem, error) { return nil, nil }
+func (m *mockEditorRepo) GetDecorationItems(ctx context.Context) ([]entity.DecorationItem, error) {
+	return nil, nil
+}
 func (m *mockEditorRepo) GetPlacementsByMap(ctx context.Context, mapID string) ([]entity.Placement, error) {
 	return m.placements, nil
 }
-func (m *mockEditorRepo) GetItemByID(ctx context.Context, itemID string) (*entity.DecorationItem, error) { return nil, nil }
+func (m *mockEditorRepo) GetItemByID(ctx context.Context, itemID string) (*entity.DecorationItem, error) {
+	return nil, nil
+}
 
 func TestMapActor_InmemorySafety(t *testing.T) {
 	charID := "char-1"

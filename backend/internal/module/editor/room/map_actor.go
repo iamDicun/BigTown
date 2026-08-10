@@ -30,9 +30,9 @@ type MapActor struct {
 	byID         map[string]*entity.Placement
 	hasCollision map[[2]int]bool // có item collision nào trong ô này không
 	wallets      map[string]int
-	residents map[string]int
-	prices    map[string]int  // itemID -> price (P0 cache)
-	collides  map[string]bool // itemID -> has collision (P2 cache)
+	residents    map[string]int
+	prices       map[string]int  // itemID -> price (P0 cache)
+	collides     map[string]bool // itemID -> has collision (P2 cache)
 
 	coinsOnMap map[string]SpawnedCoin // <-- spawned coins registry
 	coinsMu    sync.RWMutex           // <-- reader/writer mutex for spawned coins
@@ -54,26 +54,26 @@ func NewMapActor(
 	coins CoinResolver, // <-- live coin resolver parameter
 ) *MapActor {
 	m := &MapActor{
-		mapID:      mapID,
-		mapCode:    mapCode,
-		tileSize:   tileSize,
-		mapW:       mapW,
-		mapH:       mapH,
+		mapID:        mapID,
+		mapCode:      mapCode,
+		tileSize:     tileSize,
+		mapW:         mapW,
+		mapH:         mapH,
 		occupied:     make(map[[2]int][]*entity.Placement),
 		byID:         make(map[string]*entity.Placement),
 		hasCollision: make(map[[2]int]bool),
 		wallets:      make(map[string]int),
-		residents:  make(map[string]int),
-		prices:     make(map[string]int),
-		collides:   make(map[string]bool),
-		coinsOnMap: make(map[string]SpawnedCoin),
-		cmds:       make(chan Cmd, 4096),
-		outbound:   make(chan any, 1024),
-		dirty:      dirty,
-		done:       make(chan struct{}),
-		charReader: charReader,
-		repo:       repo,
-		coins:      coins,
+		residents:    make(map[string]int),
+		prices:       make(map[string]int),
+		collides:     make(map[string]bool),
+		coinsOnMap:   make(map[string]SpawnedCoin),
+		cmds:         make(chan Cmd, 4096),
+		outbound:     make(chan any, 1024),
+		dirty:        dirty,
+		done:         make(chan struct{}),
+		charReader:   charReader,
+		repo:         repo,
+		coins:        coins,
 	}
 
 	go m.run()
@@ -351,7 +351,7 @@ func (m *MapActor) handleDelete(c Cmd) {
 			m.occupied[key] = filtered
 			hasCol := false
 			for _, pp := range filtered {
-			if m.itemCollides(pp.ItemID) {
+				if m.itemCollides(pp.ItemID) {
 					hasCol = true
 					break
 				}

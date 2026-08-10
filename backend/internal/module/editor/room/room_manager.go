@@ -156,7 +156,7 @@ func (rm *RoomManager) OnPlayerJoin(ctx context.Context, roomID string, characte
 	if _, exists := rm.onlineCoins[characterID]; !exists {
 		rm.onlineCoins[characterID] = coins
 	}
-	rm.liveConns[characterID]++          // <-- đếm kết nối lên
+	rm.liveConns[characterID]++ // <-- đếm kết nối lên
 	currentCoins := rm.onlineCoins[characterID]
 	rm.mu.Unlock()
 

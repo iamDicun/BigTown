@@ -89,46 +89,60 @@ Các phần sau chưa triển khai trong MVP, chỉ xem là hướng mở rộng
 
 ### Nginx
 
-- Nhận request từ client qua **HTTPS/WSS**.
-- Terminate TLS tại Nginx.
-- Forward vào server Golang qua **HTTP/WS** nội bộ.
-- Cấu hình `Upgrade` và `Connection` header để WebSocket hoạt động ổn định.
+**Chỉ dùng trong môi trường local dev (Docker Compose).** Production không cần vì Vercel + Render tự xử lý routing.
+
+Khi chạy bằng Docker Compose, Nginx đóng vai trò reverse proxy:
+- Serve static frontend files
+- Proxy `/api/*` → backend:8080
+- Proxy `/connection/*` → backend:8080 (WebSocket upgrade)
+- Giúp frontend + backend cùng 1 origin, tránh CORS khi dev local
+
+Trong production (Vercel CDN + Render), backend tự listen HTTP/WebSocket và CORS được cấu hình qua `CORS_ALLOWED_ORIGINS`.
 
 ---
 
 ## 5. Deployment View
 
-Luồng triển khai MVP:
+### Production (Vercel + Render)
 
 ```text
-Client Browser
-  | HTTPS / WSS
-  v
-Nginx
-  - Terminate TLS
-  - Serve static frontend hoặc reverse proxy frontend
-  - Proxy /api qua HTTP vào Go server
-  - Proxy /connection/websocket qua WS vào Go server
-  |
-  | HTTP / WS nội bộ
-  v
-Golang Server - 1 node MVP
-  - REST API
-  - REST API
-  - Centrifuge WebSocket endpoint
-  - Realtime room channels
-  - Gameplay usecases
-  |
-  v
-PostgreSQL
-  - User
-  - Avatar
-  - Inventory
-  - Wallet / point
-  - Leaderboard data
+Browser
+  │
+  ├── HTTPS ──→ Vercel (static files, CDN)
+  │
+  └── HTTPS / WSS ──→ Render (Go Web Service)
+                         │
+                         ├── REST API (Gin)
+                         ├── WebSocket (Centrifuge embedded)
+                         │
+                         ▼
+                      PostgreSQL (Aiven)
 ```
 
-Ở MVP chỉ cần **1 node Golang**. Khi scale nhiều node, Centrifuge có thể dùng Redis broker để đồng bộ publish giữa các node. Runtime room state vẫn nên được bọc sau interface riêng để không phụ thuộc chặt vào RAM.
+Frontend (Vue/Phaser) build thành static files deploy lên Vercel. Backend Go chạy trên Render, Centrifuge chạy embedded trong cùng process, không cần container riêng. CORS được cấu hình qua `CORS_ALLOWED_ORIGINS`.
+
+### Local Dev (Docker Compose)
+
+```text
+Browser
+  │
+  ▼
+localhost:3000 (Nginx)
+  │
+  ├── /              → static files
+  ├── /api/*         → proxy backend:8080
+  └── /connection/*  → proxy backend:8080 (WS upgrade)
+        │
+        ▼
+     backend:8080 (Go + Centrifuge embedded)
+        │
+        ▼
+     postgres:5432
+```
+
+Docker dùng Nginx làm reverse proxy cho cả frontend (static serve) và backend (API/WS proxy) trên cùng 1 domain, tránh CORS khi dev local.
+
+> **Lưu ý:** Centrifuge chạy **embedded** trong Go process (import `github.com/centrifugal/centrifuge`), không phải 1 container độc lập như Centrifugo server. Khi scale nhiều backend node, có thể thêm Redis broker cho Centrifuge.
 
 ---
 

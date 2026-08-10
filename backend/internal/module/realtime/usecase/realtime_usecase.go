@@ -62,11 +62,11 @@ func (u *RealtimeUsecase) GetBootstrap(ctx context.Context, mapCode string) (*Bo
 	}
 
 	return &BootstrapData{
-		TickRateMS:      100,
-		MapCode:         mapInfo.Code,
-		WebSocketPath:   "/connection/websocket",
-		DefaultRoomID:   mapInfo.Code,
-		DefaultChannel:  "room:" + mapInfo.Code,
+		TickRateMS:     100,
+		MapCode:        mapInfo.Code,
+		WebSocketPath:  "/connection/websocket",
+		DefaultRoomID:  mapInfo.Code,
+		DefaultChannel: "room:" + mapInfo.Code,
 		ProtocolFeatures: []string{
 			"centrifuge_transport",
 			"room_channels",

@@ -25,8 +25,8 @@ const (
 )
 
 type Cmd struct {
-	Kind    CmdKind
-	CharID  string
+	Kind   CmdKind
+	CharID string
 	// place:
 	Item     *entity.DecorationItem
 	X, Y     int
@@ -35,10 +35,10 @@ type Cmd struct {
 	// delete:
 	TargetID string
 	// join / credit:
-	Coins   int
+	Coins int
 	// claim coin:
-	CoinID  string // <-- target coin ID on map
-	Reply   chan CmdResult
+	CoinID string // <-- target coin ID on map
+	Reply  chan CmdResult
 }
 
 type CmdResult struct {
