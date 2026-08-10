@@ -8,16 +8,17 @@ Các mục sẽ học và triển khai (theo thứ tự ưu tiên mới):
 
 - [x] 1. Containerization
 - [ ] 2. CI/CD
-- [ ] 3. Unit Testing
-- [ ] 4. Integration Testing
-- [ ] 5. E2E Testing
-- [x] 6. Observability
-- [x] 7. Load Testing
-- [ ] 8. Security Scanning
-- [x] 9. Database Engineering
-- [ ] 10. Release Engineering
-- [ ] 11. Chaos / Failure Testing
-- [ ] 12. Documentation / ADR
+- [ ] 3. Unit Testing (Backend)
+- [ ] 4. Unit Testing (Frontend)
+- [ ] 5. Integration Testing
+- [ ] 6. E2E Testing
+- [x] 7. Observability
+- [x] 8. Load Testing
+- [ ] 9. Security Scanning
+- [x] 10. Database Engineering
+- [ ] 11. Release Engineering
+- [ ] 12. Chaos / Failure Testing
+- [ ] 13. Documentation / ADR
 
 > **Đã bỏ:** Distributed System — không phù hợp với chi phí deploy.
 
@@ -1187,11 +1188,24 @@ Phase 1 ─ CI/CD cơ bản
 └── Branch protection rules
        │
        ▼
-Phase 2 ─ Unit Testing
+Phase 2a ─ Unit Testing (Backend)
 │
-├── Backend: auth + realtime + editor
-├── Frontend: auth store + game state
+├── Security: JWT + password
+├── Auth: usecase + repository
+├── Character: usecase + repository
+├── Chat: usecase + repository
+├── Editor: usecase + repository
+├── Realtime: usecase + room actor
+├── Leaderboard: usecase
 └── Chạy trên CI
+       │
+       ▼
+Phase 2b ─ Unit Testing (Frontend)
+│
+├── Auth store (Pinia)
+├── Game store (Pinia)
+├── GameSocket URL parsing
+└── Chạy trên CI (Vitest)
        │
        ▼
 Phase 3 ─ Integration Testing
@@ -1262,11 +1276,23 @@ Phase 8 ─ Documentation / ADR
 
 ## Unit Testing
 
-- [ ] Auth module tests
-- [ ] Realtime module tests
-- [ ] Editor module tests
-- [ ] Frontend auth tests
-- [ ] Chạy trên CI
+### Backend (Go)
+
+- [ ] Security: JWT + password
+- [ ] Auth usecase + repository
+- [ ] Character usecase + repository
+- [ ] Chat usecase + repository
+- [ ] Editor usecase + repository
+- [ ] Realtime usecase + room actor
+- [ ] Leaderboard usecase
+- [ ] Chạy trên CI (`go test ./...`)
+
+### Frontend (Vitest)
+
+- [ ] Auth store
+- [ ] Game store
+- [ ] GameSocket URL parsing
+- [ ] Chạy trên CI (`npx vitest --run`)
 
 ## Integration Testing
 
