@@ -225,6 +225,13 @@ function toChatMessage(dto: ChatMessageDto): ChatMessage {
   }
 }
 
+function formatTime(isoString?: string): string {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 function scrollToBottom() {
   nextTick(() => {
     if (messagesEl.value) {
@@ -256,7 +263,10 @@ function scrollToBottom() {
         <p v-if="error" class="pixel-alert pixel-alert--error">{{ error }}</p>
         <p v-if="messages.length === 0" class="empty">Mở thêm tab thứ hai rồi gửi thử một tin nhắn.</p>
         <article v-for="item in messages" :key="item.id" :class="['message', { mine: item.mine }]">
-          <strong>{{ item.mine ? 'Bạn' : item.displayName }}</strong>
+          <div class="message-header">
+            <strong>{{ item.mine ? 'Bạn' : item.displayName }}</strong>
+            <time v-if="item.sentAt" class="message-time">{{ formatTime(item.sentAt) }}</time>
+          </div>
           <span>{{ item.message }}</span>
         </article>
       </div>
@@ -300,6 +310,12 @@ header {
 }
 .message.mine {
   background: rgba(90,156,74,0.16); border-color: var(--pixel-green);
+}
+.message-header {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2);
+}
+.message-time {
+  font-size: 11px; color: var(--pixel-text-muted); opacity: 0.8; font-family: var(--pixel-font);
 }
 .message strong { color: var(--pixel-accent-dark); font-size: var(--fs-label); letter-spacing: var(--ls-pixel); }
 .message span { color: var(--pixel-ink); word-break: break-word; line-height: 1.2; }
