@@ -63,6 +63,9 @@ function onInputBlur() {
 }
 
 function onInputKeydown(e: KeyboardEvent) {
+  // Bắt tất cả sự kiện gõ phím trong khung chat không cho lan ra window (disable hotkeys)
+  e.stopPropagation()
+
   if (e.key === 'Enter') {
     e.preventDefault()
     if (canSend.value) {
@@ -287,7 +290,7 @@ header {
 }
 .header-actions { display: flex; align-items: center; gap: var(--sp-3); }
 .messages {
-  min-height: 120px; overflow: auto; padding: var(--sp-3);
+  min-height: 260px; max-height: 320px; overflow-y: auto; padding: var(--sp-3);
   font-family: var(--pixel-font); font-size: var(--fs-body);
 }
 .empty { margin: 0; color: var(--pixel-text-muted); opacity: 0.75; }

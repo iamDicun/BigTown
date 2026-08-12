@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import type { DecorationItemDto } from '../services/editor.service'
 import { useHotbarStore } from '../stores/hotbar.store'
 import { useGameStore } from '../stores/game.store'
@@ -49,11 +49,9 @@ function assignToSlot(index: number) {
 function quickAssign(it: DecorationItemDto) {
   hotbar.assign(hotbar.activeIndex, it.id)
 }
-const searchInput = ref<HTMLInputElement | null>(null)
-
-onMounted(() => {
-  searchInput.value?.focus()
-})
+function onInputKeydown(e: KeyboardEvent) {
+  e.stopPropagation()
+}
 
 function onInputFocus() {
   window.dispatchEvent(new CustomEvent('game:chatFocus', { detail: { focused: true } }))
@@ -78,6 +76,7 @@ function onInputBlur() {
             placeholder="Tìm tên hoặc mã vật phẩm..."
             @focus="onInputFocus"
             @blur="onInputBlur"
+            @keydown="onInputKeydown"
           />
         </div>
         <button class="ui-btn ui-btn--danger ui-btn--icon" @click="emit('close')"><PixelIcon name="close" :size="16" /></button>

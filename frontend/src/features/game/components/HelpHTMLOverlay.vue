@@ -4,7 +4,8 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 const open = ref(false)
 
 function onKey(e: KeyboardEvent) {
-  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  const active = document.activeElement as HTMLElement | null
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
   if (e.key === 'h' || e.key === 'H') {
     open.value = !open.value
   }

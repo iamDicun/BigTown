@@ -295,12 +295,12 @@ export class GameScene extends Phaser.Scene {
 
   private setChatInputCapture(focused: boolean): void {
     const kb = this.input?.keyboard
-    if (!kb) return
+    if (!kb || !kb.enabled) return
     for (const code of this.movementKeyCodes) {
       if (focused) {
-        kb.removeCapture(code)
+        kb.removeCapture?.(code)
       } else {
-        kb.addCapture(code)
+        kb.addCapture?.(code)
       }
     }
   }
