@@ -21,7 +21,8 @@ const catalogItems = computed<DecorationItemDto[]>(() => {
 })
 
 function onKey(e: KeyboardEvent) {
-  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  const active = document.activeElement as HTMLElement | null
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
   if (e.key === 'e' || e.key === 'E') {
     invOpen.value = !invOpen.value
     e.preventDefault()
@@ -67,7 +68,7 @@ onBeforeUnmount(() => {
   bottom: 16px;
   right: 16px;
   width: min(360px, calc(100vw - 32px));
-  max-height: 250px;
+  max-height: 420px;
   display: flex;
   flex-direction: column;
   pointer-events: none;

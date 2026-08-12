@@ -26,7 +26,8 @@ function toggleDeleteMode() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  const active = document.activeElement as HTMLElement | null
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
   const n = parseInt(e.key, 10)
   if (n >= 1 && n <= 5) {
     hotbar.setActive(n - 1)

@@ -19,10 +19,13 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    image: golang:1.26-alpine
+    working_dir: /app
     restart: unless-stopped
     ports:
       - "8080:8080"
+    volumes:
+      - ./backend:/app
     environment:
       PORT: "8080"
       DB_HOST: postgres
@@ -35,18 +38,20 @@ services:
       COOKIE_SECURE: "false"
       COOKIE_SAME_SITE: Lax
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+    command: go run cmd/server/main.go
     depends_on:
       postgres:
         condition: service_healthy
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_BASE_URL: /api
+    image: node:22-alpine
+    working_dir: /app
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:5173"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     depends_on:
       - backend
 
