@@ -325,6 +325,7 @@ jobs:
         with:
           target: 'http://localhost:8080/metrics'
           fail_action: false
+          token: ''
 
       - name: Generate Security Scan Summary
         if: always()
