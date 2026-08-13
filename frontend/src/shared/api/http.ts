@@ -2,10 +2,7 @@ import axios from 'axios'
 
 import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStorage'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-if (!API_BASE_URL) {
-  throw new Error('Thiếu biến môi trường VITE_API_BASE_URL — kiểm tra file .env (xem .env.example).')
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export class ApiError extends Error {
   code: string

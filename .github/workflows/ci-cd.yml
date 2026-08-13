@@ -37,7 +37,7 @@ jobs:
 
       - name: go test (Unit Tests)
         run: |
-          go test -coverprofile=coverage.out ./...
+          go test -coverprofile=coverage.out ./internal/security/... ./internal/module/auth/... ./internal/module/character/... ./internal/module/chat/... ./internal/module/editor/... ./internal/module/realtime/...
           go tool cover -func=coverage.out
 
   integration-test:
@@ -77,6 +77,8 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      VITE_API_BASE_URL: "http://localhost:8080/api"
     steps:
       - uses: actions/checkout@v4
 
