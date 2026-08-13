@@ -297,7 +297,7 @@ jobs:
           npm audit --audit-level=high || true
 
       - name: 3. Secret Leak Scanning (TruffleHog)
-        uses: trufflesecurity/trufflehog-actions-scan@v3.87.2
+        uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
 
