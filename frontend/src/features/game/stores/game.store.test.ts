@@ -23,12 +23,13 @@ describe('Game Store', () => {
     const store = useGameStore()
     store.setMyCharacter({
       id: 'char-100',
-      user_id: 'user-1',
       name: 'Knight Hero',
+      map_id: 'map-1',
       base_asset_key: 'knight',
       coins: 250,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
+      score: 0,
+      last_x: 0,
+      last_y: 0,
     })
 
     expect(store.characterId).toBe('char-100')
@@ -41,12 +42,13 @@ describe('Game Store', () => {
   it('loadMyCharacter calls character service and updates store', async () => {
     vi.mocked(characterService.getMe).mockResolvedValueOnce({
       id: 'char-200',
-      user_id: 'user-2',
       name: 'Wizard',
+      map_id: 'map-1',
       base_asset_key: 'wizard',
       coins: 999,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
+      score: 0,
+      last_x: 0,
+      last_y: 0,
     })
     vi.mocked(characterService.getOptions).mockResolvedValueOnce([])
 

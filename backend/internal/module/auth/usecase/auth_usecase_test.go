@@ -640,4 +640,3 @@ func TestTeamsLogin_SuccessNewUser(t *testing.T) {
 		t.Error("expected tokens for new Teams SSO user")
 	}
 }
-
