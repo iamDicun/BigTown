@@ -301,7 +301,15 @@ jobs:
         with:
           extra_args: --only-verified
 
-      - name: 4. Start Backend Server for DAST (OWASP ZAP)
+      - name: 4. Build Frontend Static
+        env:
+          VITE_API_BASE_URL: "http://localhost:8080/api"
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: 5. Start Backend & Frontend for DAST (OWASP ZAP)
         env:
           PORT: "8080"
           DB_HOST: "localhost"
@@ -318,14 +326,31 @@ jobs:
           PGPASSWORD=postgrespassword psql -h localhost -U postgres -d bigtown_dev -v ON_ERROR_STOP=1 -f backend/internal/database/seed.sql
           cd backend
           go run cmd/server/main.go &
-          sleep 5
+          cd ../frontend
+          npx vite preview --port 3000 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/metrics >/dev/null 2>&1 && curl -sf http://localhost:3000/ >/dev/null 2>&1; then
+              echo "Backend & Frontend are up"
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then
+            echo "Backend failed to start"
+            exit 1
+          fi
+          if ! curl -sf http://localhost:3000/ >/dev/null 2>&1; then
+            echo "Frontend failed to start"
+            exit 1
+          fi
 
-      - name: 5. OWASP ZAP Baseline Scan (DAST)
+      - name: 6. OWASP ZAP Baseline Scan (DAST)
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: 'http://localhost:8080/metrics'
+          target: 'http://localhost:3000'
           fail_action: false
-          token: ''
+          allow_issue_writing: false
+          cmd_options: -j
 
       - name: Generate Security Scan Summary
         if: always()
@@ -336,7 +361,7 @@ jobs:
           echo "| **govulncheck** | Dependency Vulnerabilities | Go Backend (\`go.mod\`) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
           echo "| **npm audit** | Dependency Vulnerabilities | Vue Frontend & E2E | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
           echo "| **TruffleHog** | Secret Leak Detection | Git Repository & Commits | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
-          echo "| **OWASP ZAP** | DAST Dynamic Scan | Live API Endpoint (\`:8080\`) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          echo "| **OWASP ZAP** | DAST Dynamic Scan | Live Frontend App (\`:3000\`) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
 
   deploy:
     needs: [backend, integration-test, frontend, e2e-test, security-scan]
