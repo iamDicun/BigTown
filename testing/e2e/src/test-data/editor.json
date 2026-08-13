@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TC_E2E_EDIT_01",
+    "category": "positive",
+    "description": "Kiểm tra hiển thị giao diện Editor và coin nhân vật",
+    "input": {
+      "mapCode": "village_adventure"
+    },
+    "expected": {
+      "coinBadgeVisible": true
+    }
+  }
+]

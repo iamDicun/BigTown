@@ -16,7 +16,7 @@ export function attachAuthGuard(router: Router) {
     const authStore = useAuthStore()
 
     if (!authStore.sessionReady) {
-      return false
+      await authStore.tryRestoreSession()
     }
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
