@@ -6,9 +6,14 @@ on:
   push:
     branches: [main]
 
+# Quyền tối thiểu; trufflehog/deploy không cần ghi vào repo.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -17,10 +22,11 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: "1.26"          # phải khớp với backend/go.mod
           cache-dependency-path: backend/go.sum
 
       - name: gofmt
+        id: gofmt
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
@@ -30,35 +36,63 @@ jobs:
           fi
 
       - name: go vet
+        id: vet
         run: go vet ./...
 
       - name: go build
+        id: build
         run: go build ./...
 
       - name: go test (Unit Tests)
         id: unit_test
         run: |
-          go test -coverprofile=coverage.out ./internal/security/... ./internal/module/auth/... ./internal/module/character/... ./internal/module/chat/... ./internal/module/editor/... ./internal/module/realtime/...
-          go tool cover -func=coverage.out > coverage_summary.txt
+          set -o pipefail
+          go test -v -coverprofile=coverage.out \
+            ./internal/security/... \
+            ./internal/module/auth/... \
+            ./internal/module/character/... \
+            ./internal/module/chat/... \
+            ./internal/module/editor/... \
+            ./internal/module/realtime/... 2>&1 | tee gotest.log
+          [ -f coverage.out ] && go tool cover -func=coverage.out > coverage_summary.txt || true
 
       - name: Generate Backend Job Summary
         if: always()
+        env:
+          FMT: ${{ steps.gofmt.outcome }}
+          VET: ${{ steps.vet.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          TEST: ${{ steps.unit_test.outcome }}
         run: |
-          echo "## 🛠️ Backend Unit Test & Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|:---:|" >> $GITHUB_STEP_SUMMARY
-          echo "| Code Formatting (gofmt) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
-          echo "| Code Vet (go vet) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build (go build) | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ✅ PASSED (54 Test Cases) |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Statement Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          tail -n 10 coverage_summary.txt >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          st() { if [ "$1" = "success" ]; then echo "✅ PASSED"; else echo "❌ FAILED"; fi; }
+          PASS=0; FAIL=0; COV="n/a"
+          if [ -f gotest.log ]; then
+            PASS=$(grep -c -- '--- PASS' gotest.log || true)
+            FAIL=$(grep -c -- '--- FAIL' gotest.log || true)
+          fi
+          if [ -f coverage_summary.txt ]; then
+            COV=$(awk '/^total/{print $3}' coverage_summary.txt)
+          fi
+          {
+            echo "## 🛠️ Backend Unit Test & Build Summary"
+            echo "| Check | Status |"
+            echo "|---|:---:|"
+            echo "| Code Formatting (gofmt) | $(st "$FMT") |"
+            echo "| Code Vet (go vet)       | $(st "$VET") |"
+            echo "| Build (go build)        | $(st "$BUILD") |"
+            echo "| Unit Tests              | $(st "$TEST") (${PASS} passed, ${FAIL} failed) |"
+            echo ""
+            echo "### 📊 Statement Coverage: ${COV}"
+            if [ -f coverage_summary.txt ]; then
+              echo '```'
+              tail -n 10 coverage_summary.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   integration-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -85,25 +119,34 @@ jobs:
           cache-dependency-path: backend/go.sum
 
       - name: Run Integration Tests
+        id: int_test
         env:
           TEST_DATABASE_URL: postgres://test_user:test_pass@localhost:5434/bigtown_test?sslmode=disable
-        run: go test -v ./testing/integration/...
+        run: |
+          set -o pipefail
+          go test -v ./testing/integration/... 2>&1 | tee inttest.log
 
       - name: Generate Integration Test Job Summary
         if: always()
+        env:
+          RESULT: ${{ steps.int_test.outcome }}
         run: |
-          echo "## 🐘 Integration Test Summary (PostgreSQL 16)" >> $GITHUB_STEP_SUMMARY
-          echo "| Suite | Status | Test Cases |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|:---:|:---:|" >> $GITHUB_STEP_SUMMARY
-          echo "| INT-01 Auth Flow | ✅ PASSED | 4/4 |" >> $GITHUB_STEP_SUMMARY
-          echo "| INT-02 Character Flow | ✅ PASSED | 4/4 |" >> $GITHUB_STEP_SUMMARY
-          echo "| INT-03 Chat Flow | ✅ PASSED | 2/2 |" >> $GITHUB_STEP_SUMMARY
-          echo "| INT-04 Editor Flow | ✅ PASSED | 3/3 |" >> $GITHUB_STEP_SUMMARY
-          echo "| INT-05 Realtime Bootstrap | ✅ PASSED | 1/1 |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Total Integration** | ✅ **PASSED** | **14/14** |" >> $GITHUB_STEP_SUMMARY
+          st() { if [ "$1" = "success" ]; then echo "✅ PASSED"; else echo "❌ FAILED"; fi; }
+          PASS=0; FAIL=0
+          if [ -f backend/inttest.log ]; then
+            PASS=$(grep -c -- '--- PASS' backend/inttest.log || true)
+            FAIL=$(grep -c -- '--- FAIL' backend/inttest.log || true)
+          fi
+          {
+            echo "## 🐘 Integration Test Summary (PostgreSQL 16)"
+            echo "| Suite | Status |"
+            echo "|---|:---:|"
+            echo "| All integration suites | $(st "$RESULT") (${PASS} passed, ${FAIL} failed) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -122,27 +165,38 @@ jobs:
         run: npm ci
 
       - name: vitest (Frontend Unit Tests)
+        id: vitest
         run: npm run test
 
       - name: vue-tsc (typecheck)
+        id: typecheck
         run: npx vue-tsc -b
 
       - name: vite build
+        id: fe_build
         run: npx vite build
 
       - name: Generate Frontend Job Summary
         if: always()
+        env:
+          TEST: ${{ steps.vitest.outcome }}
+          TS: ${{ steps.typecheck.outcome }}
+          BUILD: ${{ steps.fe_build.outcome }}
         run: |
-          echo "## 🎨 Frontend Build & Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status | Detail |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|:---:|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Vitest Unit Tests | ✅ PASSED | 15/15 Test Cases |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vue TypeScript (vue-tsc) | ✅ PASSED | No Type Errors |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vite Bundle Build | ✅ PASSED | Assets Generated |" >> $GITHUB_STEP_SUMMARY
+          st() { if [ "$1" = "success" ]; then echo "✅ PASSED"; else echo "❌ FAILED"; fi; }
+          {
+            echo "## 🎨 Frontend Build & Test Summary"
+            echo "| Check | Status |"
+            echo "|---|:---:|"
+            echo "| Vitest Unit Tests        | $(st "$TEST") |"
+            echo "| Vue TypeScript (vue-tsc) | $(st "$TS") |"
+            echo "| Vite Bundle Build        | $(st "$BUILD") |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   e2e-test:
     needs: [backend, integration-test, frontend]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine
@@ -201,16 +255,10 @@ jobs:
           cd backend
           go run cmd/server/main.go &
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then
-              echo "Backend is up"
-              break
-            fi
+            if curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then echo "Backend is up"; break; fi
             sleep 2
           done
-          if ! curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then
-            echo "Backend failed to start"
-            exit 1
-          fi
+          curl -sf http://localhost:8080/metrics >/dev/null 2>&1 || { echo "Backend failed to start"; exit 1; }
 
       - name: Start Frontend Preview Server in Background
         run: |
@@ -225,11 +273,13 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E Tests
+        id: e2e
         env:
           BASE_URL: "http://localhost:3000"
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
         run: |
           cd testing/e2e
-          npx playwright test
+          npx playwright test --reporter=list,json
 
       - name: Upload Playwright Test Report Artifact
         if: always()
@@ -241,22 +291,104 @@ jobs:
 
       - name: Generate E2E Job Summary
         if: always()
+        env:
+          RESULT: ${{ steps.e2e.outcome }}
         run: |
-          echo "## 🎭 Playwright E2E Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Suite | Status | Test Cases | Browser |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|:---:|:---:|:---:|" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E-01 Auth Flow | ✅ PASSED | 2/2 | Chromium |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E-02 Character Flow | ✅ PASSED | 1/1 | Chromium |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E-03 Editor Flow | ✅ PASSED | 1/1 | Chromium |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E-04 Chat Flow | ✅ PASSED | 1/1 | Chromium |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Total E2E** | ✅ **PASSED** | **5/5** | **Chromium** |" >> $GITHUB_STEP_SUMMARY
+          st() { if [ "$1" = "success" ]; then echo "✅ PASSED"; else echo "❌ FAILED"; fi; }
+          PASS="?"; FAIL="?"
+          RESULTS="testing/e2e/playwright-results.json"
+          if [ -f "$RESULTS" ]; then
+            PASS=$(jq '.stats.expected // 0'   "$RESULTS")
+            FAIL=$(jq '.stats.unexpected // 0' "$RESULTS")
+          fi
+          {
+            echo "## 🎭 Playwright E2E Test Summary"
+            echo "| Status | Passed | Failed | Browser |"
+            echo "|:---:|:---:|:---:|:---:|"
+            echo "| $(st "$RESULT") | ${PASS} | ${FAIL} | Chromium |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ────────────────────────────────────────────────────────────────
+  # 5) SECURITY (chỉ scan TĨNH + nhanh trong CI; DAST động chuyển sang
+  #    workflow security-full-scan.yml chạy định kỳ)
+  #    - govulncheck & trufflehog: BLOCKING (fail PR nếu có vấn đề)
+  #    - npm audit: INFORMATIONAL (báo cáo số liệu thật, không chặn)
+  # ────────────────────────────────────────────────────────────────
+  security-scan:
+    needs: [backend, integration-test, frontend, e2e-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # trufflehog cần toàn bộ lịch sử commit
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: backend/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: govulncheck (Go deps) — BLOCKING
+        id: govuln
+        run: |
+          cd backend
+          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+      - name: npm audit (Frontend + E2E) — INFORMATIONAL
+        id: npmaudit
+        run: |
+          set +e
+          cd frontend && npm audit --audit-level=high --json > ../fe-audit.json 2>/dev/null
+          cd ../testing/e2e && npm audit --audit-level=high --json > ../../e2e-audit.json 2>/dev/null
+          exit 0
+
+      - name: TruffleHog (Secret Leak) — BLOCKING
+        id: trufflehog
+        uses: trufflesecurity/trufflehog@v3.82.6
+        with:
+          extra_args: --only-verified
+
+      - name: Generate Security Scan Summary
+        if: always()
+        env:
+          GOVULN: ${{ steps.govuln.outcome }}
+          TRUFFLE: ${{ steps.trufflehog.outcome }}
+        run: |
+          st() { if [ "$1" = "success" ]; then echo "✅ PASSED"; else echo "❌ FAILED"; fi; }
+          FE_H=0; FE_C=0; E2E_H=0; E2E_C=0
+          if [ -f fe-audit.json ]; then
+            FE_H=$(jq '.metadata.vulnerabilities.high // 0'     fe-audit.json)
+            FE_C=$(jq '.metadata.vulnerabilities.critical // 0' fe-audit.json)
+          fi
+          if [ -f e2e-audit.json ]; then
+            E2E_H=$(jq '.metadata.vulnerabilities.high // 0'     e2e-audit.json)
+            E2E_C=$(jq '.metadata.vulnerabilities.critical // 0' e2e-audit.json)
+          fi
+          {
+            echo "## 🛡️ Security Scanning Summary (Static / SCA)"
+            echo "| Scanner | Type | Gate | Result |"
+            echo "|---|---|---|:---:|"
+            echo "| govulncheck | Go dependency vulns | blocking | $(st "$GOVULN") |"
+            echo "| TruffleHog  | Secret leak (verified) | blocking | $(st "$TRUFFLE") |"
+            echo "| npm audit (frontend) | JS dependency vulns | informational | high=${FE_H}, critical=${FE_C} |"
+            echo "| npm audit (e2e)      | JS dependency vulns | informational | high=${E2E_H}, critical=${E2E_C} |"
+            echo ""
+            echo "> DAST động (OWASP ZAP full/active scan) chạy ở workflow **Full DAST Scan** theo lịch, không nằm trong CI này."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
-    needs: [backend, integration-test, frontend, e2e-test]
+    needs: [backend, integration-test, frontend, e2e-test, security-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
             echo "::notice::RENDER_DEPLOY_HOOK chưa cấu hình — Render auto-deploy sẽ xử lý."
@@ -264,5 +396,3 @@ jobs:
           fi
           curl -s -X POST "$HOOK"
           echo "Render deploy triggered."
-        env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}

@@ -1,0 +1,193 @@
+name: Full DAST Scan
+
+# ══════════════════════════════════════════════════════════════════
+# ACTIVE scan (tấn công thật): ZAP gửi payload SQLi/XSS/... vào app.
+# → CHẬM và CÓ THỂ TẠO DATA RÁC / TRIGGER SIDE-EFFECT.
+# → KHÔNG chạy trên mỗi PR. Chỉ chạy định kỳ hoặc chạy tay, trên
+#   môi trường throwaway dựng riêng trong job này (KHÔNG phải prod).
+# ══════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    # cron dùng giờ UTC. '0 18 * * 0' = 18:00 UTC Chủ Nhật
+    # = 01:00 sáng THỨ HAI giờ Việt Nam (UTC+7). Mỗi tuần 1 lần.
+    - cron: "0 18 * * 0"
+
+  workflow_dispatch:
+    inputs:
+      fail_on_findings:
+        description: "Fail job nếu ZAP tìm thấy cảnh báo (bật khi đã lọc hết false positive)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write   # cần để tự tạo GitHub Issue báo cáo lỗ hổng
+
+# IP gateway của docker bridge trên runner. ZAP chạy trong container
+# nên KHÔNG thấy 'localhost' của host — phải trỏ qua IP này.
+# Đây là lý do baseline scan trỏ 'localhost' trước đây gần như không
+# quét được gì (ZAP không kết nối tới app được).
+env:
+  HOST_IP: "172.17.0.1"
+
+jobs:
+  full-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: bigtown_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: backend/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Build frontend, trỏ API sang HOST_IP để JS trong app gọi được
+      # backend từ góc nhìn của ZAP container.
+      - name: Build Frontend Static
+        env:
+          VITE_API_BASE_URL: "http://172.17.0.1:8080/api"
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Setup Database Schema & Seed (throwaway)
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgrespassword psql -h localhost -U postgres -d bigtown_dev -v ON_ERROR_STOP=1 -f backend/internal/database/schema.sql
+          PGPASSWORD=postgrespassword psql -h localhost -U postgres -d bigtown_dev -v ON_ERROR_STOP=1 -f backend/internal/database/seed.sql
+
+      - name: Start Backend (bind 0.0.0.0)
+        env:
+          PORT: "8080"
+          DB_HOST: "localhost"
+          DB_PORT: "5432"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgrespassword"
+          DB_NAME: "bigtown_dev"
+          DB_SSLMODE: "disable"
+          # Cho phép origin từ HOST_IP để tránh CORS chặn khi scan.
+          CORS_ALLOWED_ORIGINS: "http://172.17.0.1:3000,http://localhost:3000"
+          JWT_SECRET: "dast_full_scan_secret_change_me_1122334455"
+        run: |
+          cd backend
+          go run cmd/server/main.go &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then echo "Backend up"; break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:8080/metrics >/dev/null 2>&1 || { echo "Backend failed"; exit 1; }
+
+      - name: Start Frontend Preview (bind 0.0.0.0)
+        run: |
+          cd frontend
+          npx vite preview --host 0.0.0.0 --port 3000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/ >/dev/null 2>&1; then echo "Frontend up"; break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:3000/ >/dev/null 2>&1 || { echo "Frontend failed"; exit 1; }
+
+      # Kiểm tra ZAP-container-eye-view: app phải reachable qua HOST_IP.
+      - name: Verify app reachable via HOST_IP
+        run: |
+          curl -sf "http://${HOST_IP}:3000/"        >/dev/null || { echo "Frontend không reachable qua ${HOST_IP}"; exit 1; }
+          curl -sf "http://${HOST_IP}:8080/metrics" >/dev/null || { echo "Backend không reachable qua ${HOST_IP}"; exit 1; }
+
+      # ── ACTIVE SCAN thật sự ──────────────────────────────────────
+      # -j : bật AJAX spider (cần cho SPA Vue)
+      # allow_issue_writing:false : không tự mở GitHub issue
+      # fail_action : lấy từ input; mặc định false (giai đoạn gom baseline)
+      - name: OWASP ZAP Full Scan (Active)
+        uses: zaproxy/action-full-scan@v0.12.0   # kiểm tra tag mới nhất tại github.com/zaproxy/action-full-scan
+        with:
+          target: "http://172.17.0.1:3000"
+          cmd_options: "-j"
+          allow_issue_writing: false
+          fail_action: ${{ github.event.inputs.fail_on_findings == 'true' }}
+
+      - name: Upload ZAP Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-scan-report
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Generate Full Scan Summary
+        if: always()
+        run: |
+          HIGH=0; MED=0; LOW=0; INFO=0
+          if [ -f report_json.json ]; then
+            HIGH=$(jq '[.site[].alerts[]? | select(.riskcode=="3")] | length' report_json.json 2>/dev/null || echo 0)
+            MED=$(jq  '[.site[].alerts[]? | select(.riskcode=="2")] | length' report_json.json 2>/dev/null || echo 0)
+            LOW=$(jq  '[.site[].alerts[]? | select(.riskcode=="1")] | length' report_json.json 2>/dev/null || echo 0)
+            INFO=$(jq '[.site[].alerts[]? | select(.riskcode=="0")] | length' report_json.json 2>/dev/null || echo 0)
+          fi
+          {
+            echo "## 🎯 OWASP ZAP Full (Active) Scan — kết quả thật"
+            echo "Target: \`http://${HOST_IP}:3000\`  •  Trigger: \`${{ github.event_name }}\`"
+            echo ""
+            echo "| Risk | Số cảnh báo |"
+            echo "|---|:---:|"
+            echo "| 🔴 High   | ${HIGH} |"
+            echo "| 🟠 Medium | ${MED} |"
+            echo "| 🟡 Low    | ${LOW} |"
+            echo "| ⚪ Info   | ${INFO} |"
+            echo ""
+            echo "Chi tiết: tải artifact **zap-full-scan-report** (report_html.html)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Báo cáo lỗi: tự tạo GitHub Issue khi có High/Medium ──────
+      # Chạy cả khi cron lẫn khi chạy tay. Bạn sẽ nhận notification
+      # của GitHub (email/app) như một issue bình thường.
+      - name: Notify on findings (create GitHub Issue)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f report_json.json ] || { echo "Không có report, bỏ qua."; exit 0; }
+          HIGH=$(jq '[.site[].alerts[]? | select(.riskcode=="3")] | length' report_json.json 2>/dev/null || echo 0)
+          MED=$(jq  '[.site[].alerts[]? | select(.riskcode=="2")] | length' report_json.json 2>/dev/null || echo 0)
+          if [ "$HIGH" -eq 0 ] && [ "$MED" -eq 0 ]; then
+            echo "Không có lỗ hổng High/Medium — không tạo issue."
+            exit 0
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue create \
+            --title "🔴 DAST Full Scan: ${HIGH} High / ${MED} Medium ($(date +%F))" \
+            --body "OWASP ZAP full (active) scan phát hiện lỗ hổng.
+
+          - **High:** ${HIGH}
+          - **Medium:** ${MED}
+
+          Trigger: \`${{ github.event_name }}\`
+          Chi tiết & report: ${RUN_URL}
+
+          Tải artifact **zap-full-scan-report** để xem đầy đủ."
