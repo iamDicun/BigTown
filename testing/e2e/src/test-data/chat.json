@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TC_E2E_CHAT_01",
+    "category": "positive",
+    "description": "Gửi tin nhắn chat trong game và hiển thị trong khung chat",
+    "input": {
+      "message": "Xin chào BigTown từ E2E Test!"
+    },
+    "expected": {
+      "messageVisible": true
+    }
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "name": "bigtown-e2e-testing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-End Playwright test suite for BigTown web application",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3"
+  }
+}

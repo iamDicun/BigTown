@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TC_E2E_CHAR_01",
+    "category": "positive",
+    "description": "Tạo nhân vật mới và chuyển sang màn hình Game",
+    "input": {
+      "name": "BigHero"
+    },
+    "expected": {
+      "gameUrl": "/game"
+    }
+  }
+]
