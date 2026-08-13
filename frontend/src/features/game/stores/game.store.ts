@@ -4,15 +4,8 @@ import { defaultConfig as defaultSpritesheetConfig } from '../phaser/playerAnima
 import * as characterService from '../services/character.service'
 import type { CharacterOptionDto, SpritesheetConfigDto } from '../services/character.service'
 
-type LeaderboardEntry = {
-  characterId: string
-  name: string
-  score: number
-}
-
 export const useGameStore = defineStore('game', {
   state: () => ({
-    leaderboard: [] as LeaderboardEntry[],
     characterId: null as string | null,
     characterName: null as string | null,
     characterBaseAssetKey: null as string | null,
