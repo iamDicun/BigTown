@@ -12,7 +12,6 @@
 | 4 | `module/chat/` | Usecase + Repository | 2 | Trung bình |
 | 5 | `module/editor/` | Usecase + Repository | 2 | Trung bình |
 | 6 | `module/realtime/` | Usecase + Room Actor | 2 | Cao |
-| 7 | `module/leaderboard/` | Usecase | 1 | Thấp |
 
 ### Phase 2b — Frontend (Vitest)
 

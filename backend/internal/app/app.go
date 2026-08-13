@@ -9,7 +9,6 @@ import (
 	"backend/internal/module/character"
 	"backend/internal/module/chat"
 	"backend/internal/module/editor"
-	"backend/internal/module/leaderboard"
 	"backend/internal/module/realtime"
 	"backend/internal/module/user"
 	userrepo "backend/internal/module/user/repository"
@@ -88,7 +87,6 @@ func (a *App) registerModules() {
 
 	authModule.RegisterProtectedRoutes(api)
 	user.NewUserModule(a.container.DB).RegisterProtectedRoutes(api)
-	leaderboard.NewLeaderboardModule(a.container.DB).RegisterProtectedRoutes(api)
 	a.editorModule = editor.NewEditorModule(a.container.DB, realtimeModule.Transport(), characterModule.Repository())
 	a.editorModule.RegisterProtectedRoutes(api)
 	a.editorModule.RoomManager().StartMetrics()
