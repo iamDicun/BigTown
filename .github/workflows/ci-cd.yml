@@ -172,22 +172,45 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Frontend & Build Static
+        env:
+          VITE_API_BASE_URL: "http://localhost:8080/api"
         run: |
           cd frontend
           npm ci
           npm run build
 
+      - name: Setup Database Schema & Seed
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgrespassword psql -h localhost -U postgres -d bigtown_dev -v ON_ERROR_STOP=1 -f backend/internal/database/schema.sql
+          PGPASSWORD=postgrespassword psql -h localhost -U postgres -d bigtown_dev -v ON_ERROR_STOP=1 -f backend/internal/database/seed.sql
+
       - name: Start Go Backend Server in Background
         env:
           PORT: "8080"
-          DATABASE_URL: "postgres://postgres:postgrespassword@localhost:5432/bigtown_dev?sslmode=disable"
+          DB_HOST: "localhost"
+          DB_PORT: "5432"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgrespassword"
+          DB_NAME: "bigtown_dev"
+          DB_SSLMODE: "disable"
+          CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
           JWT_SECRET: "e2e_jwt_secret_key_super_secret_12345"
-          TOKEN_TTL: "15m"
-          REFRESH_TOKEN_TTL: "168h"
         run: |
           cd backend
           go run cmd/server/main.go &
-          sleep 5
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then
+              echo "Backend is up"
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -sf http://localhost:8080/metrics >/dev/null 2>&1; then
+            echo "Backend failed to start"
+            exit 1
+          fi
 
       - name: Start Frontend Preview Server in Background
         run: |
